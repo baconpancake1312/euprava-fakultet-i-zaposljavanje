@@ -1,0 +1,9 @@
+Zavod Za ZaposljavanjeKorisniciOglasid: intnazivPozicije: stringopis:
+stringdatumObjave: DaterokZaPrijave: DatePrijavaid: intdatumPrijave:
+Datestatus: «enum»StatusU RAZMATRANJUPRIMLJENODBIJENNotifikacijaid:
+intporuka: stringdatumSlanja: Dateprocitano: boolKorisnikid: intime:
+stringprezime: stringemail: stringlozinka:
+stringRegistracija()Prijava()AzuriranjeProfila()PoslodavacnazivFirme:
+stringadresa: stringkontaktTelefon:
+stringPostaviOglas()ObrisiOglas()IzmeniOglas()PromeniStatusPrijave()Kandidatcv: stringvestine: List<string>PosaljiPrijavu()Adminid: intime: stringprezime: stringodeljenje: stringObrisiOglas()BanujKorisnika()objavljuje1*salje**prima1*prima1*vezana za*1
+
