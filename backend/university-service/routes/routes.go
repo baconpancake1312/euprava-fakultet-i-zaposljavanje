@@ -63,4 +63,10 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 	router.GET("/exams/calendar", ctrl.GetExamCalendar)
 	router.GET("/lectures", ctrl.GetLectures)
 	router.POST("/tuition/pay", ctrl.PayTuition)
+
+	router.POST("/notificationsByHealthcare", ctrl.CreateNotificationByHealthcareHandler)
+	router.POST("/notifications", ctrl.CreateNotificationHandler)
+	router.GET("/notifications/:id", ctrl.GetNotificationByIDHandler)
+	router.GET("/notifications", ctrl.GetAllNotificationsHandler)
+	router.DELETE("/notifications/:id", ctrl.DeleteNotificationHandler)
 }
