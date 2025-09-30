@@ -40,8 +40,8 @@ func main() {
 	}))
 	timeoutContext, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 
-	logger := log.New(os.Stdout, "[zzz-api] ", log.LstdFlags)
-	storeLogger := log.New(os.Stdout, "[zzz-store] ", log.LstdFlags)
+	logger := log.New(os.Stdout, "[employment-api] ", log.LstdFlags)
+	storeLogger := log.New(os.Stdout, "[employment-store] ", log.LstdFlags)
 	store, err := data.NewEmploymentRepo(timeoutContext, storeLogger)
 	if err != nil {
 		logger.Fatal(err)
