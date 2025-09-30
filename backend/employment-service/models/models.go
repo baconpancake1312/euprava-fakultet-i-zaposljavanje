@@ -53,7 +53,8 @@ type JobListing struct {
 	Description  string             `json:"description"`
 	Student      *Student           `json:"student"`
 	CreationDate string             `json:"creation_date"`
-	Deadline     string             `json:"deadline"`
+	ExpireDate   string             `json:"expire_date"`
+	IsInternship bool               `json:"is_internship"`
 }
 type Notification struct {
 	Id         primitive.ObjectID `bson:"_id"`
