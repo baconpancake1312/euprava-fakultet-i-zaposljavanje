@@ -42,8 +42,8 @@ type Student struct {
 type Application struct {
 	Id          primitive.ObjectID `bson:"_id"`
 	ApplicantId primitive.ObjectID `bson:"_applicant_id"`
+	ListingId   primitive.ObjectID `bson:"listing_id"`
 	Status      string             `json:"status"` //accepted / rejected / pending
-	Student     *Student           `json:"student"`
 }
 
 type JobListing struct {
@@ -54,7 +54,6 @@ type JobListing struct {
 	Student      *Student           `json:"student"`
 	CreationDate string             `json:"creation_date"`
 	Deadline     string             `json:"deadline"`
-	Applications Applications       `json:"applications"`
 }
 type Notification struct {
 	Id         primitive.ObjectID `bson:"_id"`
