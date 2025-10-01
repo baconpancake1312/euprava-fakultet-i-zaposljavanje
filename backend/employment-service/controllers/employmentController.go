@@ -57,7 +57,7 @@ func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 			return
 		}
 
-		applicationId, err := ec.repo.InsertApplication(&application)
+		applicationId, err := ec.repo.CreateApplication(&application)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -151,7 +151,7 @@ func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 			return
 		}
 
-		listingId, err := ec.repo.InsertJobListing(&listing)
+		listingId, err := ec.repo.CreateJobListing(&listing)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -219,5 +219,170 @@ func (ec *EmploymentController) DeleteJobListing() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing deleted successfully"})
+	}
+}
+
+
+// Employer CRUD operations
+
+func (ec *EmploymentController) CreateEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var employer models.Employer
+
+		if err := c.BindJSON(&employer); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		employerId, err := ec.repo.CreateEmployer(&employer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		employer.ID = employerId
+		c.JSON(http.StatusOK, gin.H{"message": "Employer created successfully", "employer": employer})
+	}
+}
+
+func (ec *EmploymentController) GetEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+
+		employer, err := ec.repo.GetEmployer(employerId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, employer)
+	}
+}
+
+func (ec *EmploymentController) GetAllEmployers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employers, err := ec.repo.GetAllEmployers()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, employers)
+	}
+}
+
+func (ec *EmploymentController) UpdateEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+
+		var employer models.Employer
+		if err := c.BindJSON(&employer); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		err := ec.repo.UpdateEmployer(employerId, &employer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Employer updated successfully"})
+	}
+}
+
+func (ec *EmploymentController) DeleteEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+
+		err := ec.repo.DeleteEmployer(employerId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Employer deleted successfully"})
+	}
+}
+
+// Candidate CRUD operations
+
+func (ec *EmploymentController) CreateCandidate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var candidate models.Candidate
+
+		if err := c.BindJSON(&candidate); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		candidateId, err := ec.repo.CreateCandidate(&candidate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		candidate.ID = candidateId
+		c.JSON(http.StatusOK, gin.H{"message": "Candidate created successfully", "candidate": candidate})
+	}
+}
+
+func (ec *EmploymentController) GetCandidate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("id")
+
+		candidate, err := ec.repo.GetCandidate(candidateId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, candidate)
+	}
+}
+
+func (ec *EmploymentController) GetAllCandidates() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidates, err := ec.repo.GetAllCandidates()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, candidates)
+	}
+}
+
+func (ec *EmploymentController) UpdateCandidate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("id")
+
+		var candidate models.Candidate
+		if err := c.BindJSON(&candidate); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		err := ec.repo.UpdateCandidate(candidateId, &candidate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Candidate updated successfully"})
+	}
+}
+
+func (ec *EmploymentController) DeleteCandidate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("id")
+
+		err := ec.repo.DeleteCandidate(candidateId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Candidate deleted successfully"})
 	}
 }
