@@ -48,7 +48,6 @@ func (ec EmploymentController) GetStudentByID(studentId string) (*models.Student
 	return returnedStudent, nil
 }
 
-
 func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var application models.Application
@@ -142,7 +141,6 @@ func (ec *EmploymentController) GetApplicationsForJob() gin.HandlerFunc {
 		c.JSON(http.StatusOK, applications)
 	}
 }
-
 
 func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 	return func(c *gin.Context) {
