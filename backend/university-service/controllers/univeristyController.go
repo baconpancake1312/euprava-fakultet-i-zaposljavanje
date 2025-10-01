@@ -1,10 +1,7 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"time"
 	repositories "university-service/repository"
@@ -14,8 +11,7 @@ import (
 )
 
 type Controllers struct {
-	Repo   *repositories.Repository
-	logger *log.Logger
+	Repo *repositories.Repository
 }
 
 func NewControllers(repo *repositories.Repository) *Controllers {
@@ -846,6 +842,8 @@ func (ctrl *Controllers) CreateInternshipApplication(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	internApp.CreatedAt = time.Now()
+	internApp.Status = "Pending"
 
 	err := ctrl.Repo.CreateInternshipApplication(&internApp)
 	if err != nil {
@@ -859,13 +857,29 @@ func (ctrl *Controllers) CreateInternshipApplication(c *gin.Context) {
 func (ctrl *Controllers) GetInternshipApplicationById(c *gin.Context) {
 	id := c.Param("id")
 
-	student, err := ctrl.Repo.GetInternshipApplicationById(id)
+	internApp, err := ctrl.Repo.GetInternshipApplicationById(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Internship application not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, student)
+	c.JSON(http.StatusOK, internApp)
+}
+
+func (ctrl *Controllers) GetAllInternshipApplicationsForStudent(c *gin.Context) {
+	id := c.Param("student_id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	internApps, err := ctrl.Repo.GetAllInternshipApplicationsForStudent(objectID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Internship applications not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, internApps)
 }
 
 func (ctrl *Controllers) UpdateInternshipApplication(c *gin.Context) {

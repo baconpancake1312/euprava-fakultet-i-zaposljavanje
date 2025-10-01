@@ -863,3 +863,28 @@ func (r *Repository) DeleteInternshipApplication(internAppID string) error {
 	}
 	return err
 }
+
+func (r *Repository) GetAllInternshipApplicationsForStudent(studentId primitive.ObjectID) ([]InternshipApplication, error) {
+
+	filter := bson.M{"student_id": studentId}
+	collection := r.getCollection("internship_applications")
+	cursor, err := collection.Find(context.Background(), filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var internApps []InternshipApplication
+	for cursor.Next(context.Background()) {
+		var internApp InternshipApplication
+		if err := cursor.Decode(&internApp); err != nil {
+			return nil, err
+		}
+		internApps = append(internApps, internApp)
+	}
+	if len(internApps) == 0 {
+		return nil, fmt.Errorf("no applications found")
+	}
+
+	return internApps, nil
+}

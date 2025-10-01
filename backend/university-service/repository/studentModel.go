@@ -126,7 +126,8 @@ type Notification struct {
 
 type InternshipApplication struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	InternshipID primitive.ObjectID `bson:"internshipId,omitempty" json:"internshipId"`
+	InternshipID primitive.ObjectID `bson:"internship_id,omitempty" json:"internship_id"`
+	StudentID    primitive.ObjectID `bson:"student_id,omitempty" json:"student_id"`
 	Status       Status             `bson:"status" json:"status"`
 	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
 }
