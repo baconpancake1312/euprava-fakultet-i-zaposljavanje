@@ -125,18 +125,23 @@ type Notification struct {
 }
 
 type InternshipApplication struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Status    Status             `bson:"status" json:"status"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	InternshipID primitive.ObjectID `bson:"internshipId,omitempty" json:"internshipId"`
+	Status       Status             `bson:"status" json:"status"`
+	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
 }
 type Internship struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Major     string             `bson:"major" json:"major,omitempty"`
-	Expires   time.Time          `bson:"expires" json:"expires"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Major          string             `bson:"major" json:"major,omitempty"`
+	PosterId       primitive.ObjectID `bson:"poster_id,omitempty" json:"poster_id"`
+	FirmName       string             `bson:"firm,omitempty" json:"firm"`
+	ExpirationDate time.Time          `bson:"expiration_date" json:"expiration_date"`
+	CreatedAt      time.Time          `bson:"created_at" json:"created_at"`
 }
 
 type Notifications []*Notification
+type InternshipApplications []*InternshipApplication
+type Internships []*Internship
 
 func (n *Notifications) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
@@ -152,7 +157,14 @@ func (n *Notification) FromJSON(r io.Reader) error {
 	d := json.NewDecoder(r)
 	return d.Decode(n)
 }
-
+func (ia *InternshipApplication) ToJSON(w io.Writer) error {
+	e := json.NewEncoder(w)
+	return e.Encode(ia)
+}
+func (i *Internships) ToJSON(w io.Writer) error {
+	e := json.NewEncoder(w)
+	return e.Encode(i)
+}
 func (u *University) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(u)

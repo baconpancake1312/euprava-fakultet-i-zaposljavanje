@@ -808,3 +808,58 @@ func (r *Repository) DeleteNotification(id string) error {
 	}
 	return nil
 }
+func (r *Repository) CreateInternshipApplication(internApp *InternshipApplication) error {
+	r.logger.Println("Creating internship application:", internApp)
+	collection := r.getCollection("internship_applications")
+	result, err := collection.InsertOne(context.TODO(), internApp)
+	if err != nil {
+		r.logger.Println("Error inserting internship application:", err)
+		return err
+	}
+	internApp.ID = result.InsertedID.(primitive.ObjectID)
+	r.logger.Println("Internship application created with ID:", internApp.ID.Hex())
+	return nil
+}
+
+func (r *Repository) GetInternshipApplicationById(internAppID string) (*InternshipApplication, error) {
+	r.logger.Println("Fetching internship application by ID:", internAppID)
+	collection := r.getCollection("internship_applications")
+	objectID, err := primitive.ObjectIDFromHex(internAppID)
+	if err != nil {
+		r.logger.Println("Invalid internship application ID format:", err)
+		return nil, err
+	}
+	var internApp InternshipApplication
+	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&internApp)
+	if err != nil {
+		r.logger.Println("Error finding internship application:", err)
+		return nil, err
+	}
+	r.logger.Println("Internship application found:", internApp)
+	return &internApp, nil
+}
+
+func (r *Repository) UpdateInternshipApplication(internApp *InternshipApplication) error {
+	r.logger.Println("Updating internship application with ID:", internApp.ID.Hex())
+	collection := r.getCollection("internship_applications")
+	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": internApp.ID}, internApp)
+	if err != nil {
+		r.logger.Println("Error updating internship application:", err)
+	}
+	return err
+}
+
+func (r *Repository) DeleteInternshipApplication(internAppID string) error {
+	r.logger.Println("Deleting student with ID:", internAppID)
+	collection := r.getCollection("internship_applications")
+	objectID, err := primitive.ObjectIDFromHex(internAppID)
+	if err != nil {
+		r.logger.Println("Invalid internship application ID format:", err)
+		return err
+	}
+	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting internship application:", err)
+	}
+	return err
+}

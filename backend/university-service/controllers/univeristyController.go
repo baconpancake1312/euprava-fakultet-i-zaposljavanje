@@ -1,7 +1,10 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"time"
 	repositories "university-service/repository"
@@ -11,7 +14,8 @@ import (
 )
 
 type Controllers struct {
-	Repo *repositories.Repository
+	Repo   *repositories.Repository
+	logger *log.Logger
 }
 
 func NewControllers(repo *repositories.Repository) *Controllers {
@@ -835,4 +839,68 @@ func (ctrl *Controllers) DeleteNotificationHandler(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+func (ctrl *Controllers) CreateInternshipApplication(c *gin.Context) {
+	var internApp repositories.InternshipApplication
+	if err := c.BindJSON(&internApp); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := ctrl.Repo.CreateInternshipApplication(&internApp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, internApp)
+}
+
+func (ctrl *Controllers) GetInternshipApplicationById(c *gin.Context) {
+	id := c.Param("id")
+
+	student, err := ctrl.Repo.GetInternshipApplicationById(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Internship application not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, student)
+}
+
+func (ctrl *Controllers) UpdateInternshipApplication(c *gin.Context) {
+	id := c.Param("id")
+	var internApp repositories.InternshipApplication
+	if err := c.BindJSON(&internApp); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	internApp.ID = objectID
+
+	err = ctrl.Repo.UpdateInternshipApplication(&internApp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, internApp)
+}
+
+func (ctrl *Controllers) DeleteInternshipApplication(c *gin.Context) {
+	id := c.Param("id")
+
+	err := ctrl.Repo.DeleteInternshipApplication(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
 }
