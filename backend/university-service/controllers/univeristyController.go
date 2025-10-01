@@ -836,3 +836,85 @@ func (ctrl *Controllers) DeleteNotificationHandler(c *gin.Context) {
 
 	c.Status(http.StatusOK)
 }
+func (ctrl *Controllers) CreateInternshipApplication(c *gin.Context) {
+	var internApp repositories.InternshipApplication
+	if err := c.BindJSON(&internApp); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	internApp.CreatedAt = time.Now()
+	internApp.Status = "Pending"
+
+	err := ctrl.Repo.CreateInternshipApplication(&internApp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, internApp)
+}
+
+func (ctrl *Controllers) GetInternshipApplicationById(c *gin.Context) {
+	id := c.Param("id")
+
+	internApp, err := ctrl.Repo.GetInternshipApplicationById(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Internship application not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, internApp)
+}
+
+func (ctrl *Controllers) GetAllInternshipApplicationsForStudent(c *gin.Context) {
+	id := c.Param("student_id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	internApps, err := ctrl.Repo.GetAllInternshipApplicationsForStudent(objectID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Internship applications not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, internApps)
+}
+
+func (ctrl *Controllers) UpdateInternshipApplication(c *gin.Context) {
+	id := c.Param("id")
+	var internApp repositories.InternshipApplication
+	if err := c.BindJSON(&internApp); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	internApp.ID = objectID
+
+	err = ctrl.Repo.UpdateInternshipApplication(&internApp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, internApp)
+}
+
+func (ctrl *Controllers) DeleteInternshipApplication(c *gin.Context) {
+	id := c.Param("id")
+
+	err := ctrl.Repo.DeleteInternshipApplication(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
+}

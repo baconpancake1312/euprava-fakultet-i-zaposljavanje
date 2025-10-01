@@ -80,26 +80,29 @@ type Administrator struct {
 }
 
 type User struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	FirstName      string             `bson:"first_name" json:"first_name" validate:"required"`
-	LastName       string             `bson:"last_name" json:"last_name"`
-	Username       string             `bson:"username" json:"username"`
-	Email          string             `bson:"email" json:"email" validate:"required,email"`
-	DateOfBirth    time.Time          `bson:"date_of_birth" json:"date_of_birth"`
-	Password       string             `bson:"password" json:"password"`
-	UserType       UserType           `bson:"user_type" json:"user_type"`
-	StudentDetails *Student           `bson:"student_details,omitempty" json:"student_details,omitempty"`
+	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	FirstName   *string            `json:"first_name" validate:"required,min=2,max=100"`
+	LastName    *string            `json:"last_name" validate:"required,min=2,max=100"`
+	Email       *string            `json:"email" validate:"required,email"`
+	Password    *string            `json:"password" validate:"required,min=8"`
+	Phone       *string            `json:"phone" validate:"required"`
+	Address     *string            `json:"address" validate:"required"`
+	DateOfBirth time.Time          `bson:"date_of_birth" json:"date_of_birth"`
+	JMBG        string             `json:"jmbg" validate:"required,len=13"`
+	UserType    UserType           `bson:"user_type" json:"user_type"`
 }
-
 type Student struct {
 	User
-	Major         string  `bson:"major" json:"major,omitempty"`
-	Year          int     `bson:"year" json:"year,omitempty"`
-	AssignedDorm  string  `bson:"assigned_dorm" json:"assigned_dorm,omitempty"`
-	Scholarship   bool    `bson:"scholarship" json:"scholarship,omitempty"`
-	HighschoolGPA float64 `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
-	GPA           float64 `bson:"gpa" json:"gpa,omitempty"`
-	ESBP          int     `bson:"esbp" json:"esbp,omitempty"`
+	Major         string   `bson:"major" json:"major,omitempty"`
+	Year          int      `bson:"year" json:"year,omitempty"`
+	AssignedDorm  string   `bson:"assigned_dorm" json:"assigned_dorm,omitempty"`
+	Scholarship   bool     `bson:"scholarship" json:"scholarship,omitempty"`
+	HighschoolGPA float64  `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
+	GPA           float64  `bson:"gpa" json:"gpa,omitempty"`
+	ESBP          int      `bson:"esbp" json:"esbp,omitempty"`
+	CVFile        string   `json:"cv_file,omitempty"`
+	CVBase64      string   `json:"cv_base64,omitempty"`
+	Skills        []string `json:"skills,omitempty"`
 }
 
 type Exam struct {
@@ -125,18 +128,23 @@ type Notification struct {
 }
 
 type InternshipApplication struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Status    Status             `bson:"status" json:"status"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ListingID   primitive.ObjectID `bson:"listing_id,omitempty" json:"listing_id"`
+	ApplicantID primitive.ObjectID `bson:"applicant_id,omitempty" json:"applicant_id"`
+	Status      Status             `bson:"status" json:"status"`
+	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 }
 type Internship struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Major     string             `bson:"major" json:"major,omitempty"`
-	Expires   time.Time          `bson:"expires" json:"expires"`
+	Field     string             `bson:"field" json:"major,omitempty"`
+	PosterId  primitive.ObjectID `bson:"poster_id,omitempty" json:"poster_id"`
+	ExpireAt  time.Time          `bson:"expire_at" json:"expire_at"`
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 }
 
 type Notifications []*Notification
+type InternshipApplications []*InternshipApplication
+type Internships []*Internship
 
 func (n *Notifications) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
@@ -152,7 +160,14 @@ func (n *Notification) FromJSON(r io.Reader) error {
 	d := json.NewDecoder(r)
 	return d.Decode(n)
 }
-
+func (ia *InternshipApplication) ToJSON(w io.Writer) error {
+	e := json.NewEncoder(w)
+	return e.Encode(ia)
+}
+func (i *Internships) ToJSON(w io.Writer) error {
+	e := json.NewEncoder(w)
+	return e.Encode(i)
+}
 func (u *University) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(u)
