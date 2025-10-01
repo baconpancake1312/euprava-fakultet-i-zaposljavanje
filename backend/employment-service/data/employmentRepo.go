@@ -89,21 +89,21 @@ func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collecti
 	return collection
 }
 
-func (dr *DormRepo) GetListing(listingId string) (*models.Application, error) {
+func (dr *DormRepo) GetJobListing(listingId string) (*models.JobListing, error) {
 
-	var application models.Application
+	var listing models.JobListing
 	lisCollection := OpenCollection(dr.cli, "listings")
 	objectId, err := primitive.ObjectIDFromHex(listingId)
 
-	err = lisCollection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&application)
+	err = lisCollection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&listing)
 	if err != nil {
 		return nil, fmt.Errorf("no listings not found for id: %s", listingId)
 	}
 
-	return &application, nil
+	return &listing, nil
 }
 
-func (dr *DormRepo) InsertListing(listing *models.JobListing) (primitive.ObjectID, error) {
+func (dr *DormRepo) InsertJobListing(listing *models.JobListing) (primitive.ObjectID, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
@@ -118,7 +118,7 @@ func (dr *DormRepo) InsertListing(listing *models.JobListing) (primitive.ObjectI
 	return listing.Id, nil
 }
 
-func (dr *DormRepo) UpdateListing(listingId string, listing *models.JobListing) error {
+func (dr *DormRepo) UpdateJobListing(listingId string, listing *models.JobListing) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 
@@ -130,9 +130,10 @@ func (dr *DormRepo) UpdateListing(listingId string, listing *models.JobListing) 
 
 	updateData := bson.M{
 		"$set": bson.M{
-			"position":    listing.Position,
-			"description": listing.Description,
-			"deadline":    listing.Deadline,
+			"position":      listing.Position,
+			"description":   listing.Description,
+			"expire_date":   listing.ExpireDate,
+			"is_internship": listing.IsInternship,
 		},
 	}
 
@@ -148,7 +149,7 @@ func (dr *DormRepo) UpdateListing(listingId string, listing *models.JobListing) 
 	return nil
 }
 
-func (dr *DormRepo) DeleteListing(listingId string) error {
+func (dr *DormRepo) DeleteJobListing(listingId string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	appCollection := OpenCollection(dr.cli, "listings")
@@ -181,6 +182,25 @@ func (dr *DormRepo) DeleteListing(listingId string) error {
 	dr.logger.Printf("Deleted listing with id: %s", listingId)
 	return nil
 
+}
+
+func (dr *DormRepo) GetAllJobListings() ([]*models.JobListing, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	lisCollection := OpenCollection(dr.cli, "listings")
+
+	var listings []*models.JobListing
+	cursor, err := lisCollection.Find(ctx, bson.M{})
+	if err != nil {
+		dr.logger.Println(err)
+		return nil, err
+	}
+	if err = cursor.All(ctx, &listings); err != nil {
+		dr.logger.Println(err)
+		return nil, err
+	}
+	return listings, nil
 }
 
 func (dr *DormRepo) GetApplication(applicationId string) (*models.Application, error) {

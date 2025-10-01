@@ -490,3 +490,85 @@ func (dc *DormController) GetRoom() gin.HandlerFunc {
 
 	}
 }
+
+// JobListing CRUD operations
+
+func (dc *DormController) CreateJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var listing models.JobListing
+
+		if err := c.BindJSON(&listing); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		listingId, err := dc.repo.InsertJobListing(&listing)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		listing.Id = listingId
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing created successfully", "listing": listing})
+	}
+}
+
+func (dc *DormController) GetJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		listingId := c.Param("id")
+
+		listing, err := dc.repo.GetJobListing(listingId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, listing)
+	}
+}
+
+func (dc *DormController) GetAllJobListings() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		listings, err := dc.repo.GetAllJobListings()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, listings)
+	}
+}
+
+func (dc *DormController) UpdateJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		listingId := c.Param("id")
+
+		var listing models.JobListing
+		if err := c.BindJSON(&listing); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		err := dc.repo.UpdateJobListing(listingId, &listing)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing updated successfully"})
+	}
+}
+
+func (dc *DormController) DeleteJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		listingId := c.Param("id")
+
+		err := dc.repo.DeleteJobListing(listingId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing deleted successfully"})
+	}
+}
