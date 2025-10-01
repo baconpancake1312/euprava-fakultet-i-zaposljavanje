@@ -22,17 +22,21 @@ type Repository struct {
 
 func New(ctx context.Context, logger *log.Logger) (*Repository, error) {
 	dburi := os.Getenv("MONGO_DB_URI")
+	logger.Println("Initializing MongoDB client with URI:", dburi)
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(dburi))
 	if err != nil {
+		logger.Println("Error creating MongoDB client:", err)
 		return nil, err
 	}
 
 	err = client.Connect(ctx)
 	if err != nil {
+		logger.Println("Error connecting to MongoDB:", err)
 		return nil, err
 	}
 
+	logger.Println("Successfully connected to MongoDB")
 	return &Repository{
 		cli:    client,
 		logger: logger,
@@ -40,215 +44,298 @@ func New(ctx context.Context, logger *log.Logger) (*Repository, error) {
 }
 
 func (r *Repository) Disconnect(ctx context.Context) error {
+	r.logger.Println("Disconnecting MongoDB client...")
 	err := r.cli.Disconnect(ctx)
 	if err != nil {
+		r.logger.Println("Error disconnecting MongoDB client:", err)
 		return err
 	}
+	r.logger.Println("MongoDB client disconnected successfully")
 	return nil
 }
 
 func (r *Repository) getCollection(collectionName string) *mongo.Collection {
+	r.logger.Println("Accessing collection:", collectionName)
 	db := r.cli.Database("universityDB")
 	return db.Collection(collectionName)
 }
 
 func (r *Repository) CreateStudent(student *Student) error {
+	r.logger.Println("Creating student:", student)
 	collection := r.getCollection("student")
 	result, err := collection.InsertOne(context.TODO(), student)
 	if err != nil {
+		r.logger.Println("Error inserting student:", err)
 		return err
 	}
 	student.ID = result.InsertedID.(primitive.ObjectID)
+	r.logger.Println("Student created with ID:", student.ID.Hex())
 	return nil
 }
 
 func (r *Repository) GetStudentByID(userID string) (*Student, error) {
+	r.logger.Println("Fetching student by ID:", userID)
 	collection := r.getCollection("student")
 	objectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
+		r.logger.Println("Invalid student ID format:", err)
 		return nil, err
 	}
 	var student Student
 	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&student)
 	if err != nil {
+		r.logger.Println("Error finding student:", err)
 		return nil, err
 	}
+	r.logger.Println("Student found:", student)
 	return &student, nil
 }
 
 func (r *Repository) UpdateStudent(student *Student) error {
+	r.logger.Println("Updating student with ID:", student.ID.Hex())
 	collection := r.getCollection("student")
 	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": student.ID}, student)
+	if err != nil {
+		r.logger.Println("Error updating student:", err)
+	}
 	return err
 }
 
 func (r *Repository) DeleteStudent(userID string) error {
+	r.logger.Println("Deleting student with ID:", userID)
 	collection := r.getCollection("student")
 	objectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
+		r.logger.Println("Invalid student ID format:", err)
 		return err
 	}
 	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting student:", err)
+	}
 	return err
 }
 
 func (r *Repository) CreateUniversity(university *University) error {
+	r.logger.Println("Creating university:", university)
 	collection := r.getCollection("university")
 	result, err := collection.InsertOne(context.TODO(), university)
 	if err != nil {
+		r.logger.Println("Error inserting university:", err)
 		return err
 	}
 	university.ID = result.InsertedID.(primitive.ObjectID)
+	r.logger.Println("University created with ID:", university.ID.Hex())
 	return nil
 }
 
 func (r *Repository) GetUniversityByID(universityID string) (*University, error) {
+	r.logger.Println("Fetching university by ID:", universityID)
 	collection := r.getCollection("university")
 	objectID, err := primitive.ObjectIDFromHex(universityID)
 	if err != nil {
+		r.logger.Println("Invalid university ID format:", err)
 		return nil, err
 	}
 	var university University
 	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&university)
 	if err != nil {
+		r.logger.Println("Error finding university:", err)
 		return nil, err
 	}
+	r.logger.Println("University found:", university)
 	return &university, nil
 }
 
 func (r *Repository) UpdateUniversity(university *University) error {
+	r.logger.Println("Updating university with ID:", university.ID.Hex())
 	collection := r.getCollection("university")
 	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": university.ID}, university)
+	if err != nil {
+		r.logger.Println("Error updating university:", err)
+	}
 	return err
 }
 
 func (r *Repository) DeleteUniversity(universityID string) error {
+	r.logger.Println("Deleting university with ID:", universityID)
 	collection := r.getCollection("university")
 	objectID, err := primitive.ObjectIDFromHex(universityID)
 	if err != nil {
+		r.logger.Println("Invalid university ID format:", err)
 		return err
 	}
 	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting university:", err)
+	}
 	return err
 }
-
 func (r *Repository) CreateDepartment(department *Department) error {
+	r.logger.Println("Creating department:", department)
 	collection := r.getCollection("department")
 	result, err := collection.InsertOne(context.TODO(), department)
 	if err != nil {
+		r.logger.Println("Error inserting department:", err)
 		return err
 	}
 	department.ID = result.InsertedID.(primitive.ObjectID)
+	r.logger.Println("Department created with ID:", department.ID.Hex())
 	return nil
 }
 
 func (r *Repository) GetDepartmentByID(departmentID string) (*Department, error) {
+	r.logger.Println("Fetching department by ID:", departmentID)
 	collection := r.getCollection("department")
 	objectID, err := primitive.ObjectIDFromHex(departmentID)
 	if err != nil {
+		r.logger.Println("Invalid department ID format:", err)
 		return nil, err
 	}
 	var department Department
 	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&department)
 	if err != nil {
+		r.logger.Println("Error finding department:", err)
 		return nil, err
 	}
+	r.logger.Println("Department found:", department)
 	return &department, nil
 }
 
 func (r *Repository) UpdateDepartment(department *Department) error {
+	r.logger.Println("Updating department with ID:", department.ID.Hex())
 	collection := r.getCollection("department")
 	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": department.ID}, department)
+	if err != nil {
+		r.logger.Println("Error updating department:", err)
+	}
 	return err
 }
 
 func (r *Repository) DeleteDepartment(departmentID string) error {
+	r.logger.Println("Deleting department with ID:", departmentID)
 	collection := r.getCollection("department")
 	objectID, err := primitive.ObjectIDFromHex(departmentID)
 	if err != nil {
+		r.logger.Println("Invalid department ID format:", err)
 		return err
 	}
 	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting department:", err)
+	}
 	return err
 }
 
 func (r *Repository) CreateProfessor(professor *Professor) error {
+	r.logger.Println("Creating professor:", professor)
 	collection := r.getCollection("professor")
 	result, err := collection.InsertOne(context.TODO(), professor)
 	if err != nil {
+		r.logger.Println("Error inserting professor:", err)
 		return err
 	}
 	professor.ID = result.InsertedID.(primitive.ObjectID)
+	r.logger.Println("Professor created with ID:", professor.ID.Hex())
 	return nil
 }
 
 func (r *Repository) GetProfessorByID(professorID string) (*Professor, error) {
+	r.logger.Println("Fetching professor by ID:", professorID)
 	collection := r.getCollection("professor")
 	objectID, err := primitive.ObjectIDFromHex(professorID)
 	if err != nil {
+		r.logger.Println("Invalid professor ID format:", err)
 		return nil, err
 	}
 	var professor Professor
 	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&professor)
 	if err != nil {
+		r.logger.Println("Error finding professor:", err)
 		return nil, err
 	}
+	r.logger.Println("Professor found:", professor)
 	return &professor, nil
 }
 
 func (r *Repository) UpdateProfessor(professor *Professor) error {
+	r.logger.Println("Updating professor with ID:", professor.ID.Hex())
 	collection := r.getCollection("professor")
 	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": professor.ID}, professor)
+	if err != nil {
+		r.logger.Println("Error updating professor:", err)
+	}
 	return err
 }
 
 func (r *Repository) DeleteProfessor(professorID string) error {
+	r.logger.Println("Deleting professor with ID:", professorID)
 	collection := r.getCollection("professor")
 	objectID, err := primitive.ObjectIDFromHex(professorID)
 	if err != nil {
+		r.logger.Println("Invalid professor ID format:", err)
 		return err
 	}
 	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting professor:", err)
+	}
 	return err
 }
 
 func (r *Repository) CreateAssistant(assistant *Assistant) error {
+	r.logger.Println("Creating assistant:", assistant)
 	collection := r.getCollection("assistant")
 	result, err := collection.InsertOne(context.TODO(), assistant)
 	if err != nil {
+		r.logger.Println("Error inserting assistant:", err)
 		return err
 	}
 	assistant.ID = result.InsertedID.(primitive.ObjectID)
+	r.logger.Println("Assistant created with ID:", assistant.ID.Hex())
 	return nil
 }
 
 func (r *Repository) GetAssistantByID(assistantID string) (*Assistant, error) {
+	r.logger.Println("Fetching assistant by ID:", assistantID)
 	collection := r.getCollection("assistant")
 	objectID, err := primitive.ObjectIDFromHex(assistantID)
 	if err != nil {
+		r.logger.Println("Invalid assistant ID format:", err)
 		return nil, err
 	}
 	var assistant Assistant
 	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&assistant)
 	if err != nil {
+		r.logger.Println("Error finding assistant:", err)
 		return nil, err
 	}
+	r.logger.Println("Assistant found:", assistant)
 	return &assistant, nil
 }
 
 func (r *Repository) UpdateAssistant(assistant *Assistant) error {
+	r.logger.Println("Updating assistant with ID:", assistant.ID.Hex())
 	collection := r.getCollection("assistant")
 	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": assistant.ID}, assistant)
+	if err != nil {
+		r.logger.Println("Error updating assistant:", err)
+	}
 	return err
 }
 
 func (r *Repository) DeleteAssistant(assistantID string) error {
+	r.logger.Println("Deleting assistant with ID:", assistantID)
 	collection := r.getCollection("assistant")
 	objectID, err := primitive.ObjectIDFromHex(assistantID)
 	if err != nil {
+		r.logger.Println("Invalid assistant ID format:", err)
 		return err
 	}
 	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting assistant:", err)
+	}
 	return err
 }
 
