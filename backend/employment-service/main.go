@@ -58,9 +58,9 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	dormController := controllers.NewEmploymentController(logger, store)
+	employmentController := controllers.NewEmploymentController(logger, store)
 
-	routes.MainRoutes(router, *dormController)
+	routes.MainRoutes(router, *employmentController)
 
 	server := &http.Server{
 		Addr:    ":" + port,
