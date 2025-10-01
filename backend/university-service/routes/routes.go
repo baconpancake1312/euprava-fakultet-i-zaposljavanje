@@ -69,4 +69,10 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 	router.GET("/notifications/:id", ctrl.GetNotificationByIDHandler)
 	router.GET("/notifications", ctrl.GetAllNotificationsHandler)
 	router.DELETE("/notifications/:id", ctrl.DeleteNotificationHandler)
+
+	router.POST("/internship/apply/:id", ctrl.CreateInternshipApplication)
+	router.GET("/internship_application/:id", ctrl.GetInternshipApplicationById)
+	router.PUT("/internship_application/:id", ctrl.UpdateInternshipApplication)
+	router.DELETE("/internship_application/:id", ctrl.DeleteInternshipApplication)
+	router.GET("/internship_applications/:studentId", ctrl.GetAllInternshipApplicationsForStudent)
 }
