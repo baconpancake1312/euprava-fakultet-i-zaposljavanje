@@ -20,6 +20,11 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		public.GET("/job-listings", ec.GetAllJobListings())
 		public.GET("/job-listings/:id", ec.GetJobListing())
 
+		// Registration endpoints - public access (no auth required)
+		public.POST("/users", ec.CreateUser())
+		public.POST("/employers", ec.CreateEmployer())
+		public.POST("/candidates", ec.CreateCandidate())
+
 		// Search endpoints - public access
 		public.GET("/search/jobs/text", ec.SearchJobsByText())
 		public.GET("/search/jobs/internship", ec.SearchJobsByInternship())
@@ -34,22 +39,19 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 	protected := routes.Group("/")
 	protected.Use(middleware.Authentication())
 	{
-		// User management
-		protected.POST("/users", ec.CreateUser())
+		// User management (read, update, delete only - create is public)
 		protected.GET("/users", ec.GetAllUsers())
 		protected.GET("/users/:id", ec.GetUser())
 		protected.PUT("/users/:id", ec.UpdateUser())
 		protected.DELETE("/users/:id", ec.DeleteUser())
 
-		// Employer management
-		protected.POST("/employers", ec.CreateEmployer())
+		// Employer management (read, update, delete only - create is public)
 		protected.GET("/employers", ec.GetAllEmployers())
 		protected.GET("/employers/:id", ec.GetEmployer())
 		protected.PUT("/employers/:id", ec.UpdateEmployer())
 		protected.DELETE("/employers/:id", ec.DeleteEmployer())
 
-		// Candidate management
-		protected.POST("/candidates", ec.CreateCandidate())
+		// Candidate management (read, update, delete only - create is public)
 		protected.GET("/candidates", ec.GetAllCandidates())
 		protected.GET("/candidates/:id", ec.GetCandidate())
 		protected.PUT("/candidates/:id", ec.UpdateCandidate())

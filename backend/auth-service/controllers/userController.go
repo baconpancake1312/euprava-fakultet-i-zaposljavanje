@@ -14,7 +14,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 
 	"backend/database"
 
@@ -28,7 +27,7 @@ import (
 )
 
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
-var validate = validator.New()
+var validate = helper.CustomValidator()
 var SECRET_KEY string = os.Getenv("SECRET_KEY")
 
 func HashPassword(password string) string {
@@ -63,7 +62,7 @@ func GetLoggedInUser() gin.HandlerFunc {
 }
 
 func VerifyPassword(userPassword string, providedPassword string) (bool, string) {
-	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
+	err := bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(providedPassword))
 	check := true
 	msg := ""
 
@@ -79,6 +78,7 @@ func Register() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
+
 		var user models.User
 		l := log.New(gin.DefaultWriter, "User controller: ", log.LstdFlags)
 		l.Println(c.GetString("Authorization"))
@@ -88,12 +88,14 @@ func Register() gin.HandlerFunc {
 			return
 		}
 
+		// Use custom validator with user type validation
 		validationErr := validate.Struct(user)
 		if validationErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
 
+		// Check for existing user
 		filter := bson.M{
 			"$or": []bson.M{
 				{"email": user.Email},
@@ -109,19 +111,28 @@ func Register() gin.HandlerFunc {
 		}
 
 		if count > 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "this email or phone number already exists"})
+			c.JSON(http.StatusConflict, gin.H{"error": "this email or phone number already exists"})
 			return
 		}
 
+		// Hash password
 		password := HashPassword(*user.Password)
 		user.Password = &password
 
+		// Set timestamps and IDs
 		user.Created_at = time.Now()
 		user.Updated_at = time.Now()
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		token, refreshToken, err := helper.GenerateAllTokens(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
+		// Generate tokens
+		token, refreshToken, err := helper.GenerateAllTokens(
+			*user.Email,
+			*user.First_name,
+			*user.Last_name,
+			string(user.User_type),
+			user.User_id,
+		)
 		if err != nil {
 			l.Println("Error generating tokens:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error generating tokens"})
@@ -131,19 +142,70 @@ func Register() gin.HandlerFunc {
 		user.Token = &token
 		user.Refresh_token = &refreshToken
 
-		// Ubaci korisnika u kolekciju
+		// Insert user into auth service
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
 			l.Println("Error inserting user:", insertErr.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": insertErr.Error()})
 			return
 		}
-		if err = RegisterIntoUni(&user); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error: unable to insert user into university. ": err.Error()})
-		}
 
-		c.JSON(http.StatusOK, resultInsertionNumber)
+		// Register in appropriate services based on user type
+		go func() {
+			if err := RegisterInAppropriateServices(&user); err != nil {
+				l.Printf("Error registering user in services: %v", err)
+			}
+		}()
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":   "User registered successfully",
+			"user_id":   user.User_id,
+			"user_type": user.User_type,
+			"result":    resultInsertionNumber,
+		})
 	}
+}
+
+// RegisterInAppropriateServices registers user in relevant services
+func RegisterInAppropriateServices(user *models.User) error {
+	var errors []error
+
+	// Register in university service for academic users
+	if models.IsAcademicUser(user.User_type) {
+		if err := RegisterIntoUni(user); err != nil {
+			errors = append(errors, fmt.Errorf("university service: %v", err))
+		} else {
+			// Update status
+			updateUserServiceStatus(user.User_id, "university_profile_created", true)
+		}
+	}
+
+	// Register in employment service for employment-related users
+	if models.IsEmploymentUser(user.User_type) {
+		if err := RegisterIntoEmployment(user); err != nil {
+			errors = append(errors, fmt.Errorf("employment service: %v", err))
+		} else {
+			// Update status
+			updateUserServiceStatus(user.User_id, "employment_profile_created", true)
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("registration errors: %v", errors)
+	}
+
+	return nil
+}
+
+// Update user service registration status
+func updateUserServiceStatus(userID, field string, value bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	filter := bson.M{"user_id": userID}
+	update := bson.M{"$set": bson.M{field: value}}
+
+	userCollection.UpdateOne(ctx, filter, update)
 }
 
 func RegisterIntoUni(user *models.User) error {
@@ -153,22 +215,35 @@ func RegisterIntoUni(user *models.User) error {
 	}
 
 	var url string
-	if user.User_type != nil {
-		switch *user.User_type {
-		case "STUDENT":
-			url = "http://university-service:8088/students/create"
-		case "PROFESSOR":
-			url = "http://university-service:8088/professors/create"
-		case "ADMIN":
-			url = "http://university-service:8088/admins/create"
-		default:
-			return fmt.Errorf("unsupported user type: %s", *user.User_type)
-		}
-	} else {
-		return fmt.Errorf("user type is nil")
+	switch user.User_type {
+	case models.StudentType:
+		url = "http://university-service:8088/students/create"
+	case models.ProfessorType:
+		url = "http://university-service:8088/professors/create"
+	case models.AdministratorType:
+		url = "http://university-service:8088/admins/create"
+	case models.StudentServiceType:
+		url = "http://university-service:8088/student-service/create"
+	default:
+		return fmt.Errorf("unsupported user type for university service: %s", user.User_type)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	// Get service token for auth-service
+	token, err := getServiceToken("auth-service")
+	if err != nil {
+		return fmt.Errorf("failed to get service token: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -176,6 +251,50 @@ func RegisterIntoUni(user *models.User) error {
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to register user in university service, status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// RegisterIntoEmployment registers user in employment service
+func RegisterIntoEmployment(user *models.User) error {
+	jsonData, err := json.Marshal(user)
+	if err != nil {
+		return err
+	}
+
+	var url string
+	switch user.User_type {
+	case models.StudentType, models.CandidateType:
+		url = "http://employment-service:8089/candidates/create"
+	case models.EmployerType:
+		url = "http://employment-service:8089/employers/create"
+	default:
+		return fmt.Errorf("unsupported user type for employment service: %s", user.User_type)
+	}
+
+	// Get service token for auth-service
+	token, err := getServiceToken("auth-service")
+	if err != nil {
+		return fmt.Errorf("failed to get service token: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to register user in employment service, status: %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -210,7 +329,7 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
+		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
 		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
@@ -360,7 +479,7 @@ func UpdateUser() gin.HandlerFunc {
 			hashedPassword := HashPassword(*userUpdate.Password)
 			update["password"] = hashedPassword
 		}
-		if userUpdate.User_type != nil {
+		if userUpdate.User_type != "" {
 			update["user_type"] = userUpdate.User_type
 		}
 		update["updated_at"] = time.Now()
@@ -387,4 +506,211 @@ func UpdateUser() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{"message": "user updated successfully"})
 	}
+}
+
+// GetValidUserTypes returns all valid user types
+func GetValidUserTypes() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userTypes := models.ValidUserTypes()
+		var typeStrings []string
+		for _, userType := range userTypes {
+			typeStrings = append(typeStrings, string(userType))
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"valid_user_types": typeStrings,
+			"count":            len(typeStrings),
+		})
+	}
+}
+
+// GenerateServiceToken generates a token for service-to-service communication
+func GenerateServiceToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request struct {
+			ServiceName string `json:"service_name" binding:"required"`
+			Password    string `json:"password" binding:"required"`
+		}
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Find service account
+		var serviceAccount models.User
+		err := userCollection.FindOne(ctx, bson.M{
+			"is_service_account": true,
+			"service_name":       request.ServiceName,
+		}).Decode(&serviceAccount)
+
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials"})
+			return
+		}
+
+		// Verify password
+		passwordIsValid, _ := VerifyPassword(*serviceAccount.Password, request.Password)
+		if !passwordIsValid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials"})
+			return
+		}
+
+		// Generate token
+		token, refreshToken, err := helper.GenerateAllTokens(
+			*serviceAccount.Email,
+			*serviceAccount.First_name,
+			*serviceAccount.Last_name,
+			string(serviceAccount.User_type),
+			serviceAccount.User_id,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"token":         token,
+			"refresh_token": refreshToken,
+			"service_name":  serviceAccount.ServiceName,
+		})
+	}
+}
+
+// CreateServiceAccount creates a service account for inter-service communication
+func CreateServiceAccount() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request struct {
+			ServiceName string `json:"service_name" binding:"required"`
+			Password    string `json:"password" binding:"required"`
+			UserType    string `json:"user_type" binding:"required"`
+		}
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Validate user type is a service account type
+		if !models.IsServiceAccount(models.UserType(request.UserType)) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid service account type"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Check if service account already exists
+		count, err := userCollection.CountDocuments(ctx, bson.M{
+			"is_service_account": true,
+			"service_name":       request.ServiceName,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking existing service account"})
+			return
+		}
+
+		if count > 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "Service account already exists"})
+			return
+		}
+
+		// Create service account
+		hashedPassword := HashPassword(request.Password)
+		serviceAccount := models.User{
+			ID:               primitive.NewObjectID(),
+			First_name:       &request.ServiceName,
+			Last_name:        &request.ServiceName,
+			Email:            &request.ServiceName,
+			Password:         &hashedPassword,
+			Phone:            &request.ServiceName,
+			Address:          &request.ServiceName,
+			User_type:        models.UserType(request.UserType),
+			Created_at:       time.Now(),
+			Updated_at:       time.Now(),
+			User_id:          primitive.NewObjectID().Hex(),
+			IsServiceAccount: true,
+			ServiceName:      request.ServiceName,
+		}
+
+		// Generate tokens
+		token, refreshToken, err := helper.GenerateAllTokens(
+			*serviceAccount.Email,
+			*serviceAccount.First_name,
+			*serviceAccount.Last_name,
+			string(serviceAccount.User_type),
+			serviceAccount.User_id,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating tokens"})
+			return
+		}
+
+		serviceAccount.Token = &token
+		serviceAccount.Refresh_token = &refreshToken
+
+		// Insert service account
+		_, err = userCollection.InsertOne(ctx, serviceAccount)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating service account"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":      "Service account created successfully",
+			"service_name": serviceAccount.ServiceName,
+			"user_id":      serviceAccount.User_id,
+		})
+	}
+}
+
+// getServiceToken retrieves a token for service-to-service communication
+func getServiceToken(serviceName string) (string, error) {
+	// This would typically be stored securely (e.g., in environment variables or a secure vault)
+	// For now, we'll use a simple approach with hardcoded credentials
+	serviceCredentials := map[string]string{
+		"auth-service": "auth-service-password",
+		// Add other service credentials as needed
+	}
+
+	password, exists := serviceCredentials[serviceName]
+	if !exists {
+		return "", fmt.Errorf("no credentials found for service: %s", serviceName)
+	}
+
+	// Make request to generate service token
+	requestData := map[string]string{
+		"service_name": serviceName,
+		"password":     password,
+	}
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return "", err
+	}
+
+	// For self-service token generation, we can call the endpoint directly
+	// In a real scenario, this might be cached or retrieved from a secure store
+	resp, err := http.Post("http://localhost:8080/service-token", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get service token, status: %d", resp.StatusCode)
+	}
+
+	var tokenResponse struct {
+		Token string `json:"token"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+		return "", err
+	}
+
+	return tokenResponse.Token, nil
 }

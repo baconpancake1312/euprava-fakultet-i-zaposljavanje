@@ -80,7 +80,7 @@ type Administrator struct {
 }
 
 type User struct {
-	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	FirstName   *string            `json:"first_name" validate:"required,min=2,max=100"`
 	LastName    *string            `json:"last_name" validate:"required,min=2,max=100"`
 	Email       *string            `json:"email" validate:"required,email"`
