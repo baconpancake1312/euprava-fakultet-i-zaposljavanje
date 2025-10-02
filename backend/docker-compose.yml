@@ -1,47 +1,47 @@
 services:
-  #   auth-service:
-  #     build:
-  #       context: ./auth-service
-  #       dockerfile: Dockerfile
-  #     restart: always
-  #     container_name: auth-service
-  #     hostname: "auth-service"
-  #     ports:
-  #       - 8080:8080
-  #     environment:
-  #       - PORT=8080
-  #       - MONGO_DB_URI=mongodb://root:pass@user_data_base:27017
-  #     depends_on:
-  #       user_data_base:
-  #         condition: service_healthy
-  #     networks:
-  #       - network
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    restart: always
+    container_name: auth-service
+    hostname: "auth-service"
+    ports:
+      - 8080:8080
+    environment:
+      - PORT=8080
+      - MONGO_DB_URI=mongodb://root:pass@user_data_base:27017
+    depends_on:
+      user_data_base:
+        condition: service_healthy
+    networks:
+      - network
 
-  # user_data_base:
-  #   hostname: "user_data_base"
-  #   container_name: "user_data_base"
-  #   image: mongo
-  #   restart: always
-  #   ports:
-  #     - "27019:27017"
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: admin
-  #     MONGO_INITDB_ROOT_PASSWORD: admin
-  #     MONGO_INITDB_DATABASE: userDB
-  #   healthcheck:
-  #     test: echo 'db.runCommand("ping").ok'
-  #     interval: 10s
-  #     timeout: 10s
-  #     retries: 10
-  #   volumes:
-  #     - user_data_base:/data/db
-  #   networks:
-  #     - network
+  user_data_base:
+    hostname: "user_data_base"
+    container_name: "user_data_base"
+    image: mongo
+    restart: always
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: userDB
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok'
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - user_data_base:/data/db
+    networks:
+      - network
 
   university-service:
     build:
       context: ./university-service
-    restart: always
+    restart: no
     container_name: university-service
     ports:
       - 8088:8088
@@ -76,7 +76,7 @@ services:
     hostname: "university_data_base"
     container_name: "university_data_base"
     image: mongo
-    restart: always
+    restart: no
     ports:
       - "27018:27017"
     environment:
