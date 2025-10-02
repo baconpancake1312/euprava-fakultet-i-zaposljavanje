@@ -386,3 +386,244 @@ func (ec *EmploymentController) DeleteCandidate() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Candidate deleted successfully"})
 	}
 }
+
+// User Controller Functions
+func (ec *EmploymentController) CreateUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var user models.User
+
+		if err := c.BindJSON(&user); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		userID, err := ec.repo.CreateUser(&user)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"id": userID, "message": "User created successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("id")
+
+		user, err := ec.repo.GetUser(userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, user)
+	}
+}
+
+func (ec *EmploymentController) GetAllUsers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		users, err := ec.repo.GetAllUsers()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, users)
+	}
+}
+
+func (ec *EmploymentController) UpdateUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("id")
+		var user models.User
+
+		if err := c.BindJSON(&user); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err := ec.repo.UpdateUser(userID, &user)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+	}
+}
+
+func (ec *EmploymentController) DeleteUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("id")
+
+		err := ec.repo.DeleteUser(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+	}
+}
+
+
+// Document Controller Functions
+func (ec *EmploymentController) CreateDocument() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var document models.Document
+
+		if err := c.BindJSON(&document); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		documentID, err := ec.repo.CreateDocument(&document)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"id": documentID, "message": "Document created successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetDocument() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		documentID := c.Param("id")
+
+		document, err := ec.repo.GetDocument(documentID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, document)
+	}
+}
+
+func (ec *EmploymentController) GetAllDocuments() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		documents, err := ec.repo.GetAllDocuments()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, documents)
+	}
+}
+
+func (ec *EmploymentController) UpdateDocument() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		documentID := c.Param("id")
+		var document models.Document
+
+		if err := c.BindJSON(&document); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err := ec.repo.UpdateDocument(documentID, &document)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Document updated successfully"})
+	}
+}
+
+func (ec *EmploymentController) DeleteDocument() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		documentID := c.Param("id")
+
+		err := ec.repo.DeleteDocument(documentID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Document deleted successfully"})
+	}
+}
+
+// UnemployedRecord Controller Functions
+func (ec *EmploymentController) CreateUnemployedRecord() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var record models.UnemployedRecord
+
+		if err := c.BindJSON(&record); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		recordID, err := ec.repo.CreateUnemployedRecord(&record)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"id": recordID, "message": "Unemployed record created successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetUnemployedRecord() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		recordID := c.Param("id")
+
+		record, err := ec.repo.GetUnemployedRecord(recordID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, record)
+	}
+}
+
+func (ec *EmploymentController) GetAllUnemployedRecords() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		records, err := ec.repo.GetAllUnemployedRecords()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, records)
+	}
+}
+
+func (ec *EmploymentController) UpdateUnemployedRecord() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		recordID := c.Param("id")
+		var record models.UnemployedRecord
+
+		if err := c.BindJSON(&record); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err := ec.repo.UpdateUnemployedRecord(recordID, &record)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Unemployed record updated successfully"})
+	}
+}
+
+func (ec *EmploymentController) DeleteUnemployedRecord() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		recordID := c.Param("id")
+
+		err := ec.repo.DeleteUnemployedRecord(recordID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Unemployed record deleted successfully"})
+	}
+}

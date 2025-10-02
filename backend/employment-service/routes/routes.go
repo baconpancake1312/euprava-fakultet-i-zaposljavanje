@@ -41,4 +41,16 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 	routes.DELETE("/job-listings/:id", ec.DeleteJobListing())
 
 	routes.GET("/job-listings/:jobId/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetApplicationsForJob())
+
+	routes.POST("/documents", ec.CreateDocument())
+	routes.GET("/documents", ec.GetAllDocuments())
+	routes.GET("/documents/:id", ec.GetDocument())
+	routes.PUT("/documents/:id", ec.UpdateDocument())
+	routes.DELETE("/documents/:id", ec.DeleteDocument())
+
+	routes.POST("/unemployed-records", ec.CreateUnemployedRecord())
+	routes.GET("/unemployed-records", ec.GetAllUnemployedRecords())
+	routes.GET("/unemployed-records/:id", ec.GetUnemployedRecord())
+	routes.PUT("/unemployed-records/:id", ec.UpdateUnemployedRecord())
+	routes.DELETE("/unemployed-records/:id", ec.DeleteUnemployedRecord())
 }
