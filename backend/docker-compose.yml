@@ -51,6 +51,27 @@ services:
     networks:
       - network
 
+  employment-service:
+    build:
+      context: ./employment-service
+    restart: always
+    container_name: employment-service
+    hostname: "employment-service"
+    ports:
+      - 8089:8089
+    environment:
+      - PORT=8089
+      - DORM_DB_HOST=employment_data_base
+      - DORM_DB_PORT=27017
+      - EMPLOYMENT_DB_HOST=employmentDB
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+    depends_on:
+      employment_data_base:
+        condition: service_healthy
+    networks:
+      - network
+
   university_data_base:
     hostname: "university_data_base"
     container_name: "university_data_base"
@@ -72,6 +93,27 @@ services:
     networks:
       - network
 
+  employment_data_base:
+    hostname: "employment_data_base"
+    container_name: "employment_data_base"
+    image: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: pass
+      MONGO_INITDB_DATABASE: employmentDB
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok'
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - employment_data_base:/data/db
+    networks:
+      - network
+
   # healthcare_db:
   #   image: mongo
   #   container_name: healthcare_db
@@ -81,6 +123,7 @@ services:
 
 volumes:
   university_data_base:
+  employment_data_base:
   logs_volume:
 
 networks:
