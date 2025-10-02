@@ -9,17 +9,18 @@ import (
 )
 
 type UserType string
-type Gender string
 type Status string
 
 const (
 	StudentType        UserType = "STUDENT"
 	ProfessorType      UserType = "PROFESSOR"
-	AdministratorType  UserType = "ADMINISTRATOR"
+	AdministratorType  UserType = "ADMIN"
 	StudentServiceType UserType = "STUDENTSKA_SLUZBA"
 
-	Male   Gender = "Male"
-	Female Gender = "Female"
+	// Service account types
+	AuthServiceType       UserType = "AUTH_SERVICE"
+	UniversityServiceType UserType = "UNIVERSITY_SERVICE"
+	EmploymentServiceType UserType = "EMPLOYMENT_SERVICE"
 
 	Approved Status = "Approved"
 	Rejected Status = "Rejected"

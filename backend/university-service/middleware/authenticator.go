@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	helper "employment-service/helpers"
+	helper "university-service/helpers"
 
 	"github.com/gin-gonic/gin"
 )
@@ -70,7 +70,6 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 				}
 			}
 		}
-
 		if !authorized {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 			return

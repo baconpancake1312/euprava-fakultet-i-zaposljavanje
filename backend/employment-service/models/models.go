@@ -8,6 +8,27 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type ApprovalStatus string
+
+type UserType string
+type Status string
+
+const (
+	StudentType       UserType = "STUDENT"
+	AdministratorType UserType = "ADMIN"
+	EmployerType      UserType = "EMPLOYER"
+	CandidateType     UserType = "CANDIDATE"
+
+	// Service account types
+	AuthServiceType       UserType = "AUTH_SERVICE"
+	UniversityServiceType UserType = "UNIVERSITY_SERVICE"
+	EmploymentServiceType UserType = "EMPLOYMENT_SERVICE"
+
+	Approved ApprovalStatus = "Approved"
+	Rejected ApprovalStatus = "Rejected"
+	Pending  ApprovalStatus = "Pending"
+)
+
 type User struct {
 	ID          primitive.ObjectID `bson:"_id" json:"id"`
 	FirstName   *string            `bson:"first_name" json:"first_name" validate:"required,min=2,max=100"`
@@ -18,6 +39,7 @@ type User struct {
 	Address     *string            `bson:"address" json:"address" validate:"required"`
 	DateOfBirth time.Time          `bson:"date_of_birth" json:"date_of_birth"`
 	JMBG        *string            `bson:"jmbg" json:"jmbg" validate:"required,len=13"`
+	UserType    UserType           `bson:"user_type" json:"user_type"`
 }
 
 type Employer struct {
@@ -48,7 +70,7 @@ type JobListing struct {
 	CreatedAt      time.Time          `bson:"created_at,omitempty" json:"created_at"`
 	ExpireAt       time.Time          `bson:"expire_at,omitempty" json:"expire_at"`
 	IsInternship   bool               `bson:"is_internship" json:"is_internship"`
-	ApprovalStatus string             `bson:"approval_status" json:"approval_status"`
+	ApprovalStatus ApprovalStatus     `bson:"approval_status" json:"approval_status"`
 	ApprovedAt     time.Time          `bson:"approved_at,omitempty" json:"approved_at"`
 	ApprovedBy     string             `bson:"approved_by,omitempty" json:"approved_by"`
 }

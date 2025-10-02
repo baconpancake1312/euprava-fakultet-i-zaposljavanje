@@ -1416,8 +1416,9 @@ func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"is_internship": "true",
-		"expire_at":     bson.M{"$gt": time.Now()}, // Only active internships
+		"is_internship":   "true",
+		"expire_at":       bson.M{"$gt": time.Now()}, // Only active internships
+		"approval_status": models.Approved,
 	}
 
 	if limit <= 0 {
