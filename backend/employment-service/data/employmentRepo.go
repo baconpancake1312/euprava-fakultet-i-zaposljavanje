@@ -94,6 +94,20 @@ func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collecti
 
 // JobListing CRUD operations
 
+func (er *EmploymentRepo) CreateJobListing(listing *models.JobListing) (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	lisCollection := OpenCollection(er.cli, "listings")
+	listing.ID = primitive.NewObjectID()
+	result, err := lisCollection.InsertOne(ctx, &listing)
+	if err != nil {
+		er.logger.Println(err)
+		return primitive.NewObjectID(), err
+	}
+	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
+	return listing.ID, nil
+}
+
 func (er *EmploymentRepo) GetJobListing(listingId string) (*models.JobListing, error) {
 	var listing models.JobListing
 	lisCollection := OpenCollection(er.cli, "listings")
@@ -107,18 +121,18 @@ func (er *EmploymentRepo) GetJobListing(listingId string) (*models.JobListing, e
 	return &listing, nil
 }
 
-func (er *EmploymentRepo) InsertJobListing(listing *models.JobListing) (primitive.ObjectID, error) {
+func (er *EmploymentRepo) CreateJobListing(listing *models.JobListing) (primitive.ObjectID, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	lisCollection := OpenCollection(er.cli, "listings")
-	listing.Id = primitive.NewObjectID()
+	listing.ID = primitive.NewObjectID()
 	result, err := lisCollection.InsertOne(ctx, &listing)
 	if err != nil {
 		er.logger.Println(err)
 		return primitive.NewObjectID(), err
 	}
 	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
-	return listing.Id, nil
+	return listing.ID, nil
 }
 
 func (er *EmploymentRepo) UpdateJobListing(listingId string, listing *models.JobListing) error {
@@ -135,7 +149,7 @@ func (er *EmploymentRepo) UpdateJobListing(listingId string, listing *models.Job
 		"$set": bson.M{
 			"position":      listing.Position,
 			"description":   listing.Description,
-			"expire_date":   listing.ExpireDate,
+			"expire_at":     listing.ExpireAt,
 			"is_internship": listing.IsInternship,
 		},
 	}
@@ -247,18 +261,18 @@ func (er *EmploymentRepo) GetApplicationsForJob(client *mongo.Client, listingID 
 	return *applications, nil
 }
 
-func (er *EmploymentRepo) InsertApplication(application *models.Application) (primitive.ObjectID, error) {
+func (er *EmploymentRepo) CreateApplication(application *models.Application) (primitive.ObjectID, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	selCollection := OpenCollection(er.cli, "applications")
-	application.Id = primitive.NewObjectID()
+	application.ID = primitive.NewObjectID()
 	result, err := selCollection.InsertOne(ctx, &application)
 	if err != nil {
 		er.logger.Println(err)
 		return primitive.NewObjectID(), err
 	}
 	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
-	return application.Id, nil
+	return application.ID, nil
 }
 
 func (er *EmploymentRepo) UpdateApplication(applicationId string, application *models.Application) error {
@@ -329,4 +343,226 @@ func (er *EmploymentRepo) GetAllApplications() ([]*models.Application, error) {
 		return nil, err
 	}
 	return applications, nil
+}
+
+
+// Employer CRUD operations
+
+func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	employerCollection := OpenCollection(er.cli, "employers")
+	employer.ID = primitive.NewObjectID()
+	result, err := employerCollection.InsertOne(ctx, &employer)
+	if err != nil {
+		er.logger.Println(err)
+		return primitive.NewObjectID(), err
+	}
+	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
+	return employer.ID, nil
+}
+
+func (er *EmploymentRepo) GetEmployer(employerId string) (*models.Employer, error) {
+	var employer models.Employer
+	employerCollection := OpenCollection(er.cli, "employers")
+	objectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ID: %v", err)
+	}
+
+	err = employerCollection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&employer)
+	if err != nil {
+		return nil, fmt.Errorf("no employer found for id: %s", employerId)
+	}
+
+	return &employer, nil
+}
+
+func (er *EmploymentRepo) GetAllEmployers() ([]*models.Employer, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	employerCollection := OpenCollection(er.cli, "employers")
+
+	var employers []*models.Employer
+	cursor, err := employerCollection.Find(ctx, bson.M{})
+	if err != nil {
+		er.logger.Println(err)
+		return nil, err
+	}
+	if err = cursor.All(ctx, &employers); err != nil {
+		er.logger.Println(err)
+		return nil, err
+	}
+	return employers, nil
+}
+
+func (er *EmploymentRepo) UpdateEmployer(employerId string, employer *models.Employer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	employerCollection := OpenCollection(er.cli, "employers")
+	objectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return fmt.Errorf("invalid ID: %v", err)
+	}
+
+	updateData := bson.M{
+		"$set": bson.M{
+			"first_name":    employer.FirstName,
+			"last_name":     employer.LastName,
+			"email":         employer.Email,
+			"phone":         employer.Phone,
+			"address":       employer.Address,
+			"jmbg":          employer.JMBG,
+			"firm_name":     employer.FirmName,
+			"pib":           employer.PIB,
+			"maticni_broj":  employer.MatBr,
+			"delatnost":     employer.Delatnost,
+			"firm_address":  employer.FirmAddress,
+			"firm_phone":    employer.FirmPhone,
+		},
+	}
+
+	result, err := employerCollection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	if err != nil {
+		return fmt.Errorf("could not update employer with id: %s, error: %v", employerId, err)
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("no employer found with id: %s", employerId)
+	}
+
+	er.logger.Printf("Updated employer with id: %s", employerId)
+	return nil
+}
+
+func (er *EmploymentRepo) DeleteEmployer(employerId string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	employerCollection := OpenCollection(er.cli, "employers")
+	objectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return fmt.Errorf("invalid ID: %v", err)
+	}
+
+	result, err := employerCollection.DeleteOne(ctx, bson.M{"_id": objectId})
+	if err != nil {
+		return fmt.Errorf("could not delete employer with id: %s, error: %v", employerId, err)
+	}
+	if result.DeletedCount == 0 {
+		return fmt.Errorf("no employer found with id: %s", employerId)
+	}
+
+	er.logger.Printf("Deleted employer with id: %s", employerId)
+	return nil
+}
+
+// Candidate CRUD operations
+
+func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	candidateCollection := OpenCollection(er.cli, "candidates")
+	candidate.ID = primitive.NewObjectID()
+	result, err := candidateCollection.InsertOne(ctx, &candidate)
+	if err != nil {
+		er.logger.Println(err)
+		return primitive.NewObjectID(), err
+	}
+	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
+	return candidate.ID, nil
+}
+
+func (er *EmploymentRepo) GetCandidate(candidateId string) (*models.Candidate, error) {
+	var candidate models.Candidate
+	candidateCollection := OpenCollection(er.cli, "candidates")
+	objectId, err := primitive.ObjectIDFromHex(candidateId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ID: %v", err)
+	}
+
+	err = candidateCollection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&candidate)
+	if err != nil {
+		return nil, fmt.Errorf("no candidate found for id: %s", candidateId)
+	}
+
+	return &candidate, nil
+}
+
+func (er *EmploymentRepo) GetAllCandidates() ([]*models.Candidate, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	candidateCollection := OpenCollection(er.cli, "candidates")
+
+	var candidates []*models.Candidate
+	cursor, err := candidateCollection.Find(ctx, bson.M{})
+	if err != nil {
+		er.logger.Println(err)
+		return nil, err
+	}
+	if err = cursor.All(ctx, &candidates); err != nil {
+		er.logger.Println(err)
+		return nil, err
+	}
+	return candidates, nil
+}
+
+func (er *EmploymentRepo) UpdateCandidate(candidateId string, candidate *models.Candidate) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	candidateCollection := OpenCollection(er.cli, "candidates")
+	objectId, err := primitive.ObjectIDFromHex(candidateId)
+	if err != nil {
+		return fmt.Errorf("invalid ID: %v", err)
+	}
+
+	updateData := bson.M{
+		"$set": bson.M{
+			"first_name":  candidate.FirstName,
+			"last_name":   candidate.LastName,
+			"email":       candidate.Email,
+			"phone":       candidate.Phone,
+			"address":     candidate.Address,
+			"jmbg":        candidate.JMBG,
+			"cv_file":     candidate.CVFile,
+			"cv_base64":   candidate.CVBase64,
+			"skills":      candidate.Skills,
+		},
+	}
+
+	result, err := candidateCollection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	if err != nil {
+		return fmt.Errorf("could not update candidate with id: %s, error: %v", candidateId, err)
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("no candidate found with id: %s", candidateId)
+	}
+
+	er.logger.Printf("Updated candidate with id: %s", candidateId)
+	return nil
+}
+
+func (er *EmploymentRepo) DeleteCandidate(candidateId string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	candidateCollection := OpenCollection(er.cli, "candidates")
+	objectId, err := primitive.ObjectIDFromHex(candidateId)
+	if err != nil {
+		return fmt.Errorf("invalid ID: %v", err)
+	}
+
+	result, err := candidateCollection.DeleteOne(ctx, bson.M{"_id": objectId})
+	if err != nil {
+		return fmt.Errorf("could not delete candidate with id: %s, error: %v", candidateId, err)
+	}
+	if result.DeletedCount == 0 {
+		return fmt.Errorf("no candidate found with id: %s", candidateId)
+	}
+
+	er.logger.Printf("Deleted candidate with id: %s", candidateId)
+	return nil
 }
