@@ -7,14 +7,12 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"employment-service/data"
 	"employment-service/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type EmploymentController struct {
@@ -28,8 +26,8 @@ func NewEmploymentController(l *log.Logger, r *data.EmploymentRepo) *EmploymentC
 	return &EmploymentController{l, r}
 }
 
-func (ec EmploymentController) GetStudentByID(studentId string) (*models.Student, error) {
-	uniUrl := fmt.Sprintf("http://auth-service:8080/users/%v", studentId)
+func (ec EmploymentController) GetUserByID(userId string) (*models.User, error) {
+	uniUrl := fmt.Sprintf("http://auth-service:8080/users/%v", userId)
 	uniResponse, err := http.Get(uniUrl)
 	if err != nil {
 		ec.logger.Printf("Error making GET request for user: %v", err)
@@ -42,12 +40,12 @@ func (ec EmploymentController) GetStudentByID(studentId string) (*models.Student
 		ec.logger.Println("error: ", string(body))
 		return nil, fmt.Errorf("uni service returned error: %s", string(body))
 	}
-	var returnedStudent *models.Student
-	if err := json.NewDecoder(uniResponse.Body).Decode(&returnedStudent); err != nil {
+	var returnedUser *models.User
+	if err := json.NewDecoder(uniResponse.Body).Decode(&returnedUser); err != nil {
 		ec.logger.Printf("error parsing auth response body: %v\n", err)
 		return nil, fmt.Errorf("error parsing uni response body")
 	}
-	return returnedStudent, nil
+	return returnedUser, nil
 }
 
 func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
@@ -65,7 +63,7 @@ func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 			return
 		}
 
-		application.Id = applicationId
+		application.ID = applicationId
 		c.JSON(http.StatusOK, gin.H{"message": "Application created successfully", "application": application})
 	}
 }
@@ -132,7 +130,7 @@ func (ec *EmploymentController) DeleteApplication() gin.HandlerFunc {
 
 func (ec *EmploymentController) GetApplicationsForJob() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		jobId := c.Param("jobId")
+		jobId := c.Param("id")
 
 		applications, err := ec.repo.GetApplicationsForJob(ec.repo.GetClient(), jobId)
 		if err != nil {
@@ -159,7 +157,7 @@ func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 			return
 		}
 
-		listing.Id = listingId
+		listing.ID = listingId
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing created successfully", "listing": listing})
 	}
 }
@@ -223,7 +221,6 @@ func (ec *EmploymentController) DeleteJobListing() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing deleted successfully"})
 	}
 }
-
 
 // Employer CRUD operations
 
@@ -469,7 +466,6 @@ func (ec *EmploymentController) DeleteUser() gin.HandlerFunc {
 	}
 }
 
-
 // Document Controller Functions
 func (ec *EmploymentController) CreateDocument() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -630,77 +626,16 @@ func (ec *EmploymentController) DeleteUnemployedRecord() gin.HandlerFunc {
 	}
 }
 
-func (ec *EmploymentController) SearchJobs() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var searchReq models.JobSearchRequest
-
-		if err := c.ShouldBindQuery(&searchReq); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters"})
-			return
-		}
-
-		if c.Request.Method == "POST" {
-			if err := c.BindJSON(&searchReq); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-				return
-			}
-		}
-
-		if searchReq.Page <= 0 {
-			searchReq.Page = 1
-		}
-		if searchReq.Limit <= 0 {
-			searchReq.Limit = 20
-		}
-		if searchReq.Limit > 100 {
-			searchReq.Limit = 100
-		}
-
-		response, err := ec.repo.SearchJobs(&searchReq)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, response)
-	}
-}
-
-func (ec *EmploymentController) GetSearchFilters() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		filters, err := ec.repo.GetSearchFilters()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, filters)
-	}
-}
-
-func (ec *EmploymentController) GetJobSearchStats() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		stats, err := ec.repo.GetJobSearchStats()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, stats)
-	}
-}
-
 func (ec *EmploymentController) GetSimilarJobs() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		jobId := c.Param("id")
 		limitStr := c.DefaultQuery("limit", "5")
-		
+
 		limit := 5
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 20 {
 			limit = parsedLimit
 		}
 
-		jobs, err := ec.repo.GetSimilarJobs(jobId, limit)
+		jobs, err := ec.repo.GetActiveJobs(limit)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -712,7 +647,7 @@ func (ec *EmploymentController) GetSimilarJobs() gin.HandlerFunc {
 
 func (ec *EmploymentController) GetJobRecommendations() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := c.Get("user_id")
+		_, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 			return
@@ -724,22 +659,15 @@ func (ec *EmploymentController) GetJobRecommendations() gin.HandlerFunc {
 			limit = parsedLimit
 		}
 
-		searchReq := &models.JobSearchRequest{
-			Page:  1,
-			Limit: limit,
-			SortBy: "created_at",
-			SortOrder: "desc",
-		}
-
-		response, err := ec.repo.SearchJobs(searchReq)
+		jobs, err := ec.repo.GetActiveJobs(limit)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"recommendations": response.Jobs,
-			"total": response.Total,
+			"recommendations": jobs,
+			"total":           len(jobs),
 		})
 	}
 }
@@ -760,11 +688,10 @@ func (ec *EmploymentController) GetTrendingJobs() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"trending_jobs": jobs,
-			"total": len(jobs),
+			"total":         len(jobs),
 		})
 	}
 }
-
 
 func (ec *EmploymentController) SearchJobsByText() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -776,7 +703,7 @@ func (ec *EmploymentController) SearchJobsByText() gin.HandlerFunc {
 
 		pageStr := c.DefaultQuery("page", "1")
 		limitStr := c.DefaultQuery("limit", "20")
-		
+
 		page, _ := strconv.Atoi(pageStr)
 		limit, _ := strconv.Atoi(limitStr)
 
@@ -787,9 +714,9 @@ func (ec *EmploymentController) SearchJobsByText() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"jobs": jobs,
+			"jobs":  jobs,
 			"total": total,
-			"page": page,
+			"page":  page,
 			"limit": limit,
 		})
 	}
@@ -804,10 +731,10 @@ func (ec *EmploymentController) SearchJobsByInternship() gin.HandlerFunc {
 		}
 
 		isInternship := internshipStr == "true"
-		
+
 		pageStr := c.DefaultQuery("page", "1")
 		limitStr := c.DefaultQuery("limit", "20")
-		
+
 		page, _ := strconv.Atoi(pageStr)
 		limit, _ := strconv.Atoi(limitStr)
 
@@ -818,10 +745,10 @@ func (ec *EmploymentController) SearchJobsByInternship() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"jobs": jobs,
-			"total": total,
-			"page": page,
-			"limit": limit,
+			"jobs":          jobs,
+			"total":         total,
+			"page":          page,
+			"limit":         limit,
 			"is_internship": isInternship,
 		})
 	}
@@ -837,7 +764,7 @@ func (ec *EmploymentController) SearchUsersByText() gin.HandlerFunc {
 
 		pageStr := c.DefaultQuery("page", "1")
 		limitStr := c.DefaultQuery("limit", "20")
-		
+
 		page, _ := strconv.Atoi(pageStr)
 		limit, _ := strconv.Atoi(limitStr)
 
@@ -850,7 +777,7 @@ func (ec *EmploymentController) SearchUsersByText() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"users": users,
 			"total": total,
-			"page": page,
+			"page":  page,
 			"limit": limit,
 		})
 	}
@@ -866,7 +793,7 @@ func (ec *EmploymentController) SearchEmployersByText() gin.HandlerFunc {
 
 		pageStr := c.DefaultQuery("page", "1")
 		limitStr := c.DefaultQuery("limit", "20")
-		
+
 		page, _ := strconv.Atoi(pageStr)
 		limit, _ := strconv.Atoi(limitStr)
 
@@ -878,9 +805,9 @@ func (ec *EmploymentController) SearchEmployersByText() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"employers": employers,
-			"total": total,
-			"page": page,
-			"limit": limit,
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
 		})
 	}
 }
@@ -895,7 +822,7 @@ func (ec *EmploymentController) SearchCandidatesByText() gin.HandlerFunc {
 
 		pageStr := c.DefaultQuery("page", "1")
 		limitStr := c.DefaultQuery("limit", "20")
-		
+
 		page, _ := strconv.Atoi(pageStr)
 		limit, _ := strconv.Atoi(limitStr)
 
@@ -907,9 +834,9 @@ func (ec *EmploymentController) SearchCandidatesByText() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"candidates": candidates,
-			"total": total,
-			"page": page,
-			"limit": limit,
+			"total":      total,
+			"page":       page,
+			"limit":      limit,
 		})
 	}
 }
@@ -924,7 +851,7 @@ func (ec *EmploymentController) SearchApplicationsByStatus() gin.HandlerFunc {
 
 		pageStr := c.DefaultQuery("page", "1")
 		limitStr := c.DefaultQuery("limit", "20")
-		
+
 		page, _ := strconv.Atoi(pageStr)
 		limit, _ := strconv.Atoi(limitStr)
 
@@ -936,10 +863,10 @@ func (ec *EmploymentController) SearchApplicationsByStatus() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"applications": applications,
-			"total": total,
-			"page": page,
-			"limit": limit,
-			"status": status,
+			"total":        total,
+			"page":         page,
+			"limit":        limit,
+			"status":       status,
 		})
 	}
 }
@@ -957,7 +884,192 @@ func (ec *EmploymentController) GetActiveJobs() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"active_jobs": jobs,
-			"total": len(jobs),
+			"total":       len(jobs),
+		})
+	}
+}
+
+func (ec *EmploymentController) ApproveEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+		adminId, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not authenticated"})
+			return
+		}
+
+		err := ec.repo.ApproveEmployer(employerId, adminId.(string))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Employer approved successfully"})
+	}
+}
+
+func (ec *EmploymentController) RejectEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+		adminId, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not authenticated"})
+			return
+		}
+
+		err := ec.repo.RejectEmployer(employerId, adminId.(string))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Employer rejected successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetPendingEmployers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employers, err := ec.repo.GetPendingEmployers()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"pending_employers": employers,
+			"total":             len(employers),
+		})
+	}
+}
+
+func (ec *EmploymentController) ApproveJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		jobId := c.Param("id")
+		adminId, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not authenticated"})
+			return
+		}
+
+		err := ec.repo.ApproveJobListing(jobId, adminId.(string))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing approved successfully"})
+	}
+}
+
+func (ec *EmploymentController) RejectJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		jobId := c.Param("id")
+		adminId, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not authenticated"})
+			return
+		}
+
+		err := ec.repo.RejectJobListing(jobId, adminId.(string))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing rejected successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetPendingJobListings() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		jobs, err := ec.repo.GetPendingJobListings()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"pending_jobs": jobs,
+			"total":        len(jobs),
+		})
+	}
+}
+
+func (ec *EmploymentController) SuspendEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+		adminId, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not authenticated"})
+			return
+		}
+
+		err := ec.repo.SuspendEmployer(employerId, adminId.(string))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Employer suspended successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetEmployerStats() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats, err := ec.repo.GetEmployerStats()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"employer_stats": stats,
+		})
+	}
+}
+func (ec *EmploymentController) GetInternships() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		limitStr := c.DefaultQuery("limit", "20")
+		limit, _ := strconv.Atoi(limitStr)
+
+		internships, err := ec.repo.GetInternships(limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"internships": internships,
+			"total":       len(internships),
+		})
+	}
+}
+
+func (ec *EmploymentController) GetInternshipsForStudent() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		studentId := c.Param("studentId")
+		if studentId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Student ID is required"})
+			return
+		}
+
+		pageStr := c.DefaultQuery("page", "1")
+		limitStr := c.DefaultQuery("limit", "20")
+
+		page, _ := strconv.Atoi(pageStr)
+		limit, _ := strconv.Atoi(limitStr)
+
+		internships, total, err := ec.repo.GetInternshipsForStudent(studentId, page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"internships": internships,
+			"total":       total,
+			"page":        page,
+			"limit":       limit,
 		})
 	}
 }

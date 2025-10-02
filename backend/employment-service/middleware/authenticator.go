@@ -32,9 +32,28 @@ func Authentication() gin.HandlerFunc {
 		c.Set("uid", claims.Uid)
 		c.Set("user_type", claims.User_type)
 
-		c.Next()
+		// Check if this is a service account token
+		isServiceAccount := isServiceAccountType(claims.User_type)
+		c.Set("is_service_account", isServiceAccount)
 
+		c.Next()
 	}
+}
+
+// isServiceAccountType checks if the user type is a service account
+func isServiceAccountType(userType string) bool {
+	serviceTypes := []string{
+		"AUTH_SERVICE",
+		"UNIVERSITY_SERVICE",
+		"EMPLOYMENT_SERVICE",
+	}
+
+	for _, serviceType := range serviceTypes {
+		if userType == serviceType {
+			return true
+		}
+	}
+	return false
 }
 func AuthorizeRoles(roles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
