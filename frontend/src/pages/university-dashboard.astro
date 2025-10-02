@@ -1,0 +1,130 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+
+<Layout title="University Dashboard - eUprava" description="University student dashboard for eUprava platform.">
+  <div class="min-h-screen flex flex-col">
+    <Navbar />
+    <main class="flex-1 bg-main">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold text-foreground mb-4">University Dashboard</h1>
+          <p class="text-muted-foreground">Welcome to your university portal</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">My Courses</h3>
+            <p class="text-muted-foreground mb-4">View and manage your enrolled courses</p>
+            <button id="load-courses" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Courses
+            </button>
+            <div id="courses-list" class="mt-4 hidden"></div>
+          </div>
+          
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Exams</h3>
+            <p class="text-muted-foreground mb-4">View upcoming and past exams</p>
+            <button id="load-exams" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Exams
+            </button>
+            <div id="exams-list" class="mt-4 hidden"></div>
+          </div>
+          
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Student Info</h3>
+            <p class="text-muted-foreground mb-4">View your student information</p>
+            <button id="load-student-info" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Info
+            </button>
+            <div id="student-info" class="mt-4 hidden"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  import { authService } from '../lib/authService';
+  import { toastManager } from '../lib/toast';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!authService.isAuthenticated()) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const user = authService.getCurrentUser();
+    console.log('University Dashboard - Current user:', user);
+
+    document.getElementById('load-courses')?.addEventListener('click', async () => {
+      try {
+        const courses = await authService.getCourses();
+        const coursesList = document.getElementById('courses-list');
+        if (coursesList) {
+          coursesList.innerHTML = `
+            <div class="space-y-2">
+              ${courses.map((course: any) => `
+                <div class="p-3 bg-muted rounded-md">
+                  <h4 class="font-medium">${course.name || 'Course Name'}</h4>
+                  <p class="text-sm text-muted-foreground">${course.schedule || 'Schedule not available'}</p>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          coursesList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading courses:', error);
+      }
+    });
+
+    document.getElementById('load-exams')?.addEventListener('click', async () => {
+      try {
+        const exams = await authService.getExams();
+        const examsList = document.getElementById('exams-list');
+        if (examsList) {
+          examsList.innerHTML = `
+            <div class="space-y-2">
+              ${exams.map((exam: any) => `
+                <div class="p-3 bg-muted rounded-md">
+                  <h4 class="font-medium">${exam.course?.name || 'Exam'}</h4>
+                  <p class="text-sm text-muted-foreground">Date: ${exam.exam_date || 'Not scheduled'}</p>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          examsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading exams:', error);
+      }
+    });
+
+    document.getElementById('load-student-info')?.addEventListener('click', async () => {
+      try {
+        const students = await authService.getStudentData();
+        const studentInfo = document.getElementById('student-info');
+        if (studentInfo) {
+          studentInfo.innerHTML = `
+            <div class="space-y-2">
+              ${students.map((student: any) => `
+                <div class="p-3 bg-muted rounded-md">
+                  <h4 class="font-medium">${student.first_name} ${student.last_name}</h4>
+                  <p class="text-sm text-muted-foreground">Email: ${student.email}</p>
+                  <p class="text-sm text-muted-foreground">Major: ${student.major || 'Not specified'}</p>
+                  <p class="text-sm text-muted-foreground">Year: ${student.year || 'Not specified'}</p>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          studentInfo.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading student info:', error);
+      }
+    });
+  });
+</script>

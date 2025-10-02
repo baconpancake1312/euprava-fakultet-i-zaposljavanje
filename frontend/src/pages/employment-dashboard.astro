@@ -1,0 +1,172 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+
+<Layout title="Employment Dashboard - eUprava" description="Employment dashboard for eUprava platform.">
+  <div class="min-h-screen flex flex-col">
+    <Navbar />
+    <main class="flex-1 bg-main">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold text-foreground mb-4">Employment Dashboard</h1>
+          <p class="text-muted-foreground">Find jobs and manage your career</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Job Listings</h3>
+            <p class="text-muted-foreground mb-4">Browse available job opportunities</p>
+            <button id="load-jobs" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Jobs
+            </button>
+            <div id="jobs-list" class="mt-4 hidden"></div>
+          </div>
+          
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Internships</h3>
+            <p class="text-muted-foreground mb-4">Find internship opportunities</p>
+            <button id="load-internships" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Internships
+            </button>
+            <div id="internships-list" class="mt-4 hidden"></div>
+          </div>
+          
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">My Applications</h3>
+            <p class="text-muted-foreground mb-4">Track your job applications</p>
+            <button id="load-applications" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Applications
+            </button>
+            <div id="applications-list" class="mt-4 hidden"></div>
+          </div>
+        </div>
+        
+        <div class="mt-8">
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Search Jobs</h3>
+            <div class="flex gap-4 mb-4">
+              <input 
+                type="text" 
+                id="job-search" 
+                placeholder="Search for jobs..." 
+                class="flex-1 px-4 py-2 rounded-md border border-input bg-astro-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button id="search-jobs" class="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                Search
+              </button>
+            </div>
+            <div id="search-results" class="hidden"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  import { authService } from '../lib/authService';
+  import { toastManager } from '../lib/toast';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!authService.isAuthenticated()) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const user = authService.getCurrentUser();
+    console.log('Employment Dashboard - Current user:', user);
+
+    document.getElementById('load-jobs')?.addEventListener('click', async () => {
+      try {
+        const jobs = await authService.getJobListings();
+        const jobsList = document.getElementById('jobs-list');
+        if (jobsList) {
+          jobsList.innerHTML = `
+            <div class="space-y-2">
+              ${jobs.map((job: any) => `
+                <div class="p-3 bg-muted rounded-md">
+                  <h4 class="font-medium">${job.position || 'Job Position'}</h4>
+                  <p class="text-sm text-muted-foreground">${job.description || 'No description available'}</p>
+                  <p class="text-sm text-muted-foreground">Type: ${job.is_internship ? 'Internship' : 'Full-time'}</p>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          jobsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading jobs:', error);
+      }
+    });
+
+    document.getElementById('load-internships')?.addEventListener('click', async () => {
+      try {
+        const internships = await authService.getInternships();
+        const internshipsList = document.getElementById('internships-list');
+        if (internshipsList) {
+          internshipsList.innerHTML = `
+            <div class="space-y-2">
+              ${internships.map((internship: any) => `
+                <div class="p-3 bg-muted rounded-md">
+                  <h4 class="font-medium">${internship.position || 'Internship Position'}</h4>
+                  <p class="text-sm text-muted-foreground">${internship.description || 'No description available'}</p>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          internshipsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading internships:', error);
+      }
+    });
+
+    document.getElementById('load-applications')?.addEventListener('click', async () => {
+      try {
+        const applicationsList = document.getElementById('applications-list');
+        if (applicationsList) {
+          applicationsList.innerHTML = `
+            <div class="p-3 bg-muted rounded-md">
+              <p class="text-muted-foreground">Applications feature coming soon...</p>
+            </div>
+          `;
+          applicationsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading applications:', error);
+      }
+    });
+
+    document.getElementById('search-jobs')?.addEventListener('click', async () => {
+      const searchInput = document.getElementById('job-search') as HTMLInputElement;
+      const query = searchInput.value.trim();
+      
+      if (!query) {
+        toastManager.warning('Search Required', 'Please enter a search term');
+        return;
+      }
+
+      try {
+        const results = await authService.searchJobs(query);
+        const searchResults = document.getElementById('search-results');
+        if (searchResults) {
+          searchResults.innerHTML = `
+            <div class="space-y-2">
+              <h4 class="font-medium mb-2">Search Results for "${query}":</h4>
+              ${results.map((job: any) => `
+                <div class="p-3 bg-muted rounded-md">
+                  <h4 class="font-medium">${job.position || 'Job Position'}</h4>
+                  <p class="text-sm text-muted-foreground">${job.description || 'No description available'}</p>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          searchResults.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error searching jobs:', error);
+      }
+    });
+  });
+</script>

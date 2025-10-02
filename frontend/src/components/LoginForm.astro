@@ -77,6 +77,8 @@
 </div>
 
 <script>
+  import { authService } from '../lib/authService';
+
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('login-form') as HTMLFormElement;
     const submitButton = document.getElementById('submit-button') as HTMLButtonElement;
@@ -86,17 +88,14 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      // Show loading state
       submitButton.disabled = true;
       buttonText.textContent = 'Prijavljivanje...';
       errorMessage.classList.add('hidden');
 
-      // Get form data
       const formData = new FormData(form);
       const email = formData.get('email') as string;
       const password = formData.get('password') as string;
 
-      // Basic validation
       if (!email || !password) {
         errorMessage.textContent = 'Molimo unesite email i lozinku.';
         errorMessage.classList.remove('hidden');
@@ -106,18 +105,20 @@
       }
 
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const response = await authService.login({ email, password });
         
-        // Simulate successful login
-        console.log('Login attempt:', { email, password });
+        console.log('Login successful:', response);
+        console.log('User microservice:', response.microservice);
         
-        // Redirect to home
-        window.location.href = '/';
+        if (response.microservice === 'university') {
+          window.location.href = '/university-dashboard';
+        } else if (response.microservice === 'employment') {
+          window.location.href = '/employment-dashboard';
+        } else {
+          window.location.href = '/admin-dashboard';
+        }
         
-      } catch (error) {
-        errorMessage.textContent = 'Greška pri prijavljivanju. Molimo pokušajte ponovo.';
-        errorMessage.classList.remove('hidden');
+      } catch (error: any) {
         console.error('Login error:', error);
       } finally {
         submitButton.disabled = false;

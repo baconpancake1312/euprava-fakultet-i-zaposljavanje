@@ -22,6 +22,18 @@
         <span>Registracija</span>
       </a>
       
+      <div id="user-menu" class="hidden">
+        <div class="flex items-center space-x-4">
+          <span id="user-name" class="text-muted-foreground"></span>
+          <button id="logout-btn" class="text-muted-foreground hover:text-foreground transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span>Odjavi se</span>
+          </button>
+        </div>
+      </div>
+      
       <div class="md:hidden flex items-center">
         <button 
           id="mobile-menu-button"
@@ -57,9 +69,38 @@
 </nav>
 
 <script>
+  import { authService } from '../lib/authService';
+
   document.addEventListener('DOMContentLoaded', () => {
     const mobileMenuButton = document.getElementById('mobile-menu-button');
     const mobileMenu = document.getElementById('mobile-menu');
+    const userMenu = document.getElementById('user-menu');
+    const userName = document.getElementById('user-name');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    const isAuthenticated = authService.isAuthenticated();
+    const currentUser = authService.getCurrentUser();
+    
+    if (isAuthenticated && currentUser) {
+      const loginLink = document.querySelector('a[href="/login"]') as HTMLElement;
+      const registerLink = document.querySelector('a[href="/register"]') as HTMLElement;
+      
+      if (loginLink) loginLink.style.display = 'none';
+      if (registerLink) registerLink.style.display = 'none';
+      if (userMenu) userMenu.classList.remove('hidden');
+      if (userName) userName.textContent = `${currentUser.first_name} ${currentUser.last_name}`;
+    }
+    
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          await authService.logout();
+          window.location.href = '/';
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      });
+    }
     
     if (mobileMenuButton && mobileMenu) {
       mobileMenuButton.addEventListener('click', () => {

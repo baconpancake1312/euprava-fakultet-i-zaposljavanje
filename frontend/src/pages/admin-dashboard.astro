@@ -1,0 +1,123 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+
+<Layout title="Admin Dashboard - eUprava" description="Admin dashboard for eUprava platform.">
+  <div class="min-h-screen flex flex-col">
+    <Navbar />
+    <main class="flex-1 bg-main">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold text-foreground mb-4">Admin Dashboard</h1>
+          <p class="text-muted-foreground">Manage the eUprava platform</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">System Overview</h3>
+            <p class="text-muted-foreground mb-4">Monitor system health and statistics</p>
+            <button id="load-system-stats" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Stats
+            </button>
+            <div id="system-stats" class="mt-4 hidden"></div>
+          </div>
+          
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">User Management</h3>
+            <p class="text-muted-foreground mb-4">Manage users across all services</p>
+            <button id="load-users" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Load Users
+            </button>
+            <div id="users-list" class="mt-4 hidden"></div>
+          </div>
+          
+          <div class="bg-astro-card p-6 rounded-xl silver-line">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Service Status</h3>
+            <p class="text-muted-foreground mb-4">Check status of all microservices</p>
+            <button id="check-services" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              Check Services
+            </button>
+            <div id="services-status" class="mt-4 hidden"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  import { authService } from '../lib/authService';
+  import { toastManager } from '../lib/toast';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!authService.isAuthenticated()) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const user = authService.getCurrentUser();
+    console.log('Admin Dashboard - Current user:', user);
+
+    document.getElementById('load-system-stats')?.addEventListener('click', async () => {
+      try {
+        const systemStats = document.getElementById('system-stats');
+        if (systemStats) {
+          systemStats.innerHTML = `
+            <div class="space-y-2">
+              <div class="p-3 bg-muted rounded-md">
+                <h4 class="font-medium">System Statistics</h4>
+                <p class="text-sm text-muted-foreground">Total Users: Loading...</p>
+                <p class="text-sm text-muted-foreground">Active Sessions: Loading...</p>
+                <p class="text-sm text-muted-foreground">System Uptime: Loading...</p>
+              </div>
+            </div>
+          `;
+          systemStats.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading system stats:', error);
+      }
+    });
+
+    document.getElementById('load-users')?.addEventListener('click', async () => {
+      try {
+        const usersList = document.getElementById('users-list');
+        if (usersList) {
+          usersList.innerHTML = `
+            <div class="space-y-2">
+              <div class="p-3 bg-muted rounded-md">
+                <h4 class="font-medium">User Management</h4>
+                <p class="text-sm text-muted-foreground">User management features coming soon...</p>
+              </div>
+            </div>
+          `;
+          usersList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading users:', error);
+      }
+    });
+
+    document.getElementById('check-services')?.addEventListener('click', async () => {
+      try {
+        const servicesStatus = document.getElementById('services-status');
+        if (servicesStatus) {
+          servicesStatus.innerHTML = `
+            <div class="space-y-2">
+              <div class="p-3 bg-muted rounded-md">
+                <h4 class="font-medium">Service Status</h4>
+                <p class="text-sm text-muted-foreground">Auth Service: <span class="text-green-500">Online</span></p>
+                <p class="text-sm text-muted-foreground">University Service: <span class="text-green-500">Online</span></p>
+                <p class="text-sm text-muted-foreground">Employment Service: <span class="text-green-500">Online</span></p>
+              </div>
+            </div>
+          `;
+          servicesStatus.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error checking services:', error);
+      }
+    });
+  });
+</script>

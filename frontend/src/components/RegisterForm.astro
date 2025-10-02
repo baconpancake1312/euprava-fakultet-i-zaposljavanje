@@ -71,17 +71,57 @@
           >
         </div>
         
-        <div>
-          <label for="confirmPassword" class="block text-sm font-medium text-foreground">Potvrdite lozinku</label>
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            required
-            class="mt-1 flex h-10 w-full rounded-md border border-input bg-astro-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Ponovite lozinku"
-          >
-        </div>
+            <div>
+              <label for="confirmPassword" class="block text-sm font-medium text-foreground">Potvrdite lozinku</label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                class="mt-1 flex h-10 w-full rounded-md border border-input bg-astro-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Ponovite lozinku"
+              >
+            </div>
+            
+            <div>
+              <label for="phone" class="block text-sm font-medium text-foreground">Telefon</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                class="mt-1 flex h-10 w-full rounded-md border border-input bg-astro-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="+381 60 123 4567"
+              >
+            </div>
+            
+            <div>
+              <label for="address" class="block text-sm font-medium text-foreground">Adresa</label>
+              <input
+                id="address"
+                name="address"
+                type="text"
+                required
+                class="mt-1 flex h-10 w-full rounded-md border border-input bg-astro-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Ulica i broj, Grad"
+              >
+            </div>
+            
+            <div>
+              <label for="userType" class="block text-sm font-medium text-foreground">Tip korisnika</label>
+              <select
+                id="userType"
+                name="userType"
+                required
+                class="mt-1 flex h-10 w-full rounded-md border border-input bg-astro-card px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="STUDENT">Student</option>
+                <option value="PROFESSOR">Profesor</option>
+                <option value="EMPLOYER">Poslodavac</option>
+                <option value="CANDIDATE">Kandidat za posao</option>
+                <option value="ADMIN">Administrator</option>
+              </select>
+            </div>
       </div>
 
       <div class="text-sm text-muted-foreground">
@@ -115,6 +155,8 @@
 </div>
 
 <script>
+  import { authService } from '../lib/authService';
+
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('register-form') as HTMLFormElement;
     const submitButton = document.getElementById('submit-button') as HTMLButtonElement;
@@ -125,22 +167,22 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      // Show loading state
       submitButton.disabled = true;
       buttonText.textContent = 'Registracija...';
       errorMessage.classList.add('hidden');
       successMessage.classList.add('hidden');
 
-      // Get form data
       const formData = new FormData(form);
       const firstName = formData.get('firstName') as string;
       const lastName = formData.get('lastName') as string;
       const email = formData.get('email') as string;
       const password = formData.get('password') as string;
       const confirmPassword = formData.get('confirmPassword') as string;
+      const phone = formData.get('phone') as string;
+      const address = formData.get('address') as string;
+      const userType = formData.get('userType') as string;
 
-      // Basic validation
-      if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      if (!firstName || !lastName || !email || !password || !confirmPassword || !phone || !address || !userType) {
         errorMessage.textContent = 'Molimo popunite sva polja.';
         errorMessage.classList.remove('hidden');
         submitButton.disabled = false;
@@ -163,26 +205,37 @@
         buttonText.textContent = 'Registrujte se';
         return;
       }
-      
 
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const userData = {
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          password: password,
+          phone: phone,
+          address: address,
+          user_type: userType as 'STUDENT' | 'PROFESSOR' | 'EMPLOYER' | 'CANDIDATE' | 'ADMIN'
+        };
+
+        const response = await authService.register(userData);
         
-        // Simulate successful registration
-        console.log('Registration attempt:', { firstName, lastName, email, password });
+        console.log('Registration successful:', response);
+        console.log('User microservice:', response.microservice);
         
-        successMessage.textContent = 'Uspešno ste se registrovali! Možete se sada prijaviti.';
+        successMessage.textContent = 'Uspešno ste se registrovali! Preusmjeravamo vas...';
         successMessage.classList.remove('hidden');
         
-        // Redirect to login after 2 seconds
         setTimeout(() => {
-          window.location.href = '/login';
+          if (response.microservice === 'university') {
+            window.location.href = '/university-dashboard';
+          } else if (response.microservice === 'employment') {
+            window.location.href = '/employment-dashboard';
+          } else {
+            window.location.href = '/admin-dashboard';
+          }
         }, 2000);
         
-      } catch (error) {
-        errorMessage.textContent = 'Greška pri registraciji. Molimo pokušajte ponovo.';
-        errorMessage.classList.remove('hidden');
+      } catch (error: any) {
         console.error('Registration error:', error);
       } finally {
         submitButton.disabled = false;
