@@ -1408,3 +1408,78 @@ func (er *EmploymentRepo) DeleteUnemployedRecord(recordId string) error {
 	er.logger.Printf("Deleted unemployed record with id: %s", recordId)
 	return nil
 }
+
+// GetInternships returns all job listings with position "Internship"
+func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	collection := OpenCollection(er.cli, "listings")
+
+	filter := bson.M{
+		"position":  "Internship",
+		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	cursor, err := collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var internships []*models.JobListing
+	if err := cursor.All(ctx, &internships); err != nil {
+		return nil, err
+	}
+
+	return internships, nil
+}
+
+// GetInternshipsForStudent returns internships for a specific student (with pagination)
+func (er *EmploymentRepo) GetInternshipsForStudent(studentId string, page, limit int) ([]*models.JobListing, int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	collection := OpenCollection(er.cli, "listings")
+
+	filter := bson.M{
+		"position":  "Internship",
+		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+	}
+
+	total, err := collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	skip := (page - 1) * limit
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var internships []*models.JobListing
+	if err := cursor.All(ctx, &internships); err != nil {
+		return nil, 0, err
+	}
+
+	return internships, total, nil
+}

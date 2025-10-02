@@ -1027,3 +1027,49 @@ func (ec *EmploymentController) GetEmployerStats() gin.HandlerFunc {
 		})
 	}
 }
+func (ec *EmploymentController) GetInternships() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		limitStr := c.DefaultQuery("limit", "20")
+		limit, _ := strconv.Atoi(limitStr)
+
+		internships, err := ec.repo.GetInternships(limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"internships": internships,
+			"total":       len(internships),
+		})
+	}
+}
+
+func (ec *EmploymentController) GetInternshipsForStudent() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		studentId := c.Param("studentId")
+		if studentId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Student ID is required"})
+			return
+		}
+
+		pageStr := c.DefaultQuery("page", "1")
+		limitStr := c.DefaultQuery("limit", "20")
+
+		page, _ := strconv.Atoi(pageStr)
+		limit, _ := strconv.Atoi(limitStr)
+
+		internships, total, err := ec.repo.GetInternshipsForStudent(studentId, page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"internships": internships,
+			"total":       total,
+			"page":        page,
+			"limit":       limit,
+		})
+	}
+}

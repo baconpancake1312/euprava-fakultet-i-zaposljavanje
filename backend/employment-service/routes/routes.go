@@ -94,5 +94,9 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.PUT("/admin/jobs/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.ApproveJobListing())
 		protected.PUT("/admin/jobs/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.RejectJobListing())
 		protected.GET("/admin/jobs/pending", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetPendingJobListings())
+
+		protected.GET("/internships", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternships())
+		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternshipsForStudent())
+
 	}
 }
