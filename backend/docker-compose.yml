@@ -41,7 +41,7 @@ services:
   university-service:
     build:
       context: ./university-service
-    restart: always
+    restart: no
     container_name: university-service
     ports:
       - 8088:8088
@@ -76,7 +76,7 @@ services:
     hostname: "university_data_base"
     container_name: "university_data_base"
     image: mongo
-    restart: always
+    restart: no
     ports:
       - "27018:27017"
     environment:
