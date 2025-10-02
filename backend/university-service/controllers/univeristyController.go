@@ -1,8 +1,11 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"time"
 	repositories "university-service/repository"
 
@@ -926,4 +929,51 @@ func (ctrl *Controllers) DeleteInternshipApplication(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+// GetInternshipsForStudent fetches internships from the employment service for a specific student
+func (ctrl *Controllers) GetInternshipsForStudent(c *gin.Context) {
+	studentId := c.Param("studentId")
+	if studentId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Student ID is required"})
+		return
+	}
+
+	// Get pagination parameters
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "20")
+
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+
+	// Make HTTP request to employment service
+	employmentServiceURL := fmt.Sprintf("http://employment-service:8080/internships/student/%s?page=%d&limit=%d", studentId, page, limit)
+
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(employmentServiceURL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to employment service"})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Check if the request was successful
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		c.JSON(resp.StatusCode, gin.H{"error": fmt.Sprintf("Employment service error: %s", string(body))})
+		return
+	}
+
+	// Parse the response
+	var response map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse employment service response"})
+		return
+	}
+
+	// Return the internships data
+	c.JSON(http.StatusOK, response)
 }
