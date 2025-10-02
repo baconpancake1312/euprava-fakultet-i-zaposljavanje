@@ -317,7 +317,7 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		passwordIsValid, _ := VerifyPassword(*user.Password, *foundUser.Password)
+		passwordIsValid, _ := VerifyPassword(*foundUser.Password, *user.Password)
 		defer cancel()
 		if !passwordIsValid {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect password"})
