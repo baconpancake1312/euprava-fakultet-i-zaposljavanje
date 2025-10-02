@@ -94,3 +94,16 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
 }
+
+/* Dark mode input styling */
+input, textarea, select {
+  @apply bg-astro-card text-foreground border-border;
+}
+
+input:focus, textarea:focus, select:focus {
+  @apply ring-2 ring-primary border-primary outline-none;
+}
+
+input::placeholder, textarea::placeholder {
+  @apply text-muted-foreground;
+}

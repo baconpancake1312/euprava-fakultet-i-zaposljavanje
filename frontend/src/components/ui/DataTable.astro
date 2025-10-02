@@ -1,0 +1,103 @@
+---
+export interface Props {
+  data: any[];
+  columns: Array<{
+    key: string;
+    label: string;
+    render?: (value: any, row: any) => string;
+    sortable?: boolean;
+  }>;
+  actions?: Array<{
+    label: string;
+    icon?: string;
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info';
+    onclick: string;
+  }>;
+  class?: string;
+  loading?: boolean;
+  emptyMessage?: string;
+}
+
+const { 
+  data = [], 
+  columns = [], 
+  actions = [],
+  class: className = '',
+  loading = false,
+  emptyMessage = 'No data available',
+  ...rest 
+} = Astro.props;
+---
+
+<div class={`bg-astro-card rounded-xl silver-line overflow-hidden ${className}`} {...rest}>
+  {loading ? (
+    <div class="p-8 text-center">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+      <p class="text-muted-foreground">Loading...</p>
+    </div>
+  ) : data.length === 0 ? (
+    <div class="p-8 text-center">
+      <svg class="w-12 h-12 text-muted-foreground mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+      </svg>
+      <p class="text-muted-foreground">{emptyMessage}</p>
+    </div>
+  ) : (
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-muted/50">
+          <tr>
+            {columns.map(column => (
+              <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {column.label}
+              </th>
+            ))}
+            {actions.length > 0 && (
+              <th class="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Actions
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {data.map((row, index) => (
+            <tr class="hover:bg-muted/30 transition-colors">
+              {columns.map(column => (
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                  {column.render ? column.render(row[column.key], row) : row[column.key]}
+                </td>
+              ))}
+              {actions.length > 0 && (
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex space-x-2 justify-end">
+                    {actions.map(action => (
+                      <button
+                        class={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                          action.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
+                          action.variant === 'secondary' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' :
+                          action.variant === 'success' ? 'bg-green-500 text-white hover:bg-green-600' :
+                          action.variant === 'danger' ? 'bg-red-500 text-white hover:bg-red-600' :
+                          action.variant === 'warning' ? 'bg-yellow-500 text-white hover:bg-yellow-600' :
+                          action.variant === 'info' ? 'bg-blue-500 text-white hover:bg-blue-600' :
+                          'bg-gray-500 text-white hover:bg-gray-600'
+                        }`}
+                        onclick={action.onclick.replace('{id}', row.id || index)}
+                      >
+                        {action.icon && (
+                          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={action.icon}></path>
+                          </svg>
+                        )}
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>

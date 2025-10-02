@@ -1,6 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
+import Card from '../components/ui/Card.astro';
+import Button from '../components/ui/Button.astro';
+import StatsCard from '../components/dashboard/StatsCard.astro';
+import ActionCard from '../components/dashboard/ActionCard.astro';
 ---
 
 <Layout title="Admin Dashboard - eUprava" description="Admin dashboard for eUprava platform.">
@@ -12,35 +16,125 @@ import Navbar from '../components/Navbar.astro';
           <h1 class="text-3xl font-bold text-foreground mb-4">Admin Dashboard</h1>
           <p class="text-muted-foreground">Manage the eUprava platform</p>
         </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">System Overview</h3>
-            <p class="text-muted-foreground mb-4">Monitor system health and statistics</p>
-            <button id="load-system-stats" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Load Stats
-            </button>
-            <div id="system-stats" class="mt-4 hidden"></div>
-          </div>
-          
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">User Management</h3>
-            <p class="text-muted-foreground mb-4">Manage users across all services</p>
-            <button id="load-users" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Load Users
-            </button>
-            <div id="users-list" class="mt-4 hidden"></div>
-          </div>
-          
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">Service Status</h3>
-            <p class="text-muted-foreground mb-4">Check status of all microservices</p>
-            <button id="check-services" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Check Services
-            </button>
-            <div id="services-status" class="mt-4 hidden"></div>
-          </div>
+
+        <!-- Statistics Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatsCard 
+            title="Total Users" 
+            value="0" 
+            icon="U"
+            id="total-users"
+          />
+          <StatsCard 
+            title="Pending Approvals" 
+            value="0" 
+            icon="P"
+            id="pending-approvals"
+          />
+          <StatsCard 
+            title="Total Jobs" 
+            value="0" 
+            icon="J"
+            id="total-jobs"
+          />
+          <StatsCard 
+            title="System Health" 
+            value="100%" 
+            icon="H"
+            id="system-health"
+          />
         </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">User Management</h3>
+              <p class="text-muted-foreground mb-4">Manage users across all services</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-users" variant="primary">
+                  Load Users
+                </Button>
+                <Button id="add-user" variant="success">
+                  Add User
+                </Button>
+              </div>
+              <div id="users-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+          
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Employer Approvals</h3>
+              <p class="text-muted-foreground mb-4">Approve or reject employer registrations</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-pending-employers" variant="primary">
+                  Load Pending
+                </Button>
+              </div>
+              <div id="pending-employers-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+          
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Job Management</h3>
+              <p class="text-muted-foreground mb-4">Manage job listings and applications</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-pending-jobs" variant="primary">
+                  Load Pending Jobs
+                </Button>
+                <Button id="load-job-stats" variant="secondary">
+                  Load Job Stats
+                </Button>
+              </div>
+              <div id="pending-jobs-list" class="mt-4 hidden"></div>
+              <div id="job-stats" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">System Overview</h3>
+              <p class="text-muted-foreground mb-4">Monitor system health and statistics</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-system-stats" variant="primary">
+                  Load Stats
+                </Button>
+              </div>
+              <div id="system-stats" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Platform Analytics</h3>
+              <p class="text-muted-foreground mb-4">Comprehensive platform analytics and insights</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-platform-analytics" variant="primary">
+                  Load Analytics
+                </Button>
+                <Button id="load-user-analytics" variant="secondary">
+                  User Analytics
+                </Button>
+              </div>
+              <div id="platform-analytics" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Recent Activity</h3>
+              <p class="text-muted-foreground mb-4">Monitor recent platform activities</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-recent-activity" variant="primary">
+                  Load Activity
+                </Button>
+              </div>
+              <div id="recent-activity" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+        </div>
+
       </div>
     </main>
   </div>
@@ -59,17 +153,157 @@ import Navbar from '../components/Navbar.astro';
     const user = authService.getCurrentUser();
     console.log('Admin Dashboard - Current user:', user);
 
+    // Load statistics on page load
+    loadStatistics();
+
+    document.getElementById('load-users')?.addEventListener('click', async () => {
+      try {
+        const users = await authService.getAllUsers();
+        const usersList = document.getElementById('users-list');
+        if (usersList) {
+          usersList.innerHTML = `
+            <div class="space-y-2">
+              ${users.map((user: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${user.first_name} ${user.last_name}</h4>
+                    <p class="text-sm text-muted-foreground">${user.email}</p>
+                    <p class="text-sm text-muted-foreground">Type: ${user.user_type}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editUser('${user.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteUser('${user.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          usersList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading users:', error);
+      }
+    });
+
+    document.getElementById('load-pending-employers')?.addEventListener('click', async () => {
+      try {
+        const pendingEmployers = await authService.getPendingEmployers();
+        const pendingEmployersList = document.getElementById('pending-employers-list');
+        if (pendingEmployersList) {
+          pendingEmployersList.innerHTML = `
+            <div class="space-y-2">
+              ${pendingEmployers.map((employer: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${employer.company_name || 'Company Name'}</h4>
+                    <p class="text-sm text-muted-foreground">${employer.contact_email || 'No email'}</p>
+                    <p class="text-sm text-muted-foreground">Status: Pending Approval</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="approveEmployer('${employer.id}')" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+                      Approve
+                    </button>
+                    <button onclick="rejectEmployer('${employer.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          pendingEmployersList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading pending employers:', error);
+      }
+    });
+
+    document.getElementById('load-pending-jobs')?.addEventListener('click', async () => {
+      try {
+        const pendingJobs = await authService.getPendingJobListings();
+        const pendingJobsList = document.getElementById('pending-jobs-list');
+        if (pendingJobsList) {
+          pendingJobsList.innerHTML = `
+            <div class="space-y-2">
+              ${pendingJobs.map((job: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${job.position || 'Job Position'}</h4>
+                    <p class="text-sm text-muted-foreground">${job.description || 'No description'}</p>
+                    <p class="text-sm text-muted-foreground">Type: ${job.is_internship ? 'Internship' : 'Full-time'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="approveJob('${job.id}')" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+                      Approve
+                    </button>
+                    <button onclick="rejectJob('${job.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          pendingJobsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading pending jobs:', error);
+      }
+    });
+
+    document.getElementById('load-job-stats')?.addEventListener('click', async () => {
+      try {
+        const jobStats = await authService.getEmployerStats();
+        const jobStatsDiv = document.getElementById('job-stats');
+        if (jobStatsDiv) {
+          jobStatsDiv.innerHTML = `
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-3 bg-muted rounded-md text-center">
+                <div class="text-2xl font-bold">${jobStats.total_jobs || 0}</div>
+                <div class="text-sm text-muted-foreground">Total Jobs</div>
+              </div>
+              <div class="p-3 bg-muted rounded-md text-center">
+                <div class="text-2xl font-bold">${jobStats.active_jobs || 0}</div>
+                <div class="text-sm text-muted-foreground">Active Jobs</div>
+              </div>
+            </div>
+          `;
+          jobStatsDiv.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading job stats:', error);
+      }
+    });
+
     document.getElementById('load-system-stats')?.addEventListener('click', async () => {
       try {
+        const users = await authService.getAllUsers();
+        const pendingEmployers = await authService.getPendingEmployers();
+        const jobs = await authService.getJobListings();
+        
         const systemStats = document.getElementById('system-stats');
         if (systemStats) {
           systemStats.innerHTML = `
-            <div class="space-y-2">
-              <div class="p-3 bg-muted rounded-md">
-                <h4 class="font-medium">System Statistics</h4>
-                <p class="text-sm text-muted-foreground">Total Users: Loading...</p>
-                <p class="text-sm text-muted-foreground">Active Sessions: Loading...</p>
-                <p class="text-sm text-muted-foreground">System Uptime: Loading...</p>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-3 bg-muted rounded-md text-center">
+                <div class="text-2xl font-bold">${users.length}</div>
+                <div class="text-sm text-muted-foreground">Total Users</div>
+              </div>
+              <div class="p-3 bg-muted rounded-md text-center">
+                <div class="text-2xl font-bold">${pendingEmployers.length}</div>
+                <div class="text-sm text-muted-foreground">Pending Approvals</div>
+              </div>
+              <div class="p-3 bg-muted rounded-md text-center">
+                <div class="text-2xl font-bold">${jobs.length}</div>
+                <div class="text-sm text-muted-foreground">Total Jobs</div>
+              </div>
+              <div class="p-3 bg-muted rounded-md text-center">
+                <div class="text-2xl font-bold text-green-500">100%</div>
+                <div class="text-sm text-muted-foreground">System Health</div>
               </div>
             </div>
           `;
@@ -80,44 +314,170 @@ import Navbar from '../components/Navbar.astro';
       }
     });
 
-    document.getElementById('load-users')?.addEventListener('click', async () => {
-      try {
-        const usersList = document.getElementById('users-list');
-        if (usersList) {
-          usersList.innerHTML = `
-            <div class="space-y-2">
-              <div class="p-3 bg-muted rounded-md">
-                <h4 class="font-medium">User Management</h4>
-                <p class="text-sm text-muted-foreground">User management features are available.</p>
-              </div>
-            </div>
-          `;
-          usersList.classList.remove('hidden');
-        }
-      } catch (error: any) {
-        console.error('Error loading users:', error);
-      }
+    // Add event listeners for create buttons
+    document.getElementById('add-user')?.addEventListener('click', () => {
+      showUserForm();
     });
 
-    document.getElementById('check-services')?.addEventListener('click', async () => {
+  });
+
+  // Load statistics function
+  async function loadStatistics() {
+    try {
+      const [users, pendingEmployers, jobs] = await Promise.all([
+        authService.getAllUsers().catch(() => []),
+        authService.getPendingEmployers().catch(() => []),
+        authService.getJobListings().catch(() => [])
+      ]);
+
+      // Update statistics cards
+      const totalUsersEl = document.getElementById('total-users');
+      const pendingApprovalsEl = document.getElementById('pending-approvals');
+      const totalJobsEl = document.getElementById('total-jobs');
+      const systemHealthEl = document.getElementById('system-health');
+
+      if (totalUsersEl) totalUsersEl.textContent = users.length.toString();
+      if (pendingApprovalsEl) pendingApprovalsEl.textContent = pendingEmployers.length.toString();
+      if (totalJobsEl) totalJobsEl.textContent = jobs.length.toString();
+      if (systemHealthEl) systemHealthEl.textContent = '100%';
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+    }
+  }
+
+  // Global functions for CRUD operations
+  (window as any).editUser = async (userId: string) => {
+    try {
+      const users = await authService.getAllUsers();
+      const user = users.find((u: any) => u.id === userId);
+      if (user) {
+        showUserForm(user);
+      }
+    } catch (error) {
+      console.error('Error loading user for edit:', error);
+    }
+  };
+
+  (window as any).deleteUser = async (userId: string) => {
+    if (confirm('Are you sure you want to delete this user?')) {
       try {
-        const servicesStatus = document.getElementById('services-status');
-        if (servicesStatus) {
-          servicesStatus.innerHTML = `
-            <div class="space-y-2">
-              <div class="p-3 bg-muted rounded-md">
-                <h4 class="font-medium">Service Status</h4>
-                <p class="text-sm text-muted-foreground">Auth Service: <span class="text-green-500">Online</span></p>
-                <p class="text-sm text-muted-foreground">University Service: <span class="text-green-500">Online</span></p>
-                <p class="text-sm text-muted-foreground">Employment Service: <span class="text-green-500">Online</span></p>
+        await authService.deleteUser(userId);
+        document.getElementById('load-users')?.click();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
+    }
+  };
+
+  (window as any).approveEmployer = async (employerId: string) => {
+    try {
+      await authService.approveEmployer(employerId);
+      document.getElementById('load-pending-employers')?.click();
+    } catch (error) {
+      console.error('Error approving employer:', error);
+    }
+  };
+
+  (window as any).rejectEmployer = async (employerId: string) => {
+    try {
+      await authService.rejectEmployer(employerId);
+      document.getElementById('load-pending-employers')?.click();
+    } catch (error) {
+      console.error('Error rejecting employer:', error);
+    }
+  };
+
+  (window as any).approveJob = async (jobId: string) => {
+    try {
+      await authService.approveJobListing(jobId);
+      document.getElementById('load-pending-jobs')?.click();
+    } catch (error) {
+      console.error('Error approving job:', error);
+    }
+  };
+
+  (window as any).rejectJob = async (jobId: string) => {
+    try {
+      await authService.rejectJobListing(jobId);
+      document.getElementById('load-pending-jobs')?.click();
+    } catch (error) {
+      console.error('Error rejecting job:', error);
+    }
+  };
+
+  // Form display functions
+  function showUserForm(user?: any) {
+    const formHtml = `
+      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-astro-card p-6 rounded-xl silver-line max-w-md w-full mx-4">
+          <h3 class="text-xl font-semibold mb-4">${user ? 'Edit User' : 'Add User'}</h3>
+          <form id="user-form">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">First Name</label>
+                <input type="text" id="user-first-name" value="${user?.first_name || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Last Name</label>
+                <input type="text" id="user-last-name" value="${user?.last_name || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Email</label>
+                <input type="email" id="user-email" value="${user?.email || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">User Type</label>
+                <select id="user-type" class="w-full px-3 py-2 border rounded-md" required>
+                  <option value="STUDENT" ${user?.user_type === 'STUDENT' ? 'selected' : ''}>Student</option>
+                  <option value="PROFESSOR" ${user?.user_type === 'PROFESSOR' ? 'selected' : ''}>Professor</option>
+                  <option value="EMPLOYER" ${user?.user_type === 'EMPLOYER' ? 'selected' : ''}>Employer</option>
+                  <option value="CANDIDATE" ${user?.user_type === 'CANDIDATE' ? 'selected' : ''}>Candidate</option>
+                  <option value="ADMIN" ${user?.user_type === 'ADMIN' ? 'selected' : ''}>Admin</option>
+                </select>
               </div>
             </div>
-          `;
-          servicesStatus.classList.remove('hidden');
+            <div class="flex space-x-2 mt-6">
+              <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                ${user ? 'Update' : 'Create'}
+              </button>
+              <button type="button" onclick="(window as any).closeForm()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+    
+    document.getElementById('user-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = {
+        first_name: (document.getElementById('user-first-name') as HTMLInputElement).value,
+        last_name: (document.getElementById('user-last-name') as HTMLInputElement).value,
+        email: (document.getElementById('user-email') as HTMLInputElement).value,
+        user_type: (document.getElementById('user-type') as HTMLSelectElement).value
+      };
+      
+      try {
+        if (user) {
+          await authService.updateUser(user.id, formData);
+        } else {
+          // For creating users, we'd need a createUser method
+          console.log('Create user functionality would go here');
         }
-      } catch (error: any) {
-        console.error('Error checking services:', error);
+        (window as any).closeForm();
+        document.getElementById('load-users')?.click();
+      } catch (error) {
+        console.error('Error saving user:', error);
       }
     });
-  });
+  }
+
+  (window as any).closeForm = () => {
+    const modal = document.querySelector('.fixed.inset-0');
+    if (modal) {
+      modal.remove();
+    }
+  };
 </script>

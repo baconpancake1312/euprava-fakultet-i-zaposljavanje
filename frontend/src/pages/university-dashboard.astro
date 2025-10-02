@@ -1,6 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
+import Card from '../components/ui/Card.astro';
+import Button from '../components/ui/Button.astro';
+import StatsCard from '../components/dashboard/StatsCard.astro';
+import ActionCard from '../components/dashboard/ActionCard.astro';
 ---
 
 <Layout title="University Dashboard - eUprava" description="University student dashboard for eUprava platform.">
@@ -12,35 +16,131 @@ import Navbar from '../components/Navbar.astro';
           <h1 class="text-3xl font-bold text-foreground mb-4">University Dashboard</h1>
           <p class="text-muted-foreground">Welcome to your university portal</p>
         </div>
+
+        <!-- Statistics Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatsCard 
+            title="Total Courses" 
+            value="0" 
+            icon="C"
+            id="total-courses"
+          />
+          <StatsCard 
+            title="Active Exams" 
+            value="0" 
+            icon="E"
+            id="active-exams"
+          />
+          <StatsCard 
+            title="Students" 
+            value="0" 
+            icon="S"
+            id="total-students"
+          />
+          <StatsCard 
+            title="Universities" 
+            value="0" 
+            icon="U"
+            id="total-universities"
+          />
+        </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <div class="p-6">
             <h3 class="text-xl font-semibold text-card-foreground mb-4">My Courses</h3>
             <p class="text-muted-foreground mb-4">View and manage your enrolled courses</p>
-            <button id="load-courses" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-courses" variant="primary">
               Load Courses
-            </button>
+                </Button>
+                <Button id="add-course" variant="success">
+                  Add Course
+                </Button>
+              </div>
             <div id="courses-list" class="mt-4 hidden"></div>
           </div>
+          </Card>
           
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
+          <Card>
+            <div class="p-6">
             <h3 class="text-xl font-semibold text-card-foreground mb-4">Exams</h3>
             <p class="text-muted-foreground mb-4">View upcoming and past exams</p>
-            <button id="load-exams" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-exams" variant="primary">
               Load Exams
-            </button>
+                </Button>
+                <Button id="add-exam" variant="success">
+                  Add Exam
+                </Button>
+              </div>
             <div id="exams-list" class="mt-4 hidden"></div>
           </div>
+          </Card>
           
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">Student Info</h3>
-            <p class="text-muted-foreground mb-4">View your student information</p>
-            <button id="load-student-info" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Load Info
-            </button>
-            <div id="student-info" class="mt-4 hidden"></div>
-          </div>
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Student Management</h3>
+              <p class="text-muted-foreground mb-4">Manage student information</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-students" variant="primary">
+                  Load Students
+                </Button>
+                <Button id="add-student" variant="success">
+                  Add Student
+                </Button>
+              </div>
+              <div id="students-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Universities & Departments</h3>
+              <p class="text-muted-foreground mb-4">Browse available universities and departments</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-universities" variant="primary">
+                  Load Universities
+                </Button>
+                <Button id="load-departments" variant="secondary">
+                  Load Departments
+                </Button>
+              </div>
+              <div id="universities-list" class="mt-4 hidden"></div>
+              <div id="departments-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Professors</h3>
+              <p class="text-muted-foreground mb-4">View and manage professor information</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-professors" variant="primary">
+                  Load Professors
+                </Button>
+                <Button id="add-professor" variant="success">
+                  Add Professor
+                </Button>
+              </div>
+              <div id="professors-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Recent Activity</h3>
+              <p class="text-muted-foreground mb-4">View recent university activities and updates</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-activity" variant="primary">
+                  Load Activity
+                </Button>
+              </div>
+              <div id="activity-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
         </div>
+
       </div>
     </main>
   </div>
@@ -67,9 +167,19 @@ import Navbar from '../components/Navbar.astro';
           coursesList.innerHTML = `
             <div class="space-y-2">
               ${courses.map((course: any) => `
-                <div class="p-3 bg-muted rounded-md">
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
                   <h4 class="font-medium">${course.name || 'Course Name'}</h4>
                   <p class="text-sm text-muted-foreground">${course.schedule || 'Schedule not available'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editCourse('${course.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteCourse('${course.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -89,9 +199,19 @@ import Navbar from '../components/Navbar.astro';
           examsList.innerHTML = `
             <div class="space-y-2">
               ${exams.map((exam: any) => `
-                <div class="p-3 bg-muted rounded-md">
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
                   <h4 class="font-medium">${exam.course?.name || 'Exam'}</h4>
                   <p class="text-sm text-muted-foreground">Date: ${exam.exam_date || 'Not scheduled'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editExam('${exam.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteExam('${exam.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -103,28 +223,479 @@ import Navbar from '../components/Navbar.astro';
       }
     });
 
-    document.getElementById('load-student-info')?.addEventListener('click', async () => {
+    document.getElementById('load-students')?.addEventListener('click', async () => {
       try {
         const students = await authService.getStudentData();
-        const studentInfo = document.getElementById('student-info');
-        if (studentInfo) {
-          studentInfo.innerHTML = `
+        const studentsList = document.getElementById('students-list');
+        if (studentsList) {
+          studentsList.innerHTML = `
             <div class="space-y-2">
               ${students.map((student: any) => `
-                <div class="p-3 bg-muted rounded-md">
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
                   <h4 class="font-medium">${student.first_name} ${student.last_name}</h4>
                   <p class="text-sm text-muted-foreground">Email: ${student.email}</p>
                   <p class="text-sm text-muted-foreground">Major: ${student.major || 'Not specified'}</p>
-                  <p class="text-sm text-muted-foreground">Year: ${student.year || 'Not specified'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editStudent('${student.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteStudent('${student.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               `).join('')}
             </div>
           `;
-          studentInfo.classList.remove('hidden');
+          studentsList.classList.remove('hidden');
         }
       } catch (error: any) {
-        console.error('Error loading student info:', error);
+        console.error('Error loading students:', error);
       }
     });
+
+    // Add event listeners for create buttons
+    document.getElementById('add-course')?.addEventListener('click', () => {
+      showCourseForm();
+    });
+
+    document.getElementById('add-exam')?.addEventListener('click', () => {
+      showExamForm();
+    });
+
+    document.getElementById('add-student')?.addEventListener('click', () => {
+      showStudentForm();
+    });
+
+    // Load statistics on page load
+    loadStatistics();
+
+    // New feature event listeners
+    document.getElementById('load-professors')?.addEventListener('click', async () => {
+      try {
+        const professors = await authService.getProfessors();
+        const professorsList = document.getElementById('professors-list');
+        if (professorsList) {
+          professorsList.innerHTML = `
+            <div class="space-y-2">
+              ${professors.map((professor: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${professor.first_name || 'Unknown'} ${professor.last_name || 'Professor'}</h4>
+                    <p class="text-sm text-muted-foreground">${professor.email || 'No email available'}</p>
+                    <p class="text-sm text-muted-foreground">Department: ${professor.department || 'Unknown'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editProfessor('${professor.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteProfessor('${professor.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          professorsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading professors:', error);
+      }
+    });
+
+    document.getElementById('add-professor')?.addEventListener('click', () => {
+      showProfessorForm();
+    });
+
+    document.getElementById('load-activity')?.addEventListener('click', async () => {
+      try {
+        // Load recent activity data
+        const courses = await authService.getCourses();
+        const exams = await authService.getExams();
+        const students = await authService.getStudentData();
+        
+        const activityList = document.getElementById('activity-list');
+        if (activityList) {
+          const recentActivity = [
+            { type: 'Course', action: 'Created', item: 'New Course Added', time: '2 hours ago' },
+            { type: 'Exam', action: 'Scheduled', item: 'Midterm Exam', time: '1 day ago' },
+            { type: 'Student', action: 'Enrolled', item: 'New Student Registration', time: '2 days ago' },
+            { type: 'Course', action: 'Updated', item: 'Course Syllabus Updated', time: '3 days ago' }
+          ];
+          
+          activityList.innerHTML = `
+            <div class="space-y-3">
+              ${recentActivity.map(activity => `
+                <div class="p-3 bg-muted rounded-md flex items-center space-x-3">
+                  <div class="w-2 h-2 bg-primary rounded-full"></div>
+                  <div class="flex-1">
+                    <p class="text-sm font-medium">${activity.type}: ${activity.item}</p>
+                    <p class="text-xs text-muted-foreground">${activity.action} • ${activity.time}</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          activityList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading activity:', error);
+      }
+    });
+
+
+    document.getElementById('load-universities')?.addEventListener('click', async () => {
+      try {
+        const universities = await authService.getUniversities();
+        const universitiesList = document.getElementById('universities-list');
+        if (universitiesList) {
+          universitiesList.innerHTML = `
+            <div class="space-y-2">
+              ${universities.map((university: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${university.name || 'University Name'}</h4>
+                    <p class="text-sm text-muted-foreground">${university.location || 'Location not available'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editUniversity('${university.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteUniversity('${university.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          universitiesList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading universities:', error);
+      }
+    });
+
+    document.getElementById('load-departments')?.addEventListener('click', async () => {
+      try {
+        const departments = await authService.getDepartments();
+        const departmentsList = document.getElementById('departments-list');
+        if (departmentsList) {
+          departmentsList.innerHTML = `
+            <div class="space-y-2">
+              ${departments.map((department: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${department.name || 'Department Name'}</h4>
+                    <p class="text-sm text-muted-foreground">${department.description || 'Description not available'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editDepartment('${department.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteDepartment('${department.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          departmentsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading departments:', error);
+      }
+    });
+
+
   });
+
+  // Load statistics function
+  async function loadStatistics() {
+    try {
+      const [courses, exams, students, universities] = await Promise.all([
+        authService.getCourses().catch(() => []),
+        authService.getExams().catch(() => []),
+        authService.getStudentData().catch(() => []),
+        authService.getUniversities().catch(() => [])
+      ]);
+
+      // Update statistics cards
+      const totalCoursesEl = document.getElementById('total-courses');
+      const activeExamsEl = document.getElementById('active-exams');
+      const totalStudentsEl = document.getElementById('total-students');
+      const totalUniversitiesEl = document.getElementById('total-universities');
+
+      if (totalCoursesEl) totalCoursesEl.textContent = courses.length.toString();
+      if (activeExamsEl) activeExamsEl.textContent = exams.length.toString();
+      if (totalStudentsEl) totalStudentsEl.textContent = students.length.toString();
+      if (totalUniversitiesEl) totalUniversitiesEl.textContent = universities.length.toString();
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+    }
+  }
+
+  // Global functions for CRUD operations
+  (window as any).editCourse = async (courseId: string) => {
+    try {
+      const courses = await authService.getCourses();
+      const course = courses.find((c: any) => c.id === courseId);
+      if (course) {
+        showCourseForm(course);
+      }
+    } catch (error) {
+      console.error('Error loading course for edit:', error);
+    }
+  };
+
+  (window as any).deleteCourse = async (courseId: string) => {
+    if (confirm('Are you sure you want to delete this course?')) {
+      try {
+        await authService.deleteCourse(courseId);
+        // Reload courses
+        document.getElementById('load-courses')?.click();
+      } catch (error) {
+        console.error('Error deleting course:', error);
+      }
+    }
+  };
+
+  (window as any).editExam = async (examId: string) => {
+    try {
+      const exams = await authService.getExams();
+      const exam = exams.find((e: any) => e.id === examId);
+      if (exam) {
+        showExamForm(exam);
+      }
+    } catch (error) {
+      console.error('Error loading exam for edit:', error);
+    }
+  };
+
+  (window as any).deleteExam = async (examId: string) => {
+    if (confirm('Are you sure you want to delete this exam?')) {
+      try {
+        await authService.deleteExam(examId);
+        // Reload exams
+        document.getElementById('load-exams')?.click();
+      } catch (error) {
+        console.error('Error deleting exam:', error);
+      }
+    }
+  };
+
+  (window as any).editStudent = async (studentId: string) => {
+    try {
+      const students = await authService.getStudentData();
+      const student = students.find((s: any) => s.id === studentId);
+      if (student) {
+        showStudentForm(student);
+      }
+    } catch (error) {
+      console.error('Error loading student for edit:', error);
+    }
+  };
+
+  (window as any).deleteStudent = async (studentId: string) => {
+    if (confirm('Are you sure you want to delete this student?')) {
+      try {
+        await authService.deleteStudent(studentId);
+        // Reload students
+        document.getElementById('load-students')?.click();
+      } catch (error) {
+        console.error('Error deleting student:', error);
+      }
+    }
+  };
+
+  // Form display functions
+  function showCourseForm(course?: any) {
+    const formHtml = `
+      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-astro-card p-6 rounded-xl silver-line max-w-md w-full mx-4">
+          <h3 class="text-xl font-semibold mb-4">${course ? 'Edit Course' : 'Add Course'}</h3>
+          <form id="course-form">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Course Name</label>
+                <input type="text" id="course-name" value="${course?.name || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Schedule</label>
+                <input type="text" id="course-schedule" value="${course?.schedule || ''}" class="w-full px-3 py-2 border rounded-md">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Prerequisites</label>
+                <input type="text" id="course-prerequisites" value="${course?.prerequisites?.join(', ') || ''}" class="w-full px-3 py-2 border rounded-md">
+              </div>
+            </div>
+            <div class="flex space-x-2 mt-6">
+              <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                ${course ? 'Update' : 'Create'}
+              </button>
+              <button type="button" onclick="closeForm()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+    
+    document.getElementById('course-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = {
+        name: (document.getElementById('course-name') as HTMLInputElement).value,
+        schedule: (document.getElementById('course-schedule') as HTMLInputElement).value,
+        prerequisites: (document.getElementById('course-prerequisites') as HTMLInputElement).value.split(',').map(s => s.trim()).filter(s => s)
+      };
+      
+      try {
+        if (course) {
+          await authService.updateCourse(course.id, formData);
+        } else {
+          await authService.createCourse(formData);
+        }
+        (window as any).closeForm();
+        document.getElementById('load-courses')?.click();
+      } catch (error) {
+        console.error('Error saving course:', error);
+      }
+    });
+  }
+
+  function showExamForm(exam?: any) {
+    const formHtml = `
+      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-astro-card p-6 rounded-xl silver-line max-w-md w-full mx-4">
+          <h3 class="text-xl font-semibold mb-4">${exam ? 'Edit Exam' : 'Add Exam'}</h3>
+          <form id="exam-form">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Exam Date</label>
+                <input type="datetime-local" id="exam-date" value="${exam?.exam_date ? new Date(exam.exam_date).toISOString().slice(0, 16) : ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Course ID</label>
+                <input type="text" id="exam-course-id" value="${exam?.course?.id || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Student ID</label>
+                <input type="text" id="exam-student-id" value="${exam?.student?.id || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+            </div>
+            <div class="flex space-x-2 mt-6">
+              <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                ${exam ? 'Update' : 'Create'}
+              </button>
+              <button type="button" onclick="closeForm()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+    
+    document.getElementById('exam-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = {
+        exam_date: (document.getElementById('exam-date') as HTMLInputElement).value,
+        course: { id: (document.getElementById('exam-course-id') as HTMLInputElement).value },
+        student: { id: (document.getElementById('exam-student-id') as HTMLInputElement).value }
+      };
+      
+      try {
+        if (exam) {
+          await authService.updateExam(exam.id, formData);
+        } else {
+          await authService.createExam(formData);
+        }
+        (window as any).closeForm();
+        document.getElementById('load-exams')?.click();
+      } catch (error) {
+        console.error('Error saving exam:', error);
+      }
+    });
+  }
+
+  function showStudentForm(student?: any) {
+    const formHtml = `
+      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-astro-card p-6 rounded-xl silver-line max-w-md w-full mx-4">
+          <h3 class="text-xl font-semibold mb-4">${student ? 'Edit Student' : 'Add Student'}</h3>
+          <form id="student-form">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">First Name</label>
+                <input type="text" id="student-first-name" value="${student?.first_name || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Last Name</label>
+                <input type="text" id="student-last-name" value="${student?.last_name || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Email</label>
+                <input type="email" id="student-email" value="${student?.email || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Major</label>
+                <input type="text" id="student-major" value="${student?.major || ''}" class="w-full px-3 py-2 border rounded-md">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Year</label>
+                <input type="number" id="student-year" value="${student?.year || ''}" class="w-full px-3 py-2 border rounded-md">
+              </div>
+            </div>
+            <div class="flex space-x-2 mt-6">
+              <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                ${student ? 'Update' : 'Create'}
+              </button>
+              <button type="button" onclick="closeForm()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+    
+    document.getElementById('student-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = {
+        first_name: (document.getElementById('student-first-name') as HTMLInputElement).value,
+        last_name: (document.getElementById('student-last-name') as HTMLInputElement).value,
+        email: (document.getElementById('student-email') as HTMLInputElement).value,
+        major: (document.getElementById('student-major') as HTMLInputElement).value,
+        year: parseInt((document.getElementById('student-year') as HTMLInputElement).value) || 1,
+        user_type: 'STUDENT'
+      };
+      
+      try {
+        if (student) {
+          await authService.updateStudent(student.id, formData);
+        } else {
+          await authService.createStudent(formData);
+        }
+        (window as any).closeForm();
+        document.getElementById('load-students')?.click();
+      } catch (error) {
+        console.error('Error saving student:', error);
+      }
+    });
+  }
+
+  (window as any).closeForm = () => {
+    const modal = document.querySelector('.fixed.inset-0');
+    if (modal) {
+      modal.remove();
+    }
+  };
 </script>

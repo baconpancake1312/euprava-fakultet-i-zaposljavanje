@@ -1,6 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
+import Card from '../components/ui/Card.astro';
+import Button from '../components/ui/Button.astro';
+import StatsCard from '../components/dashboard/StatsCard.astro';
+import ActionCard from '../components/dashboard/ActionCard.astro';
 ---
 
 <Layout title="Employment Dashboard - eUprava" description="Employment dashboard for eUprava platform.">
@@ -13,29 +17,134 @@ import Navbar from '../components/Navbar.astro';
           <p class="text-muted-foreground">Find jobs and manage your career</p>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">Job Listings</h3>
-            <p class="text-muted-foreground mb-4">Browse available job opportunities</p>
-            <button id="load-jobs" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Load Jobs
-            </button>
-            <div id="jobs-list" class="mt-4 hidden"></div>
-          </div>
-          
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">Internships</h3>
-            <p class="text-muted-foreground mb-4">Find internship opportunities</p>
-            <button id="load-internships" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Load Internships
-            </button>
-            <div id="internships-list" class="mt-4 hidden"></div>
-          </div>
-          
+        <!-- Statistics Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatsCard 
+            title="Total Jobs" 
+            value="0" 
+            icon="J"
+            id="total-jobs"
+          />
+          <StatsCard 
+            title="Active Internships" 
+            value="0" 
+            icon="I"
+            id="active-internships"
+          />
+          <StatsCard 
+            title="Employers" 
+            value="0" 
+            icon="E"
+            id="total-employers"
+          />
+          <StatsCard 
+            title="Applications" 
+            value="0" 
+            icon="A"
+            id="total-applications"
+          />
         </div>
         
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <div class="p-6">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Job Listings</h3>
+            <p class="text-muted-foreground mb-4">Browse available job opportunities</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-jobs" variant="primary">
+              Load Jobs
+                </Button>
+                <Button id="add-job" variant="success">
+                  Add Job
+                </Button>
+              </div>
+            <div id="jobs-list" class="mt-4 hidden"></div>
+          </div>
+          </Card>
+          
+          <Card>
+            <div class="p-6">
+            <h3 class="text-xl font-semibold text-card-foreground mb-4">Internships</h3>
+            <p class="text-muted-foreground mb-4">Find internship opportunities</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-internships" variant="primary">
+              Load Internships
+                </Button>
+                <Button id="add-internship" variant="success">
+                  Add Internship
+                </Button>
+              </div>
+            <div id="internships-list" class="mt-4 hidden"></div>
+          </div>
+          </Card>
+          
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Employer Management</h3>
+              <p class="text-muted-foreground mb-4">Manage employer accounts</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-employers" variant="primary">
+                  Load Employers
+                </Button>
+                <Button id="add-employer" variant="success">
+                  Add Employer
+                </Button>
+              </div>
+              <div id="employers-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Job Applications & Documents</h3>
+              <p class="text-muted-foreground mb-4">Manage your applications and documents</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-applications" variant="primary">
+              Load Applications
+                </Button>
+                <Button id="load-documents" variant="secondary">
+                  Load Documents
+                </Button>
+              </div>
+            <div id="applications-list" class="mt-4 hidden"></div>
+              <div id="documents-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+        </div>
+
+        <!-- Additional Data Sections -->
+        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Trending Jobs</h3>
+              <p class="text-muted-foreground mb-4">Most popular job listings</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-trending-jobs" variant="primary">
+                  Load Trending
+                </Button>
+              </div>
+              <div id="trending-jobs-list" class="mt-4 hidden"></div>
+            </div>
+          </Card>
+
+          <Card>
+            <div class="p-6">
+              <h3 class="text-xl font-semibold text-card-foreground mb-4">Active Jobs</h3>
+              <p class="text-muted-foreground mb-4">Currently active job postings</p>
+              <div class="flex space-x-2 mb-4">
+                <Button id="load-active-jobs" variant="primary">
+                  Load Active
+                </Button>
+              </div>
+              <div id="active-jobs-list" class="mt-4 hidden"></div>
+          </div>
+          </Card>
+        </div>
+        
+        <!-- Search Section -->
         <div class="mt-8">
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
+          <Card>
+            <div class="p-6">
             <h3 class="text-xl font-semibold text-card-foreground mb-4">Search Jobs</h3>
             <div class="flex gap-4 mb-4">
               <input 
@@ -44,13 +153,15 @@ import Navbar from '../components/Navbar.astro';
                 placeholder="Search for jobs..." 
                 class="flex-1 px-4 py-2 rounded-md border border-input bg-astro-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <button id="search-jobs" class="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                <Button id="search-jobs" variant="primary">
                 Search
-              </button>
+                </Button>
             </div>
             <div id="search-results" class="hidden"></div>
           </div>
+          </Card>
         </div>
+
       </div>
     </main>
   </div>
@@ -69,6 +180,9 @@ import Navbar from '../components/Navbar.astro';
     const user = authService.getCurrentUser();
     console.log('Employment Dashboard - Current user:', user);
 
+    // Load initial stats
+    loadStatistics();
+
     document.getElementById('load-jobs')?.addEventListener('click', async () => {
       try {
         const jobs = await authService.getJobListings();
@@ -77,10 +191,20 @@ import Navbar from '../components/Navbar.astro';
           jobsList.innerHTML = `
             <div class="space-y-2">
               ${jobs.map((job: any) => `
-                <div class="p-3 bg-muted rounded-md">
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
                   <h4 class="font-medium">${job.position || 'Job Position'}</h4>
                   <p class="text-sm text-muted-foreground">${job.description || 'No description available'}</p>
                   <p class="text-sm text-muted-foreground">Type: ${job.is_internship ? 'Internship' : 'Full-time'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editJob('${job.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteJob('${job.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -94,15 +218,25 @@ import Navbar from '../components/Navbar.astro';
 
     document.getElementById('load-internships')?.addEventListener('click', async () => {
       try {
-        const internships = await authService.getInternships();
+        const internships = await authService.searchJobsByInternship(true);
         const internshipsList = document.getElementById('internships-list');
         if (internshipsList) {
           internshipsList.innerHTML = `
             <div class="space-y-2">
               ${internships.map((internship: any) => `
-                <div class="p-3 bg-muted rounded-md">
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
                   <h4 class="font-medium">${internship.position || 'Internship Position'}</h4>
                   <p class="text-sm text-muted-foreground">${internship.description || 'No description available'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editInternship('${internship.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteInternship('${internship.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -114,27 +248,124 @@ import Navbar from '../components/Navbar.astro';
       }
     });
 
+    document.getElementById('load-employers')?.addEventListener('click', async () => {
+      try {
+        const employers = await authService.getEmployers();
+        const employersList = document.getElementById('employers-list');
+        if (employersList) {
+          employersList.innerHTML = `
+            <div class="space-y-2">
+              ${employers.map((employer: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${employer.company_name || 'Company Name'}</h4>
+                    <p class="text-sm text-muted-foreground">${employer.contact_email || 'No email available'}</p>
+                    <p class="text-sm text-muted-foreground">Status: ${employer.is_approved ? 'Approved' : 'Pending'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="editEmployer('${employer.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Edit
+                    </button>
+                    <button onclick="deleteEmployer('${employer.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          employersList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading employers:', error);
+      }
+    });
+
+    document.getElementById('load-applications')?.addEventListener('click', async () => {
+      try {
+        const applications = await authService.getJobApplications();
+        const applicationsList = document.getElementById('applications-list');
+        if (applicationsList) {
+          applicationsList.innerHTML = `
+            <div class="space-y-2">
+              ${applications.map((application: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${application.job?.position || 'Application'}</h4>
+                    <p class="text-sm text-muted-foreground">Status: ${application.status || 'Pending'}</p>
+                    <p class="text-sm text-muted-foreground">Applied: ${new Date(application.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="viewApplication('${application.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      View
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          applicationsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading applications:', error);
+      }
+    });
+
+    document.getElementById('load-documents')?.addEventListener('click', async () => {
+      try {
+        const documents = await authService.getDocuments();
+        const documentsList = document.getElementById('documents-list');
+        if (documentsList) {
+          documentsList.innerHTML = `
+            <div class="space-y-2">
+              ${documents.map((document: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${document.name || 'Document'}</h4>
+                    <p class="text-sm text-muted-foreground">Type: ${document.type || 'Unknown'}</p>
+                    <p class="text-sm text-muted-foreground">Uploaded: ${new Date(document.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="downloadDocument('${document.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      Download
+                    </button>
+                    <button onclick="deleteDocument('${document.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          documentsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading documents:', error);
+      }
+    });
 
     document.getElementById('search-jobs')?.addEventListener('click', async () => {
-      const searchInput = document.getElementById('job-search') as HTMLInputElement;
-      const query = searchInput.value.trim();
-      
-      if (!query) {
-        toastManager.warning('Search Required', 'Please enter a search term');
-        return;
-      }
+      const searchQuery = (document.getElementById('job-search') as HTMLInputElement).value;
+      if (!searchQuery.trim()) return;
 
       try {
-        const results = await authService.searchJobs(query);
+        const results = await authService.searchJobsByText(searchQuery);
         const searchResults = document.getElementById('search-results');
         if (searchResults) {
           searchResults.innerHTML = `
             <div class="space-y-2">
-              <h4 class="font-medium mb-2">Search Results for "${query}":</h4>
               ${results.map((job: any) => `
-                <div class="p-3 bg-muted rounded-md">
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
                   <h4 class="font-medium">${job.position || 'Job Position'}</h4>
                   <p class="text-sm text-muted-foreground">${job.description || 'No description available'}</p>
+                    <p class="text-sm text-muted-foreground">Type: ${job.is_internship ? 'Internship' : 'Full-time'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="applyToJob('${job.id}')" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+                      Apply
+                    </button>
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -145,5 +376,312 @@ import Navbar from '../components/Navbar.astro';
         console.error('Error searching jobs:', error);
       }
     });
+
+    // Add event listeners for create buttons
+    document.getElementById('add-job')?.addEventListener('click', () => {
+      showJobForm();
+    });
+
+    document.getElementById('add-internship')?.addEventListener('click', () => {
+      showInternshipForm();
+    });
+
+    document.getElementById('add-employer')?.addEventListener('click', () => {
+      showEmployerForm();
+    });
+
+    // Additional data event listeners
+    document.getElementById('load-trending-jobs')?.addEventListener('click', async () => {
+      try {
+        const trendingJobs = await authService.getTrendingJobs();
+        const trendingJobsList = document.getElementById('trending-jobs-list');
+        if (trendingJobsList) {
+          trendingJobsList.innerHTML = `
+            <div class="space-y-2">
+              ${trendingJobs.map((job: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${job.position || 'Job Position'}</h4>
+                    <p class="text-sm text-muted-foreground">${job.description || 'No description available'}</p>
+                    <p class="text-sm text-muted-foreground">Type: ${job.is_internship ? 'Internship' : 'Full-time'}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="viewJob('${job.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      View
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          trendingJobsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading trending jobs:', error);
+      }
+    });
+
+    document.getElementById('load-active-jobs')?.addEventListener('click', async () => {
+      try {
+        const activeJobs = await authService.getActiveJobs();
+        const activeJobsList = document.getElementById('active-jobs-list');
+        if (activeJobsList) {
+          activeJobsList.innerHTML = `
+            <div class="space-y-2">
+              ${activeJobs.map((job: any) => `
+                <div class="p-3 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <h4 class="font-medium">${job.position || 'Job Position'}</h4>
+                    <p class="text-sm text-muted-foreground">${job.description || 'No description available'}</p>
+                    <p class="text-sm text-muted-foreground">Status: Active</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button onclick="viewJob('${job.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                      View
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          activeJobsList.classList.remove('hidden');
+        }
+      } catch (error: any) {
+        console.error('Error loading active jobs:', error);
+      }
+    });
+
+
   });
+
+  // Load statistics function
+  async function loadStatistics() {
+    try {
+      const [jobs, internships, employers, applications] = await Promise.all([
+        authService.getJobListings().catch(() => []),
+        authService.getInternships().catch(() => []),
+        authService.getEmployers().catch(() => []),
+        authService.getJobApplications().catch(() => [])
+      ]);
+
+      // Update statistics cards
+      const totalJobsEl = document.getElementById('total-jobs');
+      const activeInternshipsEl = document.getElementById('active-internships');
+      const totalEmployersEl = document.getElementById('total-employers');
+      const totalApplicationsEl = document.getElementById('total-applications');
+
+      if (totalJobsEl) totalJobsEl.textContent = jobs.length.toString();
+      if (activeInternshipsEl) activeInternshipsEl.textContent = internships.length.toString();
+      if (totalEmployersEl) totalEmployersEl.textContent = employers.length.toString();
+      if (totalApplicationsEl) totalApplicationsEl.textContent = applications.length.toString();
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+    }
+  }
+
+
+  // Global functions for CRUD operations
+  (window as any).editJob = async (jobId: string) => {
+    try {
+      const jobs = await authService.getJobListings();
+      const job = jobs.find((j: any) => j.id === jobId);
+      if (job) {
+        showJobForm(job);
+      }
+    } catch (error) {
+      console.error('Error loading job for edit:', error);
+    }
+  };
+
+  (window as any).deleteJob = async (jobId: string) => {
+    if (confirm('Are you sure you want to delete this job?')) {
+      try {
+        await authService.deleteJobListing(jobId);
+        document.getElementById('load-jobs')?.click();
+      } catch (error) {
+        console.error('Error deleting job:', error);
+      }
+    }
+  };
+
+  (window as any).editInternship = async (internshipId: string) => {
+    try {
+      const internships = await authService.searchJobsByInternship(true);
+      const internship = internships.find((i: any) => i.id === internshipId);
+      if (internship) {
+        showInternshipForm(internship);
+      }
+    } catch (error) {
+      console.error('Error loading internship for edit:', error);
+    }
+  };
+
+  (window as any).deleteInternship = async (internshipId: string) => {
+    if (confirm('Are you sure you want to delete this internship?')) {
+      try {
+        await authService.deleteJobListing(internshipId);
+        document.getElementById('load-internships')?.click();
+      } catch (error) {
+        console.error('Error deleting internship:', error);
+      }
+    }
+  };
+
+  (window as any).editEmployer = async (employerId: string) => {
+    try {
+      const employers = await authService.getEmployers();
+      const employer = employers.find((e: any) => e.id === employerId);
+      if (employer) {
+        showEmployerForm(employer);
+      }
+    } catch (error) {
+      console.error('Error loading employer for edit:', error);
+    }
+  };
+
+  (window as any).deleteEmployer = async (employerId: string) => {
+    if (confirm('Are you sure you want to delete this employer?')) {
+      try {
+        await authService.deleteEmployer(employerId);
+        document.getElementById('load-employers')?.click();
+      } catch (error) {
+        console.error('Error deleting employer:', error);
+      }
+    }
+  };
+
+  (window as any).applyToJob = async (jobId: string) => {
+    try {
+      await authService.createJobApplication({ job_id: jobId });
+      toastManager.success('Application Submitted', 'Your application has been submitted successfully.');
+    } catch (error) {
+      console.error('Error applying to job:', error);
+    }
+  };
+
+  // Form display functions
+  function showJobForm(job?: any) {
+    const formHtml = `
+      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-astro-card p-6 rounded-xl silver-line max-w-md w-full mx-4">
+          <h3 class="text-xl font-semibold mb-4">${job ? 'Edit Job' : 'Add Job'}</h3>
+          <form id="job-form">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Position</label>
+                <input type="text" id="job-position" value="${job?.position || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Description</label>
+                <textarea id="job-description" class="w-full px-3 py-2 border rounded-md" rows="3">${job?.description || ''}</textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Is Internship</label>
+                <input type="checkbox" id="job-internship" ${job?.is_internship ? 'checked' : ''} class="mr-2">
+                <span class="text-sm">This is an internship position</span>
+              </div>
+            </div>
+            <div class="flex space-x-2 mt-6">
+              <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                ${job ? 'Update' : 'Create'}
+              </button>
+              <button type="button" onclick="(window as any).closeForm()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+    
+    document.getElementById('job-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = {
+        position: (document.getElementById('job-position') as HTMLInputElement).value,
+        description: (document.getElementById('job-description') as HTMLTextAreaElement).value,
+        is_internship: (document.getElementById('job-internship') as HTMLInputElement).checked,
+        poster_id: 'current_user_id' // This should be the current user's ID
+      };
+      
+      try {
+        if (job) {
+          await authService.updateJobListing(job.id, formData);
+        } else {
+          await authService.createJobListing(formData);
+        }
+        (window as any).closeForm();
+        document.getElementById('load-jobs')?.click();
+      } catch (error) {
+        console.error('Error saving job:', error);
+      }
+    });
+  }
+
+  function showInternshipForm(internship?: any) {
+    showJobForm(internship); // Internships use the same form as jobs
+  }
+
+  function showEmployerForm(employer?: any) {
+    const formHtml = `
+      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-astro-card p-6 rounded-xl silver-line max-w-md w-full mx-4">
+          <h3 class="text-xl font-semibold mb-4">${employer ? 'Edit Employer' : 'Add Employer'}</h3>
+          <form id="employer-form">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Company Name</label>
+                <input type="text" id="employer-company-name" value="${employer?.company_name || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Contact Email</label>
+                <input type="email" id="employer-contact-email" value="${employer?.contact_email || ''}" class="w-full px-3 py-2 border rounded-md" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Company Description</label>
+                <textarea id="employer-description" class="w-full px-3 py-2 border rounded-md" rows="3">${employer?.description || ''}</textarea>
+              </div>
+            </div>
+            <div class="flex space-x-2 mt-6">
+              <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                ${employer ? 'Update' : 'Create'}
+              </button>
+              <button type="button" onclick="(window as any).closeForm()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+    
+    document.getElementById('employer-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = {
+        company_name: (document.getElementById('employer-company-name') as HTMLInputElement).value,
+        contact_email: (document.getElementById('employer-contact-email') as HTMLInputElement).value,
+        description: (document.getElementById('employer-description') as HTMLTextAreaElement).value
+      };
+      
+      try {
+        if (employer) {
+          await authService.updateEmployer(employer.id, formData);
+        } else {
+          await authService.createEmployer(formData);
+        }
+        (window as any).closeForm();
+        document.getElementById('load-employers')?.click();
+      } catch (error) {
+        console.error('Error saving employer:', error);
+      }
+    });
+  }
+
+  (window as any).closeForm = () => {
+    const modal = document.querySelector('.fixed.inset-0');
+    if (modal) {
+      modal.remove();
+    }
+  };
 </script>

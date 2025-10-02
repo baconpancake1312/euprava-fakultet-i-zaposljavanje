@@ -1,0 +1,67 @@
+---
+import Card from '../ui/Card.astro';
+import Button from '../ui/Button.astro';
+
+export interface Props {
+  title: string;
+  description: string;
+  actions?: Array<{
+    label: string;
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'outline';
+    onclick: string;
+    loading?: boolean;
+  }>;
+  action?: string;
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'outline';
+  icon?: string;
+  class?: string;
+}
+
+const { 
+  title, 
+  description, 
+  actions, 
+  action,
+  variant = 'primary',
+  icon,
+  class: className = '',
+  ...rest 
+} = Astro.props;
+---
+
+<Card class={`${className}`} hover {...rest}>
+  <div class="flex items-start justify-between mb-4">
+    <div class="flex-1">
+      <h3 class="text-lg font-semibold text-card-foreground mb-2">{title}</h3>
+      <p class="text-sm text-muted-foreground">{description}</p>
+    </div>
+    {icon && (
+      <div class="p-2 bg-muted rounded-lg ml-4">
+        <div class="w-5 h-5 text-foreground text-sm font-bold">{icon}</div>
+      </div>
+    )}
+  </div>
+  
+  <div class="flex flex-wrap gap-2">
+    {actions ? actions.map(actionItem => (
+      <Button
+        variant={actionItem.variant || 'primary'}
+        size="sm"
+        onclick={actionItem.onclick}
+        loading={actionItem.loading}
+      >
+        {actionItem.label}
+      </Button>
+    )) : action ? (
+      <div class="w-full" data-action={action}>
+        <Button
+          variant={variant}
+          size="sm"
+          class="w-full"
+        >
+          {title}
+        </Button>
+      </div>
+    ) : null}
+  </div>
+</Card>

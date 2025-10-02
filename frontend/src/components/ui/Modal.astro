@@ -1,0 +1,69 @@
+---
+export interface Props {
+  id: string;
+  title: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  class?: string;
+}
+
+const { 
+  id, 
+  title, 
+  size = 'md',
+  class: className = '',
+  ...rest 
+} = Astro.props;
+
+const sizeClasses = {
+  sm: 'max-w-md',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl'
+};
+
+const classes = `bg-astro-card p-6 rounded-xl silver-line w-full mx-4 ${sizeClasses[size]} ${className}`;
+---
+
+<div id={id} class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div class={classes} {...rest}>
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xl font-semibold text-card-foreground">{title}</h3>
+      <button 
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        onclick={`document.getElementById('${id}').classList.add('hidden')`}
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-content">
+      <slot />
+    </div>
+  </div>
+</div>
+
+<script>
+  // Global functions for modal management
+  window.showModal = (modalId: string) => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  };
+
+  window.hideModal = (modalId: string) => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  };
+
+  // Close modal when clicking outside
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('fixed') && target.classList.contains('inset-0')) {
+      target.classList.add('hidden');
+    }
+  });
+</script>
