@@ -45,6 +45,15 @@ func (ctrl *Controllers) GetStudentByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, student)
 }
+func (ctrl *Controllers) GetStudentByIDLocal(id string) (*repositories.Student, error) {
+
+	student, err := ctrl.Repo.GetStudentByID(id)
+	if err != nil {
+
+		return student, err
+	}
+	return student, nil
+}
 
 func (ctrl *Controllers) UpdateStudent(c *gin.Context) {
 	id := c.Param("id")
