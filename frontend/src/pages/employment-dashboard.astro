@@ -32,14 +32,6 @@ import Navbar from '../components/Navbar.astro';
             <div id="internships-list" class="mt-4 hidden"></div>
           </div>
           
-          <div class="bg-astro-card p-6 rounded-xl silver-line">
-            <h3 class="text-xl font-semibold text-card-foreground mb-4">My Applications</h3>
-            <p class="text-muted-foreground mb-4">Track your job applications</p>
-            <button id="load-applications" class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-              Load Applications
-            </button>
-            <div id="applications-list" class="mt-4 hidden"></div>
-          </div>
         </div>
         
         <div class="mt-8">
@@ -122,21 +114,6 @@ import Navbar from '../components/Navbar.astro';
       }
     });
 
-    document.getElementById('load-applications')?.addEventListener('click', async () => {
-      try {
-        const applicationsList = document.getElementById('applications-list');
-        if (applicationsList) {
-          applicationsList.innerHTML = `
-            <div class="p-3 bg-muted rounded-md">
-              <p class="text-muted-foreground">Applications feature coming soon...</p>
-            </div>
-          `;
-          applicationsList.classList.remove('hidden');
-        }
-      } catch (error: any) {
-        console.error('Error loading applications:', error);
-      }
-    });
 
     document.getElementById('search-jobs')?.addEventListener('click', async () => {
       const searchInput = document.getElementById('job-search') as HTMLInputElement;

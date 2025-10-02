@@ -314,22 +314,6 @@ export class AuthService {
     }
   }
 
-  public async createJobApplication(applicationData: any) {
-    if (!this.isAuthenticated()) {
-      toastManager.error('Authentication Required', 'Please log in to create job applications.');
-      throw new Error('User not authenticated');
-    }
-
-    try {
-      const response = await employmentApi.post('/applications', applicationData);
-      toastManager.success('Application Submitted', 'Your job application has been submitted successfully.');
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to create job application';
-      toastManager.error('Application Failed', errorMessage);
-      throw new Error(errorMessage);
-    }
-  }
 
   public async getStudentData() {
     if (!this.isAuthenticated()) {
