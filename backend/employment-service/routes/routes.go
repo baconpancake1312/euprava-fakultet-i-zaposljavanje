@@ -53,4 +53,14 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 	routes.GET("/unemployed-records/:id", ec.GetUnemployedRecord())
 	routes.PUT("/unemployed-records/:id", ec.UpdateUnemployedRecord())
 	routes.DELETE("/unemployed-records/:id", ec.DeleteUnemployedRecord())
+
+	routes.GET("/search/jobs/text", ec.SearchJobsByText())
+	routes.GET("/search/jobs/internship", ec.SearchJobsByInternship())
+	routes.GET("/search/jobs/active", ec.GetActiveJobs())
+	routes.GET("/search/jobs/trending", ec.GetTrendingJobs())
+
+	routes.GET("/search/users/text", ec.SearchUsersByText())
+	routes.GET("/search/employers/text", ec.SearchEmployersByText())
+	routes.GET("/search/candidates/text", ec.SearchCandidatesByText())
+	routes.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.SearchApplicationsByStatus())
 }
