@@ -23,7 +23,11 @@ type EmploymentRepo struct {
 }
 
 func NewEmploymentRepo(ctx context.Context, logger *log.Logger) (*EmploymentRepo, error) {
-	dburi := fmt.Sprintf("mongodb://%s:%s/", os.Getenv("DORM_DB_HOST"), os.Getenv("DORM_DB_PORT"))
+	dburi := fmt.Sprintf("mongodb://%s:%s@%s:%s/", 
+		os.Getenv("MONGO_INITDB_ROOT_USERNAME"), 
+		os.Getenv("MONGO_INITDB_ROOT_PASSWORD"), 
+		os.Getenv("DORM_DB_HOST"), 
+		os.Getenv("DORM_DB_PORT"))
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(dburi))
 	if err != nil {
