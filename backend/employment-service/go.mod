@@ -2,8 +2,6 @@ module employment-service
 
 go 1.23.0
 
-toolchain go1.24.7
-
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-gonic/gin v1.11.0

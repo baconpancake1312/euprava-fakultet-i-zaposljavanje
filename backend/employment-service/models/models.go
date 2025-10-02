@@ -5,20 +5,19 @@ import (
 	"io"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type User struct {
-	ID           primitive.ObjectID `bson:"_id" json:"id"`
-	FirstName    *string            `bson:"first_name" json:"first_name" validate:"required,min=2,max=100"`
-	LastName     *string            `bson:"last_name" json:"last_name" validate:"required,min=2,max=100"`
-	Email        *string            `bson:"email" json:"email" validate:"required,email"`
-	Password     *string            `bson:"password" json:"password" validate:"required,min=8"`
-	Phone        *string            `bson:"phone" json:"phone" validate:"required"`
-	Address      *string            `bson:"address" json:"address" validate:"required"`
-	DateOfBirth  time.Time          `bson:"date_of_birth" json:"date_of_birth"`
-	JMBG         *string            `bson:"jmbg" json:"jmbg" validate:"required,len=13"`
+	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	FirstName   *string            `bson:"first_name" json:"first_name" validate:"required,min=2,max=100"`
+	LastName    *string            `bson:"last_name" json:"last_name" validate:"required,min=2,max=100"`
+	Email       *string            `bson:"email" json:"email" validate:"required,email"`
+	Password    *string            `bson:"password" json:"password" validate:"required,min=8"`
+	Phone       *string            `bson:"phone" json:"phone" validate:"required"`
+	Address     *string            `bson:"address" json:"address" validate:"required"`
+	DateOfBirth time.Time          `bson:"date_of_birth" json:"date_of_birth"`
+	JMBG        *string            `bson:"jmbg" json:"jmbg" validate:"required,len=13"`
 }
 
 type Employer struct {
@@ -39,13 +38,13 @@ type Candidate struct {
 }
 
 type JobListing struct {
-	ID          primitive.ObjectID `bson:"_id" json:"id"`
-	PosterId    primitive.ObjectID `bson:"poster_id" json:"poster_id"`
-	Position    string             `bson:"position" json:"position"`
-	Description string             `bson:"description" json:"description"`
-	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
-	ExpireAt    time.Time          `bson:"expire_at" json:"expire_at"`
-	IsInternship bool              `bson:"is_internship" json:"is_internship"`
+	ID           primitive.ObjectID `bson:"_id" json:"id"`
+	PosterId     primitive.ObjectID `bson:"poster_id" json:"poster_id"`
+	Position     string             `bson:"position" json:"position"`
+	Description  string             `bson:"description" json:"description"`
+	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
+	ExpireAt     time.Time          `bson:"expire_at" json:"expire_at"`
+	IsInternship bool               `bson:"is_internship" json:"is_internship"`
 }
 
 type Application struct {
@@ -79,4 +78,3 @@ func (o *Applications) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(o)
 }
-

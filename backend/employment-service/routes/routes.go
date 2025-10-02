@@ -59,6 +59,9 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 	routes.GET("/search/jobs/active", ec.GetActiveJobs())
 	routes.GET("/search/jobs/trending", ec.GetTrendingJobs())
 
+	routes.GET("/internships", ec.GetInternships())
+	routes.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternshipsForStudent())
+
 	routes.GET("/search/users/text", ec.SearchUsersByText())
 	routes.GET("/search/employers/text", ec.SearchEmployersByText())
 	routes.GET("/search/candidates/text", ec.SearchCandidatesByText())

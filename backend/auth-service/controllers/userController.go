@@ -152,14 +152,30 @@ func RegisterIntoUni(user *models.User) error {
 		return err
 	}
 
-	resp, err := http.Post("http://university-service:8088/students/create", "application/json", bytes.NewBuffer(jsonData))
+	var url string
+	if user.User_type != nil {
+		switch *user.User_type {
+		case "STUDENT":
+			url = "http://university-service:8088/students/create"
+		case "PROFESSOR":
+			url = "http://university-service:8088/professors/create"
+		case "ADMIN":
+			url = "http://university-service:8088/admins/create"
+		default:
+			return fmt.Errorf("unsupported user type: %s", *user.User_type)
+		}
+	} else {
+		return fmt.Errorf("user type is nil")
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return err
+		return fmt.Errorf("failed to register user in university service, status: %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -309,4 +325,66 @@ func GetUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"user_id": userID, "user": user})
+}
+func UpdateUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("user_id")
+		if userID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_id parameter is required"})
+			return
+		}
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		var userUpdate models.User
+		if err := c.BindJSON(&userUpdate); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		update := bson.M{}
+		if userUpdate.First_name != nil {
+			update["first_name"] = userUpdate.First_name
+		}
+		if userUpdate.Last_name != nil {
+			update["last_name"] = userUpdate.Last_name
+		}
+		if userUpdate.Email != nil {
+			update["email"] = userUpdate.Email
+		}
+		if userUpdate.Phone != nil {
+			update["phone"] = userUpdate.Phone
+		}
+		if userUpdate.Password != nil && *userUpdate.Password != "" {
+			hashedPassword := HashPassword(*userUpdate.Password)
+			update["password"] = hashedPassword
+		}
+		if userUpdate.User_type != nil {
+			update["user_type"] = userUpdate.User_type
+		}
+		update["updated_at"] = time.Now()
+
+		if len(update) == 1 { // only updated_at
+			c.JSON(http.StatusBadRequest, gin.H{"error": "no valid fields to update"})
+			return
+		}
+
+		filter := bson.M{"user_id": userID}
+		result, err := userCollection.UpdateOne(
+			ctx,
+			filter,
+			bson.M{"$set": update},
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if result.MatchedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "user updated successfully"})
+	}
 }

@@ -121,20 +121,6 @@ func (er *EmploymentRepo) GetJobListing(listingId string) (*models.JobListing, e
 	return &listing, nil
 }
 
-func (er *EmploymentRepo) CreateJobListing(listing *models.JobListing) (primitive.ObjectID, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
-	defer cancel()
-	lisCollection := OpenCollection(er.cli, "listings")
-	listing.ID = primitive.NewObjectID()
-	result, err := lisCollection.InsertOne(ctx, &listing)
-	if err != nil {
-		er.logger.Println(err)
-		return primitive.NewObjectID(), err
-	}
-	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
-	return listing.ID, nil
-}
-
 func (er *EmploymentRepo) UpdateJobListing(listingId string, listing *models.JobListing) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
@@ -180,11 +166,11 @@ func (er *EmploymentRepo) DeleteJobListing(listingId string) error {
 		return fmt.Errorf("could not delete applications for job listing with id: %s, error: %v", listingId, err)
 	}
 	for _, app := range applications {
-		er.DeleteApplication(app.Id.Hex())
+		er.DeleteApplication(app.ID.Hex())
 		if err != nil {
 			return fmt.Errorf("could not delete applications for job listing with id: %s, error: %v", listingId, err)
 		} else {
-			er.logger.Printf("Deleting application: %s from listing: %s", app.Id.Hex(), listingId)
+			er.logger.Printf("Deleting application: %s from listing: %s", app.ID.Hex(), listingId)
 		}
 		return nil
 	}
@@ -345,7 +331,6 @@ func (er *EmploymentRepo) GetAllApplications() ([]*models.Application, error) {
 	return applications, nil
 }
 
-
 // Employer CRUD operations
 
 func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.ObjectID, error) {
@@ -409,18 +394,18 @@ func (er *EmploymentRepo) UpdateEmployer(employerId string, employer *models.Emp
 
 	updateData := bson.M{
 		"$set": bson.M{
-			"first_name":    employer.FirstName,
-			"last_name":     employer.LastName,
-			"email":         employer.Email,
-			"phone":         employer.Phone,
-			"address":       employer.Address,
-			"jmbg":          employer.JMBG,
-			"firm_name":     employer.FirmName,
-			"pib":           employer.PIB,
-			"maticni_broj":  employer.MatBr,
-			"delatnost":     employer.Delatnost,
-			"firm_address":  employer.FirmAddress,
-			"firm_phone":    employer.FirmPhone,
+			"first_name":   employer.FirstName,
+			"last_name":    employer.LastName,
+			"email":        employer.Email,
+			"phone":        employer.Phone,
+			"address":      employer.Address,
+			"jmbg":         employer.JMBG,
+			"firm_name":    employer.FirmName,
+			"pib":          employer.PIB,
+			"maticni_broj": employer.MatBr,
+			"delatnost":    employer.Delatnost,
+			"firm_address": employer.FirmAddress,
+			"firm_phone":   employer.FirmPhone,
 		},
 	}
 
@@ -521,15 +506,15 @@ func (er *EmploymentRepo) UpdateCandidate(candidateId string, candidate *models.
 
 	updateData := bson.M{
 		"$set": bson.M{
-			"first_name":  candidate.FirstName,
-			"last_name":   candidate.LastName,
-			"email":       candidate.Email,
-			"phone":       candidate.Phone,
-			"address":     candidate.Address,
-			"jmbg":        candidate.JMBG,
-			"cv_file":     candidate.CVFile,
-			"cv_base64":   candidate.CVBase64,
-			"skills":      candidate.Skills,
+			"first_name": candidate.FirstName,
+			"last_name":  candidate.LastName,
+			"email":      candidate.Email,
+			"phone":      candidate.Phone,
+			"address":    candidate.Address,
+			"jmbg":       candidate.JMBG,
+			"cv_file":    candidate.CVFile,
+			"cv_base64":  candidate.CVBase64,
+			"skills":     candidate.Skills,
 		},
 	}
 
@@ -628,13 +613,12 @@ func (er *EmploymentRepo) UpdateUser(userId string, user *models.User) error {
 
 	updateData := bson.M{
 		"$set": bson.M{
-			"first_name":    user.FirstName,
-			"last_name":     user.LastName,
-			"email":         user.Email,
-			"phone":         user.Phone,
-			"address":       user.Address,
-			"jmbg":          user.JMBG,
-			"notifications": user.Notifications,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"email":      user.Email,
+			"phone":      user.Phone,
+			"address":    user.Address,
+			"jmbg":       user.JMBG,
 		},
 	}
 
@@ -671,7 +655,6 @@ func (er *EmploymentRepo) DeleteUser(userId string) error {
 	er.logger.Printf("Deleted user with id: %s", userId)
 	return nil
 }
-
 
 func (er *EmploymentRepo) CreateDocument(document *models.Document) (primitive.ObjectID, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
@@ -780,7 +763,7 @@ func (er *EmploymentRepo) SearchJobsByText(query string, page, limit int) ([]*mo
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "listings")
-	
+
 	filter := bson.M{
 		"$or": []bson.M{
 			{"position": bson.M{"$regex": query, "$options": "i"}},
@@ -804,7 +787,7 @@ func (er *EmploymentRepo) SearchJobsByText(query string, page, limit int) ([]*mo
 	}
 
 	skip := (page - 1) * limit
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{"created_at", -1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -823,7 +806,7 @@ func (er *EmploymentRepo) SearchJobsByInternship(isInternship bool, page, limit 
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "listings")
-	
+
 	filter := bson.M{"is_internship": isInternship}
 
 	total, err := collection.CountDocuments(ctx, filter)
@@ -842,7 +825,7 @@ func (er *EmploymentRepo) SearchJobsByInternship(isInternship bool, page, limit 
 	}
 
 	skip := (page - 1) * limit
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{"created_at", -1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -861,7 +844,7 @@ func (er *EmploymentRepo) SearchUsersByText(query string, page, limit int) ([]*m
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "users")
-	
+
 	filter := bson.M{
 		"$or": []bson.M{
 			{"first_name": bson.M{"$regex": query, "$options": "i"}},
@@ -886,7 +869,7 @@ func (er *EmploymentRepo) SearchUsersByText(query string, page, limit int) ([]*m
 	}
 
 	skip := (page - 1) * limit
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{"first_name", 1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "first_name", Value: 1}}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -905,7 +888,7 @@ func (er *EmploymentRepo) SearchEmployersByText(query string, page, limit int) (
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "employers")
-	
+
 	filter := bson.M{
 		"$or": []bson.M{
 			{"firm_name": bson.M{"$regex": query, "$options": "i"}},
@@ -930,7 +913,7 @@ func (er *EmploymentRepo) SearchEmployersByText(query string, page, limit int) (
 	}
 
 	skip := (page - 1) * limit
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{"firm_name", 1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "firm_name", Value: 1}}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -949,7 +932,7 @@ func (er *EmploymentRepo) SearchCandidatesByText(query string, page, limit int) 
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "candidates")
-	
+
 	filter := bson.M{
 		"$or": []bson.M{
 			{"first_name": bson.M{"$regex": query, "$options": "i"}},
@@ -975,7 +958,7 @@ func (er *EmploymentRepo) SearchCandidatesByText(query string, page, limit int) 
 	}
 
 	skip := (page - 1) * limit
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{"first_name", 1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "first_name", Value: 1}}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -994,7 +977,7 @@ func (er *EmploymentRepo) SearchApplicationsByStatus(status string, page, limit 
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "applications")
-	
+
 	filter := bson.M{"status": bson.M{"$regex": status, "$options": "i"}}
 
 	total, err := collection.CountDocuments(ctx, filter)
@@ -1013,7 +996,7 @@ func (er *EmploymentRepo) SearchApplicationsByStatus(status string, page, limit 
 	}
 
 	skip := (page - 1) * limit
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{"submitted_at", -1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "submitted_at", Value: -1}}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1032,7 +1015,7 @@ func (er *EmploymentRepo) GetRecentJobs(limit int) ([]*models.JobListing, error)
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "listings")
-	
+
 	filter := bson.M{
 		"created_at": bson.M{"$gte": time.Now().AddDate(0, 0, -7)},
 	}
@@ -1044,7 +1027,7 @@ func (er *EmploymentRepo) GetRecentJobs(limit int) ([]*models.JobListing, error)
 		limit = 50
 	}
 
-	cursor, err := collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)).SetSort(bson.D{{"created_at", -1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
 	if err != nil {
 		return nil, err
 	}
@@ -1063,7 +1046,7 @@ func (er *EmploymentRepo) GetActiveJobs(limit int) ([]*models.JobListing, error)
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "listings")
-	
+
 	filter := bson.M{
 		"expire_at": bson.M{"$gt": time.Now()},
 	}
@@ -1075,7 +1058,7 @@ func (er *EmploymentRepo) GetActiveJobs(limit int) ([]*models.JobListing, error)
 		limit = 100
 	}
 
-	cursor, err := collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)).SetSort(bson.D{{"created_at", -1}}))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
 	if err != nil {
 		return nil, err
 	}
@@ -1087,4 +1070,79 @@ func (er *EmploymentRepo) GetActiveJobs(limit int) ([]*models.JobListing, error)
 	}
 
 	return jobs, nil
+}
+
+// GetInternships returns all job listings with position "Internship"
+func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	collection := OpenCollection(er.cli, "listings")
+
+	filter := bson.M{
+		"position":  "Internship",
+		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	cursor, err := collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var internships []*models.JobListing
+	if err := cursor.All(ctx, &internships); err != nil {
+		return nil, err
+	}
+
+	return internships, nil
+}
+
+// GetInternshipsForStudent returns internships for a specific student (with pagination)
+func (er *EmploymentRepo) GetInternshipsForStudent(studentId string, page, limit int) ([]*models.JobListing, int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	collection := OpenCollection(er.cli, "listings")
+
+	filter := bson.M{
+		"position":  "Internship",
+		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+	}
+
+	total, err := collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	skip := (page - 1) * limit
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "created_at", Value: -1}}))
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var internships []*models.JobListing
+	if err := cursor.All(ctx, &internships); err != nil {
+		return nil, 0, err
+	}
+
+	return internships, total, nil
 }
