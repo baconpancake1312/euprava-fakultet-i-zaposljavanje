@@ -1,27 +1,14 @@
 {
-  "name": "nuxt-app",
+  "name": "frontend",
   "type": "module",
-  "private": true,
+  "version": "0.0.1",
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
   },
   "dependencies": {
-    "@googlemaps/markerclusterer": "^2.6.2",
-    "@nuxt/content": "^3.7.1",
-    "@nuxt/eslint": "^1.9.0",
-    "@nuxt/image": "^1.11.0",
-    "@nuxt/scripts": "^0.12.1",
-    "@nuxt/ui": "^4.0.0",
-    "@unhead/vue": "^2.0.17",
-    "better-sqlite3": "^12.4.1",
-    "eslint": "^9.36.0",
-    "nuxt": "^4.1.2",
-    "typescript": "^5.9.3",
-    "vue": "^3.5.22",
-    "vue-router": "^4.5.1"
+    "astro": "^5.14.1"
   }
 }
