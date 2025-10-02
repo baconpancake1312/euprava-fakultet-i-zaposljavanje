@@ -68,6 +68,7 @@ services:
     environment:
       - PORT=8089
       - MONGO_DB_URI=mongodb://root:pass@employment_data_base:27017/employmentDB?authSource=admin
+      - EMPLOYMENT_DB_HOST=employmentDB
     depends_on:
       employment_data_base:
         condition: service_healthy
