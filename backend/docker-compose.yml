@@ -10,7 +10,7 @@ services:
       - 8080:8080
     environment:
       - PORT=8080
-      - MONGO_DB_URI=mongodb://root:pass@user_data_base:27017
+      - MONGO_DB_URI=mongodb://admin:admin@user_data_base:27017/userDB?authSource=admin
     depends_on:
       user_data_base:
         condition: service_healthy
@@ -41,19 +41,25 @@ services:
   university-service:
     build:
       context: ./university-service
-    restart: no
+      dockerfile: Dockerfile
+    restart: always
     container_name: university-service
+    hostname: "university-service"
     ports:
       - 8088:8088
     environment:
       - PORT=8088
-      - MONGO_DB_URI=mongodb://root:pass@university_data_base:27017
+      - MONGO_DB_URI=mongodb://root:pass@university_data_base:27017/studentDB?authSource=admin
+    depends_on:
+      university_data_base:
+        condition: service_healthy
     networks:
       - network
 
   employment-service:
     build:
       context: ./employment-service
+      dockerfile: Dockerfile
     restart: always
     container_name: employment-service
     hostname: "employment-service"
@@ -61,11 +67,7 @@ services:
       - 8089:8089
     environment:
       - PORT=8089
-      - DORM_DB_HOST=employment_data_base
-      - DORM_DB_PORT=27017
-      - EMPLOYMENT_DB_HOST=employmentDB
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=pass
+      - MONGO_DB_URI=mongodb://root:pass@employment_data_base:27017/employmentDB?authSource=admin
     depends_on:
       employment_data_base:
         condition: service_healthy
@@ -76,7 +78,7 @@ services:
     hostname: "university_data_base"
     container_name: "university_data_base"
     image: mongo
-    restart: no
+    restart: always
     ports:
       - "27018:27017"
     environment:
@@ -99,7 +101,7 @@ services:
     image: mongo
     restart: always
     ports:
-      - "27017:27017"
+      - "27020:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: pass
@@ -122,9 +124,9 @@ services:
   #     - network
 
 volumes:
+  user_data_base:
   university_data_base:
   employment_data_base:
-  logs_volume:
 
 networks:
   network:

@@ -8,59 +8,91 @@ import (
 )
 
 func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
-	routes.Use(middleware.Authentication())
+	// Health check endpoint
+	routes.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "service": "employment-service"})
+	})
 
-	routes.POST("/users", ec.CreateUser())
-	routes.GET("/users", ec.GetAllUsers())
-	routes.GET("/users/:id", ec.GetUser())
-	routes.PUT("/users/:id", ec.UpdateUser())
-	routes.DELETE("/users/:id", ec.DeleteUser())
+	// Public routes (no authentication required)
+	public := routes.Group("/")
+	{
+		// Job listings - public access
+		public.GET("/job-listings", ec.GetAllJobListings())
+		public.GET("/job-listings/:id", ec.GetJobListing())
 
-	routes.POST("/employers", ec.CreateEmployer())
-	routes.GET("/employers", ec.GetAllEmployers())
-	routes.GET("/employers/:id", ec.GetEmployer())
-	routes.PUT("/employers/:id", ec.UpdateEmployer())
-	routes.DELETE("/employers/:id", ec.DeleteEmployer())
+		// Search endpoints - public access
+		public.GET("/search/jobs/text", ec.SearchJobsByText())
+		public.GET("/search/jobs/internship", ec.SearchJobsByInternship())
+		public.GET("/search/jobs/active", ec.GetActiveJobs())
+		public.GET("/search/jobs/trending", ec.GetTrendingJobs())
+		public.GET("/search/users/text", ec.SearchUsersByText())
+		public.GET("/search/employers/text", ec.SearchEmployersByText())
+		public.GET("/search/candidates/text", ec.SearchCandidatesByText())
+	}
 
-	routes.POST("/candidates", ec.CreateCandidate())
-	routes.GET("/candidates", ec.GetAllCandidates())
-	routes.GET("/candidates/:id", ec.GetCandidate())
-	routes.PUT("/candidates/:id", ec.UpdateCandidate())
-	routes.DELETE("/candidates/:id", ec.DeleteCandidate())
+	// Protected routes (authentication required)
+	protected := routes.Group("/")
+	protected.Use(middleware.Authentication())
+	{
+		// User management
+		protected.POST("/users", ec.CreateUser())
+		protected.GET("/users", ec.GetAllUsers())
+		protected.GET("/users/:id", ec.GetUser())
+		protected.PUT("/users/:id", ec.UpdateUser())
+		protected.DELETE("/users/:id", ec.DeleteUser())
 
-	routes.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.CreateApplication())
-	routes.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetAllApplications())
-	routes.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER", "STUDENT", "CANDIDATE"}), ec.GetApplication())
-	routes.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateApplication())
-	routes.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteApplication())
+		// Employer management
+		protected.POST("/employers", ec.CreateEmployer())
+		protected.GET("/employers", ec.GetAllEmployers())
+		protected.GET("/employers/:id", ec.GetEmployer())
+		protected.PUT("/employers/:id", ec.UpdateEmployer())
+		protected.DELETE("/employers/:id", ec.DeleteEmployer())
 
-	routes.POST("/job-listings", ec.CreateJobListing())
-	routes.GET("/job-listings", ec.GetAllJobListings())
-	routes.GET("/job-listings/:id", ec.GetJobListing())
-	routes.PUT("/job-listings/:id", ec.UpdateJobListing())
-	routes.DELETE("/job-listings/:id", ec.DeleteJobListing())
+		// Candidate management
+		protected.POST("/candidates", ec.CreateCandidate())
+		protected.GET("/candidates", ec.GetAllCandidates())
+		protected.GET("/candidates/:id", ec.GetCandidate())
+		protected.PUT("/candidates/:id", ec.UpdateCandidate())
+		protected.DELETE("/candidates/:id", ec.DeleteCandidate())
 
-	routes.GET("/job-listings/:jobId/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetApplicationsForJob())
+		// Application management
+		protected.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.CreateApplication())
+		protected.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetAllApplications())
+		protected.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER", "STUDENT", "CANDIDATE"}), ec.GetApplication())
+		protected.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateApplication())
+		protected.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteApplication())
 
-	routes.POST("/documents", ec.CreateDocument())
-	routes.GET("/documents", ec.GetAllDocuments())
-	routes.GET("/documents/:id", ec.GetDocument())
-	routes.PUT("/documents/:id", ec.UpdateDocument())
-	routes.DELETE("/documents/:id", ec.DeleteDocument())
+		// Job listing management (protected)
+		protected.POST("/job-listings", ec.CreateJobListing())
+		protected.PUT("/job-listings/:id", ec.UpdateJobListing())
+		protected.DELETE("/job-listings/:id", ec.DeleteJobListing())
+		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetApplicationsForJob())
 
-	routes.POST("/unemployed-records", ec.CreateUnemployedRecord())
-	routes.GET("/unemployed-records", ec.GetAllUnemployedRecords())
-	routes.GET("/unemployed-records/:id", ec.GetUnemployedRecord())
-	routes.PUT("/unemployed-records/:id", ec.UpdateUnemployedRecord())
-	routes.DELETE("/unemployed-records/:id", ec.DeleteUnemployedRecord())
+		// Document management
+		protected.POST("/documents", ec.CreateDocument())
+		protected.GET("/documents", ec.GetAllDocuments())
+		protected.GET("/documents/:id", ec.GetDocument())
+		protected.PUT("/documents/:id", ec.UpdateDocument())
+		protected.DELETE("/documents/:id", ec.DeleteDocument())
 
-	routes.GET("/search/jobs/text", ec.SearchJobsByText())
-	routes.GET("/search/jobs/internship", ec.SearchJobsByInternship())
-	routes.GET("/search/jobs/active", ec.GetActiveJobs())
-	routes.GET("/search/jobs/trending", ec.GetTrendingJobs())
+		// Unemployed records management
+		protected.POST("/unemployed-records", ec.CreateUnemployedRecord())
+		protected.GET("/unemployed-records", ec.GetAllUnemployedRecords())
+		protected.GET("/unemployed-records/:id", ec.GetUnemployedRecord())
+		protected.PUT("/unemployed-records/:id", ec.UpdateUnemployedRecord())
+		protected.DELETE("/unemployed-records/:id", ec.DeleteUnemployedRecord())
 
-	routes.GET("/search/users/text", ec.SearchUsersByText())
-	routes.GET("/search/employers/text", ec.SearchEmployersByText())
-	routes.GET("/search/candidates/text", ec.SearchCandidatesByText())
-	routes.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.SearchApplicationsByStatus())
+		// Protected search endpoints
+		protected.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.SearchApplicationsByStatus())
+
+		// Admin endpoints
+		protected.PUT("/admin/employers/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.ApproveEmployer())
+		protected.PUT("/admin/employers/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.RejectEmployer())
+		protected.GET("/admin/employers/pending", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetPendingEmployers())
+		protected.GET("/admin/employers/stats", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetEmployerStats())
+
+		protected.PUT("/admin/jobs/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.ApproveJobListing())
+		protected.PUT("/admin/jobs/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.RejectJobListing())
+		protected.GET("/admin/jobs/pending", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetPendingJobListings())
+	}
 }

@@ -51,13 +51,6 @@ func main() {
 
 	helper.InitializeTokenHelper(store.GetClient())
 
-	if err != nil {
-		log.Fatalf("failed to start the database server: %v", err)
-	}
-	if err != nil {
-		logger.Fatal(err)
-	}
-
 	employmentController := controllers.NewEmploymentController(logger, store)
 
 	routes.MainRoutes(router, *employmentController)

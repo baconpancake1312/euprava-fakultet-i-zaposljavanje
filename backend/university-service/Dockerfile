@@ -1,20 +1,50 @@
-# Start from a Golang base image
-FROM golang:latest as builder
+# Build stage
+FROM golang:1.20-alpine AS builder
 
-# Set the working directory inside the container
+# Set working directory
 WORKDIR /app
 
-# Copy the necessary files into the container
+# Install git and ca-certificates (needed for go mod download)
+RUN apk add --no-cache git ca-certificates
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
 COPY . .
 
-# Build the binary
-RUN go build -o main .
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
-# Set the environment variable for the port the microservice listens on
+# Final stage
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates
+
+# Create non-root user
+RUN adduser -D -s /bin/sh appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder /app/main .
+
+# Change ownership to appuser
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Set environment variables
 ENV PORT=8088
 
-# Expose the specified port
+# Expose port
 EXPOSE 8088
 
-# Specify the command to run the binary when the container starts
+# Run the application
 CMD ["./main"]

@@ -5,30 +5,32 @@ import (
 	"io"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type User struct {
-	ID           primitive.ObjectID `bson:"_id" json:"id"`
-	FirstName    *string            `bson:"first_name" json:"first_name" validate:"required,min=2,max=100"`
-	LastName     *string            `bson:"last_name" json:"last_name" validate:"required,min=2,max=100"`
-	Email        *string            `bson:"email" json:"email" validate:"required,email"`
-	Password     *string            `bson:"password" json:"password" validate:"required,min=8"`
-	Phone        *string            `bson:"phone" json:"phone" validate:"required"`
-	Address      *string            `bson:"address" json:"address" validate:"required"`
-	DateOfBirth  time.Time          `bson:"date_of_birth" json:"date_of_birth"`
-	JMBG         *string            `bson:"jmbg" json:"jmbg" validate:"required,len=13"`
+	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	FirstName   *string            `bson:"first_name" json:"first_name" validate:"required,min=2,max=100"`
+	LastName    *string            `bson:"last_name" json:"last_name" validate:"required,min=2,max=100"`
+	Email       *string            `bson:"email" json:"email" validate:"required,email"`
+	Password    *string            `bson:"password" json:"password" validate:"required,min=8"`
+	Phone       *string            `bson:"phone" json:"phone" validate:"required"`
+	Address     *string            `bson:"address" json:"address" validate:"required"`
+	DateOfBirth time.Time          `bson:"date_of_birth" json:"date_of_birth"`
+	JMBG        *string            `bson:"jmbg" json:"jmbg" validate:"required,len=13"`
 }
 
 type Employer struct {
 	User
-	FirmName    string `bson:"firm_name" json:"firm_name"`
-	PIB         string `bson:"pib" json:"pib"`
-	MatBr       string `bson:"maticni_broj" json:"maticni_broj"`
-	Delatnost   string `bson:"delatnost" json:"delatnost"`
-	FirmAddress string `bson:"firm_address" json:"firm_address"`
-	FirmPhone   string `bson:"firm_phone" json:"firm_phone"`
+	FirmName       string    `bson:"firm_name" json:"firm_name"`
+	PIB            string    `bson:"pib" json:"pib"`
+	MatBr          string    `bson:"maticni_broj" json:"maticni_broj"`
+	Delatnost      string    `bson:"delatnost" json:"delatnost"`
+	FirmAddress    string    `bson:"firm_address" json:"firm_address"`
+	FirmPhone      string    `bson:"firm_phone" json:"firm_phone"`
+	ApprovalStatus string    `bson:"approval_status" json:"approval_status"`
+	ApprovedAt     time.Time `bson:"approved_at" json:"approved_at"`
+	ApprovedBy     string    `bson:"approved_by" json:"approved_by"`
 }
 
 type Candidate struct {
@@ -39,13 +41,16 @@ type Candidate struct {
 }
 
 type JobListing struct {
-	ID          primitive.ObjectID `bson:"_id" json:"id"`
-	PosterId    primitive.ObjectID `bson:"poster_id" json:"poster_id"`
-	Position    string             `bson:"position" json:"position"`
-	Description string             `bson:"description" json:"description"`
-	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
-	ExpireAt    time.Time          `bson:"expire_at" json:"expire_at"`
-	IsInternship bool              `bson:"is_internship" json:"is_internship"`
+	ID             primitive.ObjectID `bson:"_id" json:"id"`
+	PosterId       primitive.ObjectID `bson:"poster_id" json:"poster_id"`
+	Position       string             `bson:"position" json:"position"`
+	Description    string             `bson:"description" json:"description"`
+	CreatedAt      time.Time          `bson:"created_at" json:"created_at"`
+	ExpireAt       time.Time          `bson:"expire_at" json:"expire_at"`
+	IsInternship   bool               `bson:"is_internship" json:"is_internship"`
+	ApprovalStatus string             `bson:"approval_status" json:"approval_status"`
+	ApprovedAt     time.Time          `bson:"approved_at" json:"approved_at"`
+	ApprovedBy     string             `bson:"approved_by" json:"approved_by"`
 }
 
 type Application struct {
@@ -79,4 +84,3 @@ func (o *Applications) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(o)
 }
-
