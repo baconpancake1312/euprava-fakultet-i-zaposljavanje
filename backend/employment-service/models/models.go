@@ -41,16 +41,16 @@ type Candidate struct {
 }
 
 type JobListing struct {
-	ID             primitive.ObjectID `bson:"_id" json:"id"`
+	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	PosterId       primitive.ObjectID `bson:"poster_id" json:"poster_id"`
 	Position       string             `bson:"position" json:"position"`
 	Description    string             `bson:"description" json:"description"`
-	CreatedAt      time.Time          `bson:"created_at" json:"created_at"`
-	ExpireAt       time.Time          `bson:"expire_at" json:"expire_at"`
+	CreatedAt      time.Time          `bson:"created_at,omitempty" json:"created_at"`
+	ExpireAt       time.Time          `bson:"expire_at,omitempty" json:"expire_at"`
 	IsInternship   bool               `bson:"is_internship" json:"is_internship"`
 	ApprovalStatus string             `bson:"approval_status" json:"approval_status"`
-	ApprovedAt     time.Time          `bson:"approved_at" json:"approved_at"`
-	ApprovedBy     string             `bson:"approved_by" json:"approved_by"`
+	ApprovedAt     time.Time          `bson:"approved_at,omitempty" json:"approved_at"`
+	ApprovedBy     string             `bson:"approved_by,omitempty" json:"approved_by"`
 }
 
 type Application struct {

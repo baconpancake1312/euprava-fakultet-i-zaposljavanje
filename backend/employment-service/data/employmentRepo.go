@@ -1409,7 +1409,6 @@ func (er *EmploymentRepo) DeleteUnemployedRecord(recordId string) error {
 	return nil
 }
 
-// GetInternships returns all job listings with position "Internship"
 func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -1417,8 +1416,8 @@ func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"position":  "Internship",
-		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+		"is_internship": "true",
+		"expire_at":     bson.M{"$gt": time.Now()}, // Only active internships
 	}
 
 	if limit <= 0 {
@@ -1450,8 +1449,8 @@ func (er *EmploymentRepo) GetInternshipsForStudent(studentId string, page, limit
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"position":  "Internship",
-		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+		"is_internship": "Internship",
+		"expire_at":     bson.M{"$gt": time.Now()}, // Only active internships
 	}
 
 	total, err := collection.CountDocuments(ctx, filter)

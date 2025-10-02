@@ -76,6 +76,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 	router.DELETE("/internship_application/:id", ctrl.DeleteInternshipApplication)
 	router.GET("/internship_applications/:studentId", ctrl.GetAllInternshipApplicationsForStudent)
 
-	router.GET("/internships/student/:studentId", ctrl.GetInternshipsForStudent) //get available internships for a student
+	router.GET("/internships/student/:studentId", ctrl.GetInternshipsForStudent)
+	router.GET("/internships", ctrl.GetAllAvailableInternships)
 
 }

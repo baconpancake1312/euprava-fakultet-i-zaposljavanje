@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"employment-service/data"
 	"employment-service/models"
@@ -145,6 +146,9 @@ func (ec *EmploymentController) GetApplicationsForJob() gin.HandlerFunc {
 func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var listing models.JobListing
+		listing.ApprovalStatus = "PENDING"
+		listing.CreatedAt = time.Now()
+		listing.ExpireAt = time.Now().AddDate(0, 1, 0) //one month from now (d,m,y)
 
 		if err := c.BindJSON(&listing); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
