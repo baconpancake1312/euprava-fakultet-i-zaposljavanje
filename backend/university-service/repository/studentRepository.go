@@ -63,13 +63,11 @@ func (r *Repository) getCollection(collectionName string) *mongo.Collection {
 func (r *Repository) CreateStudent(student *Student) error {
 	r.logger.Println("Creating student:", student)
 	collection := r.getCollection("student")
-	result, err := collection.InsertOne(context.TODO(), student)
+	_, err := collection.InsertOne(context.TODO(), student)
 	if err != nil {
 		r.logger.Println("Error inserting student:", err)
 		return err
 	}
-	student.ID = result.InsertedID.(primitive.ObjectID)
-	r.logger.Println("Student created with ID:", student.ID.Hex())
 	return nil
 }
 
@@ -471,7 +469,7 @@ func (r *Repository) CreateExam(exam *Exam) error {
 }
 
 func (r *Repository) GetExamByID(examID string) (*Exam, error) {
-	collection := r.getCollection("exam")
+	collection := r.getCollection("exams")
 	objectID, err := primitive.ObjectIDFromHex(examID)
 	if err != nil {
 		return nil, err
@@ -485,13 +483,13 @@ func (r *Repository) GetExamByID(examID string) (*Exam, error) {
 }
 
 func (r *Repository) UpdateExam(exam *Exam) error {
-	collection := r.getCollection("exam")
+	collection := r.getCollection("exams")
 	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": exam.ID}, exam)
 	return err
 }
 
 func (r *Repository) DeleteExam(examID string) error {
-	collection := r.getCollection("exam")
+	collection := r.getCollection("exams")
 	objectID, err := primitive.ObjectIDFromHex(examID)
 	if err != nil {
 		return err
@@ -586,7 +584,7 @@ func (r *Repository) GetAllUniversities() ([]University, error) {
 }
 
 func (r *Repository) GetAllExams() ([]Exam, error) {
-	collection := r.getCollection("exam")
+	collection := r.getCollection("exams")
 	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		return nil, err
@@ -887,4 +885,196 @@ func (r *Repository) GetAllInternshipApplicationsForStudent(studentId primitive.
 	}
 
 	return internApps, nil
+}
+
+// ===== NEW EXAM SYSTEM METHODS =====
+
+// ExamSession methods
+func (r *Repository) CreateExamSession(examSession *ExamSession) error {
+	collection := r.getCollection("exam_sessions")
+	examSession.ID = primitive.NewObjectID()
+	examSession.CreatedAt = time.Now()
+	examSession.Status = "scheduled"
+	_, err := collection.InsertOne(context.TODO(), examSession)
+	return err
+}
+
+func (r *Repository) GetExamSessionByID(examSessionID string) (*ExamSession, error) {
+	collection := r.getCollection("exam_sessions")
+	objectID, err := primitive.ObjectIDFromHex(examSessionID)
+	if err != nil {
+		return nil, err
+	}
+	var examSession ExamSession
+	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&examSession)
+	if err != nil {
+		return nil, err
+	}
+	return &examSession, nil
+}
+
+func (r *Repository) GetExamSessionsByProfessor(professorID primitive.ObjectID) ([]ExamSession, error) {
+	collection := r.getCollection("exam_sessions")
+	cursor, err := collection.Find(context.TODO(), bson.M{"professor._id": professorID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var examSessions []ExamSession
+	err = cursor.All(context.TODO(), &examSessions)
+	return examSessions, err
+}
+
+func (r *Repository) UpdateExamSession(examSession *ExamSession) error {
+	collection := r.getCollection("exam_sessions")
+	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": examSession.ID}, examSession)
+	return err
+}
+
+func (r *Repository) DeleteExamSession(examSessionID string) error {
+	collection := r.getCollection("exam_sessions")
+	objectID, err := primitive.ObjectIDFromHex(examSessionID)
+	if err != nil {
+		return err
+	}
+	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	return err
+}
+
+func (r *Repository) GetAllExamSessions() ([]ExamSession, error) {
+	collection := r.getCollection("exam_sessions")
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var examSessions []ExamSession
+	err = cursor.All(context.TODO(), &examSessions)
+	return examSessions, err
+}
+
+// ExamRegistration methods
+func (r *Repository) RegisterForExam(registration *ExamRegistration) error {
+	collection := r.getCollection("exam_registrations")
+	registration.ID = primitive.NewObjectID()
+	registration.RegisteredAt = time.Now()
+	registration.Status = "registered"
+	_, err := collection.InsertOne(context.TODO(), registration)
+	return err
+}
+
+func (r *Repository) DeregisterFromExam(studentID, examSessionID primitive.ObjectID) error {
+	collection := r.getCollection("exam_registrations")
+	_, err := collection.DeleteOne(context.TODO(), bson.M{
+		"student._id":     studentID,
+		"exam_session_id": examSessionID,
+	})
+	return err
+}
+
+func (r *Repository) GetExamRegistrationsByStudent(studentID primitive.ObjectID) ([]ExamRegistration, error) {
+	collection := r.getCollection("exam_registrations")
+	cursor, err := collection.Find(context.TODO(), bson.M{"student._id": studentID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var registrations []ExamRegistration
+	err = cursor.All(context.TODO(), &registrations)
+	return registrations, err
+}
+
+func (r *Repository) GetExamRegistrationsByExamSession(examSessionID primitive.ObjectID) ([]ExamRegistration, error) {
+	collection := r.getCollection("exam_registrations")
+	cursor, err := collection.Find(context.TODO(), bson.M{"exam_session_id": examSessionID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var registrations []ExamRegistration
+	err = cursor.All(context.TODO(), &registrations)
+	return registrations, err
+}
+
+func (r *Repository) UpdateExamRegistration(registration *ExamRegistration) error {
+	collection := r.getCollection("exam_registrations")
+	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": registration.ID}, registration)
+	return err
+}
+
+func (r *Repository) CheckExamRegistration(studentID, examSessionID primitive.ObjectID) (bool, error) {
+	collection := r.getCollection("exam_registrations")
+	count, err := collection.CountDocuments(context.TODO(), bson.M{
+		"student._id":     studentID,
+		"exam_session_id": examSessionID,
+	})
+	return count > 0, err
+}
+
+// ExamGrade methods
+func (r *Repository) CreateExamGrade(grade *ExamGrade) error {
+	collection := r.getCollection("exam_grades")
+	grade.ID = primitive.NewObjectID()
+	grade.GradedAt = time.Now()
+	_, err := collection.InsertOne(context.TODO(), grade)
+	return err
+}
+
+func (r *Repository) UpdateExamGrade(grade *ExamGrade) error {
+	collection := r.getCollection("exam_grades")
+	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": grade.ID}, grade)
+	return err
+}
+
+func (r *Repository) GetExamGradesByStudent(studentID primitive.ObjectID) ([]ExamGrade, error) {
+	collection := r.getCollection("exam_grades")
+	cursor, err := collection.Find(context.TODO(), bson.M{"student._id": studentID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var grades []ExamGrade
+	err = cursor.All(context.TODO(), &grades)
+	return grades, err
+}
+
+func (r *Repository) GetExamGradesByExamSession(examSessionID primitive.ObjectID) ([]ExamGrade, error) {
+	collection := r.getCollection("exam_grades")
+	cursor, err := collection.Find(context.TODO(), bson.M{"exam_session_id": examSessionID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var grades []ExamGrade
+	err = cursor.All(context.TODO(), &grades)
+	return grades, err
+}
+
+func (r *Repository) GetExamGradeByStudentAndExam(studentID, examSessionID primitive.ObjectID) (*ExamGrade, error) {
+	collection := r.getCollection("exam_grades")
+	var grade ExamGrade
+	err := collection.FindOne(context.TODO(), bson.M{
+		"student._id":      studentID,
+		"exam_session._id": examSessionID,
+	}).Decode(&grade)
+	if err != nil {
+		return nil, err
+	}
+	return &grade, nil
+}
+
+func (r *Repository) GetStudentByIDObject(studentID primitive.ObjectID) (*Student, error) {
+	collection := r.getCollection("student")
+	var student Student
+	err := collection.FindOne(context.TODO(), bson.M{"_id": studentID}).Decode(&student)
+	if err != nil {
+		return nil, err
+	}
+	return &student, nil
 }

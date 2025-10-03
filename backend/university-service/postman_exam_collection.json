@@ -1,0 +1,502 @@
+{
+    "info": {
+        "_postman_id": "exam-system-collection",
+        "name": "University Service - New Exam System",
+        "description": "Collection for the new exam system with ExamSessions, ExamRegistrations, and ExamGrades",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "ExamSessions",
+            "item": [
+                {
+                    "name": "Create Exam Session",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"course_id\": \"{{course_id}}\",\n  \"professor_id\": \"{{professor_id}}\",\n  \"exam_date\": \"2024-02-15T10:00:00Z\",\n  \"location\": \"Room A101\",\n  \"max_students\": 50\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/exam-sessions/create",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-sessions",
+                                "create"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get All Exam Sessions",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-sessions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-sessions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Exam Session by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-sessions/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-sessions",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Exam Session",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"course\": {\n    \"_id\": \"{{course_id}}\",\n    \"name\": \"Database Systems\",\n    \"department\": {\n      \"_id\": \"{{department_id}}\",\n      \"name\": \"Computer Science\"\n    },\n    \"professor\": {\n      \"_id\": \"{{professor_id}}\",\n      \"subjects\": [],\n      \"office\": \"Room 101\"\n    },\n    \"schedule\": \"Monday 10:00-12:00\",\n    \"prerequisites\": [\"Data Structures\"]\n  },\n  \"professor\": {\n    \"_id\": \"{{professor_id}}\",\n    \"subjects\": [],\n    \"office\": \"Room 101\"\n  },\n  \"exam_date\": \"2024-02-15T14:00:00Z\",\n  \"location\": \"Room A102\",\n  \"max_students\": 60,\n  \"status\": \"scheduled\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/exam-sessions/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-sessions",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Exam Session",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-sessions/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-sessions",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Exam Sessions by Professor",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-sessions/professor/{{professor_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-sessions",
+                                "professor",
+                                "{{professor_id}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "ExamRegistrations",
+            "item": [
+                {
+                    "name": "Register for Exam",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"student_id\": \"{{student_id}}\",\n  \"exam_session_id\": \"{{exam_session_id}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/exam-registrations/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-registrations",
+                                "register"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Deregister from Exam",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-registrations/deregister/{{student_id}}/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-registrations",
+                                "deregister",
+                                "{{student_id}}",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Student's Exam Registrations",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-registrations/student/{{student_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-registrations",
+                                "student",
+                                "{{student_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Exam Session Registrations",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-registrations/exam-session/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-registrations",
+                                "exam-session",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "ExamGrades",
+            "item": [
+                {
+                    "name": "Create Exam Grade",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"student_id\": \"{{student_id}}\",\n  \"exam_session_id\": \"{{exam_session_id}}\",\n  \"grade\": 8,\n  \"comments\": \"Good understanding of database concepts, minor issues with optimization queries.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/exam-grades/create",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-grades",
+                                "create"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Exam Grade",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"student_id\": \"{{student_id}}\",\n  \"exam_session_id\": \"{{exam_session_id}}\",\n  \"grade\": 9,\n  \"comments\": \"Excellent work! Great understanding of database concepts and query optimization.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/exam-grades/{{exam_grade_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-grades",
+                                "{{exam_grade_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Student's Exam Grades",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-grades/student/{{student_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-grades",
+                                "student",
+                                "{{student_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Exam Session Grades",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-grades/exam-session/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-grades",
+                                "exam-session",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Specific Student Exam Grade",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exam-grades/student/{{student_id}}/exam-session/{{exam_session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exam-grades",
+                                "student",
+                                "{{student_id}}",
+                                "exam-session",
+                                "{{exam_session_id}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Legacy Exam System (Deprecated)",
+            "item": [
+                {
+                    "name": "Create Legacy Exam",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"student\": {\n    \"_id\": \"{{student_id}}\",\n    \"first_name\": \"John\",\n    \"last_name\": \"Doe\",\n    \"email\": \"john.doe@university.edu\",\n    \"phone\": \"+1234567890\",\n    \"address\": \"123 Main St\",\n    \"date_of_birth\": \"2000-01-01T00:00:00Z\",\n    \"jmbg\": \"1234567890123\",\n    \"user_type\": \"STUDENT\",\n    \"major\": \"Computer Science\",\n    \"year\": 3,\n    \"scholarship\": true,\n    \"highschool_gpa\": 4.5,\n    \"gpa\": 3.8,\n    \"esbp\": 120,\n    \"skills\": [\"Java\", \"Python\", \"SQL\"]\n  },\n  \"course\": {\n    \"_id\": \"{{course_id}}\",\n    \"name\": \"Database Systems\",\n    \"department\": {\n      \"_id\": \"{{department_id}}\",\n      \"name\": \"Computer Science\"\n    },\n    \"professor\": {\n      \"_id\": \"{{professor_id}}\",\n      \"subjects\": [],\n      \"office\": \"Room 101\"\n    },\n    \"schedule\": \"Monday 10:00-12:00\",\n    \"prerequisites\": [\"Data Structures\"]\n  },\n  \"exam_date\": \"2024-02-15T10:00:00Z\",\n  \"status\": \"scheduled\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/exams/create",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exams",
+                                "create"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get All Legacy Exams",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auth_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/exams",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "exams"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "auth_token",
+            "value": "your_jwt_token_here",
+            "type": "string"
+        },
+        {
+            "key": "student_id",
+            "value": "60f7b3b3b3b3b3b3b3b3b3b3",
+            "type": "string"
+        },
+        {
+            "key": "professor_id",
+            "value": "60f7b3b3b3b3b3b3b3b3b3b4",
+            "type": "string"
+        },
+        {
+            "key": "course_id",
+            "value": "60f7b3b3b3b3b3b3b3b3b3b5",
+            "type": "string"
+        },
+        {
+            "key": "department_id",
+            "value": "60f7b3b3b3b3b3b3b3b3b3b6",
+            "type": "string"
+        },
+        {
+            "key": "exam_session_id",
+            "value": "60f7b3b3b3b3b3b3b3b3b3b7",
+            "type": "string"
+        },
+        {
+            "key": "exam_grade_id",
+            "value": "60f7b3b3b3b3b3b3b3b3b3b8",
+            "type": "string"
+        }
+    ]
+}

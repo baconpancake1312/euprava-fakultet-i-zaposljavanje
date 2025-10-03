@@ -47,15 +47,17 @@ type Department struct {
 }
 
 type Professor struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Subjects []Course           `bson:"subjects" json:"subjects"`
-	Office   string             `bson:"office" json:"office"`
+	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	User
+	Subjects []Course `bson:"subjects" json:"subjects"`
+	Office   string   `bson:"office" json:"office"`
 }
 
 type Assistant struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Professor Professor          `bson:"professor" json:"professor"`
-	Courses   []Course           `bson:"courses" json:"courses"`
+	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	User
+	Professor Professor `bson:"professor" json:"professor"`
+	Courses   []Course  `bson:"courses" json:"courses"`
 }
 
 type Course struct {
@@ -81,30 +83,84 @@ type Administrator struct {
 }
 
 type User struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	FirstName   *string            `json:"first_name" validate:"required,min=2,max=100"`
-	LastName    *string            `json:"last_name" validate:"required,min=2,max=100"`
-	Email       *string            `json:"email" validate:"required,email"`
-	Password    *string            `json:"password" validate:"required,min=8"`
-	Phone       *string            `json:"phone" validate:"required"`
-	Address     *string            `json:"address" validate:"required"`
-	DateOfBirth time.Time          `bson:"date_of_birth" json:"date_of_birth"`
-	JMBG        string             `json:"jmbg" validate:"required,len=13"`
-	UserType    UserType           `bson:"user_type" json:"user_type"`
+	FirstName   *string   `json:"first_name" validate:"required,min=2,max=100"`
+	LastName    *string   `json:"last_name" validate:"required,min=2,max=100"`
+	Email       *string   `json:"email" validate:"required,email"`
+	Password    *string   `json:"password" validate:"required,min=8"`
+	Phone       *string   `json:"phone" validate:"required"`
+	Address     *string   `json:"address" validate:"required"`
+	DateOfBirth time.Time `bson:"date_of_birth" json:"date_of_birth"`
+	JMBG        string    `json:"jmbg" validate:"required,len=13"`
+	UserType    UserType  `bson:"user_type" json:"user_type"`
 }
 type Student struct {
 	User
-	Major         string   `bson:"major" json:"major,omitempty"`
-	Year          int      `bson:"year" json:"year,omitempty"`
-	Scholarship   bool     `bson:"scholarship" json:"scholarship,omitempty"`
-	HighschoolGPA float64  `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
-	GPA           float64  `bson:"gpa" json:"gpa,omitempty"`
-	ESBP          int      `bson:"esbp" json:"esbp,omitempty"`
-	CVFile        string   `json:"cv_file,omitempty"`
-	CVBase64      string   `json:"cv_base64,omitempty"`
-	Skills        []string `json:"skills,omitempty"`
+	ID            primitive.ObjectID `bson:"_id" json:"id"`
+	Major         string             `bson:"major" json:"major,omitempty"`
+	Year          int                `bson:"year" json:"year,omitempty"`
+	Scholarship   bool               `bson:"scholarship" json:"scholarship,omitempty"`
+	HighschoolGPA float64            `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
+	GPA           float64            `bson:"gpa" json:"gpa,omitempty"`
+	ESBP          int                `bson:"esbp" json:"esbp,omitempty"`
+	CVFile        string             `json:"cv_file,omitempty"`
+	CVBase64      string             `json:"cv_base64,omitempty"`
+	Skills        []string           `json:"skills,omitempty"`
 }
 
+// ExamSession represents an exam created by a professor
+type ExamSession struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Course      Course             `bson:"course" json:"course"`
+	Professor   Professor          `bson:"professor" json:"professor"`
+	ExamDate    time.Time          `bson:"exam_date" json:"exam_date"`
+	Location    string             `bson:"location" json:"location"`
+	MaxStudents int                `bson:"max_students" json:"max_students"`
+	Status      string             `bson:"status" json:"status"` // "scheduled", "completed", "cancelled"
+	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
+}
+type CreateExamSessionRequest struct {
+	CourseID    primitive.ObjectID `json:"course_id" validate:"required"`
+	ProfessorID primitive.ObjectID `json:"professor_id" validate:"required"`
+	ExamDate    time.Time          `json:"exam_date" validate:"required"`
+	Location    string             `json:"location" validate:"required"`
+	MaxStudents int                `json:"max_students" validate:"required,min=1"`
+}
+
+type CreateExamRegistrationRequest struct {
+	StudentID     primitive.ObjectID `json:"student_id" validate:"required"`
+	ExamSessionID primitive.ObjectID `json:"exam_session_id" validate:"required"`
+}
+
+type CreateExamGradeRequest struct {
+	StudentID     primitive.ObjectID `json:"student_id" validate:"required"`
+	ExamSessionID primitive.ObjectID `json:"exam_session_id" validate:"required"`
+	Grade         int                `json:"grade" validate:"required,min=5,max=10"`
+	Comments      string             `json:"comments,omitempty"`
+}
+
+// ExamRegistration represents a student's registration for an exam
+type ExamRegistration struct {
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Student       Student            `bson:"student" json:"student"`
+	ExamSessionID primitive.ObjectID `bson:"exam_session_id" json:"exam_session_id"`
+	RegisteredAt  time.Time          `bson:"registered_at" json:"registered_at"`
+	Status        string             `bson:"status" json:"status"` // "registered", "attended", "missed"
+}
+
+// ExamGrade represents a student's grade for an exam
+type ExamGrade struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Student     Student            `bson:"student" json:"student"`
+	ExamSession `bson:"exam_session" json:"exam_session"`
+	Grade       int       `bson:"grade" json:"grade"` // 5-10 scale
+	Passed      bool      `bson:"passed" json:"passed"`
+	GradedAt    time.Time `bson:"graded_at" json:"graded_at"`
+	GradedBy    Professor `bson:"graded_by" json:"graded_by"`
+	Comments    string    `bson:"comments" json:"comments,omitempty"`
+}
+
+// DEPRECATED: Legacy Exam struct - keeping for backward compatibility but will be removed in future versions
+// Use ExamSession, ExamRegistration, and ExamGrade instead
 type Exam struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Student  Student            `bson:"student" json:"student"`

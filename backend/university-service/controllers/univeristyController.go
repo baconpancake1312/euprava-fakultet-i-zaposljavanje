@@ -1018,3 +1018,356 @@ func (ctrl *Controllers) GetAllAvailableInternships(c *gin.Context) {
 	// Return the internships data
 	c.JSON(http.StatusOK, response)
 }
+func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
+	var req repositories.CreateExamSessionRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch the full course and professor objects
+	course, err := ctrl.Repo.GetCourseByID(req.CourseID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
+		return
+	}
+
+	professor, err := ctrl.Repo.GetProfessorByID(req.ProfessorID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Professor not found"})
+		return
+	}
+
+	// Create the exam session with full objects
+	examSession := repositories.ExamSession{
+		Course:      *course,
+		Professor:   *professor,
+		ExamDate:    req.ExamDate,
+		Location:    req.Location,
+		MaxStudents: req.MaxStudents,
+	}
+
+	err = ctrl.Repo.CreateExamSession(&examSession)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, examSession)
+}
+
+func (ctrl *Controllers) GetExamSessionByID(c *gin.Context) {
+	id := c.Param("id")
+
+	examSession, err := ctrl.Repo.GetExamSessionByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, examSession)
+}
+
+func (ctrl *Controllers) GetExamSessionsByProfessor(c *gin.Context) {
+	professorID := c.Param("professorId")
+	objectID, err := primitive.ObjectIDFromHex(professorID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid professor ID"})
+		return
+	}
+
+	examSessions, err := ctrl.Repo.GetExamSessionsByProfessor(objectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, examSessions)
+}
+
+func (ctrl *Controllers) UpdateExamSession(c *gin.Context) {
+	id := c.Param("id")
+	var examSession repositories.ExamSession
+	if err := c.BindJSON(&examSession); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	examSession.ID = objectID
+
+	err = ctrl.Repo.UpdateExamSession(&examSession)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, examSession)
+}
+
+func (ctrl *Controllers) DeleteExamSession(c *gin.Context) {
+	id := c.Param("id")
+
+	err := ctrl.Repo.DeleteExamSession(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
+}
+
+func (ctrl *Controllers) GetAllExamSessions(c *gin.Context) {
+	examSessions, err := ctrl.Repo.GetAllExamSessions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, examSessions)
+}
+
+// ExamRegistration Controllers
+func (ctrl *Controllers) RegisterForExam(c *gin.Context) {
+	var req repositories.CreateExamRegistrationRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch the full student and exam session objects
+	student, err := ctrl.Repo.GetStudentByID(req.StudentID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+	student.ID = req.StudentID
+
+	examSession, err := ctrl.Repo.GetExamSessionByID(req.ExamSessionID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
+	// Check if student is already registered
+	alreadyRegistered, err := ctrl.Repo.CheckExamRegistration(req.StudentID, req.ExamSessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if alreadyRegistered {
+		c.JSON(http.StatusConflict, gin.H{"error": "Student is already registered for this exam"})
+		return
+	}
+
+	// Create the registration with full objects
+	registration := repositories.ExamRegistration{
+		Student:       *student,
+		ExamSessionID: *&examSession.ID,
+	}
+
+	err = ctrl.Repo.RegisterForExam(&registration)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Successfully registered for exam"})
+}
+
+func (ctrl *Controllers) DeregisterFromExam(c *gin.Context) {
+	studentID, err := primitive.ObjectIDFromHex(c.Param("studentId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	examSessionID, err := primitive.ObjectIDFromHex(c.Param("examSessionId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid exam session ID"})
+		return
+	}
+
+	err = ctrl.Repo.DeregisterFromExam(studentID, examSessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully deregistered from exam"})
+}
+
+func (ctrl *Controllers) GetExamRegistrationsByStudent(c *gin.Context) {
+	studentID, err := primitive.ObjectIDFromHex(c.Param("studentId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	registrations, err := ctrl.Repo.GetExamRegistrationsByStudent(studentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, registrations)
+}
+
+func (ctrl *Controllers) GetExamRegistrationsByExamSession(c *gin.Context) {
+	examSessionID, err := primitive.ObjectIDFromHex(c.Param("examSessionId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid exam session ID"})
+		return
+	}
+
+	registrations, err := ctrl.Repo.GetExamRegistrationsByExamSession(examSessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, registrations)
+}
+
+// ExamGrade Controllers
+func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
+	var req repositories.CreateExamGradeRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate grade range (5-10)
+	if req.Grade < 5 || req.Grade > 10 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Grade must be between 5 and 10"})
+		return
+	}
+
+	// Fetch the full student and exam session objects
+	fetchedStudent, err := ctrl.Repo.GetStudentByID(req.StudentID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	examSession, err := ctrl.Repo.GetExamSessionByID(req.ExamSessionID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
+	// Get professor from exam session for grading
+	professor := examSession.Professor
+
+	// Create the grade with full objects
+	grade := repositories.ExamGrade{
+		Student:     *fetchedStudent,
+		ExamSession: *examSession,
+		Grade:       req.Grade,
+		Passed:      req.Grade >= 6,
+		GradedBy:    professor,
+		Comments:    req.Comments,
+	}
+
+	err = ctrl.Repo.CreateExamGrade(&grade)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, grade)
+}
+
+func (ctrl *Controllers) UpdateExamGrade(c *gin.Context) {
+	id := c.Param("id")
+	var grade repositories.ExamGrade
+	if err := c.BindJSON(&grade); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate grade range (5-10)
+	if grade.Grade < 5 || grade.Grade > 10 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Grade must be between 5 and 10"})
+		return
+	}
+
+	// Set passed status based on grade
+	grade.Passed = grade.Grade >= 6
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	grade.ID = objectID
+
+	err = ctrl.Repo.UpdateExamGrade(&grade)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, grade)
+}
+
+func (ctrl *Controllers) GetExamGradesByStudent(c *gin.Context) {
+	studentID, err := primitive.ObjectIDFromHex(c.Param("studentId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	grades, err := ctrl.Repo.GetExamGradesByStudent(studentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, grades)
+}
+
+func (ctrl *Controllers) GetExamGradesByExamSession(c *gin.Context) {
+	examSessionID, err := primitive.ObjectIDFromHex(c.Param("examSessionId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid exam session ID"})
+		return
+	}
+
+	grades, err := ctrl.Repo.GetExamGradesByExamSession(examSessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, grades)
+}
+
+func (ctrl *Controllers) GetExamGradeByStudentAndExam(c *gin.Context) {
+	studentID, err := primitive.ObjectIDFromHex(c.Param("studentId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	examSessionID, err := primitive.ObjectIDFromHex(c.Param("examSessionId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid exam session ID"})
+		return
+	}
+
+	grade, err := ctrl.Repo.GetExamGradeByStudentAndExam(studentID, examSessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Grade not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, grade)
+}

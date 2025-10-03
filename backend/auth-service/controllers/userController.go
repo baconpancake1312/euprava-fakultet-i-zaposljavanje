@@ -209,6 +209,7 @@ func updateUserServiceStatus(userID, field string, value bool) {
 }
 
 func RegisterIntoUni(user *models.User) error {
+
 	jsonData, err := json.Marshal(user)
 	if err != nil {
 		return err
@@ -265,9 +266,9 @@ func RegisterIntoEmployment(user *models.User) error {
 	var url string
 	switch user.User_type {
 	case models.StudentType, models.CandidateType:
-		url = "http://employment-service:8089/candidates/create"
+		url = "http://employment-service:8089/candidates"
 	case models.EmployerType:
-		url = "http://employment-service:8089/employers/create"
+		url = "http://employment-service:8089/employers"
 	default:
 		return fmt.Errorf("unsupported user type for employment service: %s", user.User_type)
 	}
