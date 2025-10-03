@@ -61,7 +61,7 @@ export default function CompleteEmployerProfile() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h2 className="text-2xl font-bold">Complete Your Employer Profile</h2>
-          <p className="text-muted-foreground">Add your company information to post job listings</p>
+          <p className="text-muted-foreground">Add your company information to be able to post job listings</p>
         </div>
 
         <Card>
@@ -81,7 +81,7 @@ export default function CompleteEmployerProfile() {
                 <Label htmlFor="firm_name">Company Name *</Label>
                 <Input
                   id="firm_name"
-                  placeholder="Tech Solutions Inc."
+                  placeholder="My company name..."
                   value={formData.firm_name}
                   onChange={(e) => updateField("firm_name", e.target.value)}
                   required
@@ -91,7 +91,7 @@ export default function CompleteEmployerProfile() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="pib">PIB (Tax ID) *</Label>
+                  <Label htmlFor="pib">PIB *</Label>
                   <Input
                     id="pib"
                     placeholder="123456789"
@@ -116,10 +116,10 @@ export default function CompleteEmployerProfile() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="delatnost">Business Activity *</Label>
+                <Label htmlFor="delatnost">Business Description</Label>
                 <Textarea
                   id="delatnost"
-                  placeholder="Software development and IT consulting"
+                  placeholder="Man i hate frontend dev"
                   value={formData.delatnost}
                   onChange={(e) => updateField("delatnost", e.target.value)}
                   required

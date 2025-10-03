@@ -42,7 +42,6 @@ export default function CreateJobListingPage() {
         description: formData.description,
         expire_at: formData.expire_at ? new Date(formData.expire_at).toISOString() : undefined,
         is_internship: formData.is_internship,
-        approval_status: "Pending",
       }
 
       await apiClient.createJobListing(data, token)

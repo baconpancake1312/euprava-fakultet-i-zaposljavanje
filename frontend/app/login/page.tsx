@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { GraduationCap, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
@@ -43,7 +43,6 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2 mb-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
             <span className="text-xl font-semibold">euprava</span>
           </Link>
           <h1 className="text-2xl font-bold">Welcome back</h1>

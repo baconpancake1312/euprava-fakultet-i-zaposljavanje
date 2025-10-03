@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -15,7 +16,7 @@ import { Loader2 } from "lucide-react"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isLoading, token } = useAuth()
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -53,8 +54,9 @@ export default function ProfilePage() {
     setLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!token || !user?.id) throw new Error("Not authenticated")
+
+      await apiClient.updateUser(user.id, formData, token)
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile")

@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { GraduationCap } from "lucide-react"
 
 export default function HomePage() {
   const router = useRouter()
@@ -24,10 +23,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-6 w-6" />
-            <span className="text-lg font-semibold">euprava</span>
-          </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => router.push("/login")}>
               Log in

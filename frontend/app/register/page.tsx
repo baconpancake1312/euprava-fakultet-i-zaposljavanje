@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { GraduationCap, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import Link from "next/link"
 
 export default function RegisterPage() {
@@ -58,7 +58,6 @@ export default function RegisterPage() {
       <div className="w-full max-w-2xl space-y-6 my-8">
         <div className="flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2 mb-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
             <span className="text-xl font-semibold">euprava</span>
           </Link>
           <h1 className="text-2xl font-bold">Create an account</h1>

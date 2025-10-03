@@ -7,7 +7,7 @@ import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Briefcase, Plus, Calendar, CheckCircle, Clock, XCircle, Pencil } from "lucide-react"
+import { Loader2, Briefcase, Plus, Calendar, CheckCircle, Clock, XCircle, Pencil, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 
@@ -17,6 +17,7 @@ export default function EmployerJobListingsPage() {
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     loadListings()
@@ -47,6 +48,22 @@ export default function EmployerJobListingsPage() {
         return <XCircle className="h-4 w-4 text-red-500" />
       default:
         return null
+    }
+  }
+
+  const handleDelete = async (listingId: string) => {
+    if (!confirm("Are you sure you want to delete this job listing? This action cannot be undone.")) {
+      return
+    }
+
+    setDeletingId(listingId)
+    try {
+      await apiClient.deleteJobListing(listingId, token!)
+      setListings(prev => prev.filter(listing => listing.id !== listingId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete job listing")
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -138,6 +155,18 @@ export default function EmployerJobListingsPage() {
                       onClick={() => router.push(`/dashboard/employer/job-listings/${listing.id}`)}
                     >
                       View Details
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(listing.id)}
+                      disabled={deletingId === listing.id}
+                    >
+                      {deletingId === listing.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </CardContent>

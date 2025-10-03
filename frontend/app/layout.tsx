@@ -7,9 +7,7 @@ import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "euprava - E-Government Services Platform",
-  description: "Integrated e-government platform for university and employment services",
-  generator: "v0.app",
+  title: "euprava",
 }
 
 export default function RootLayout({
@@ -23,7 +21,6 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <AuthProvider>{children}</AuthProvider>
         </Suspense>
-        {/* Analytics removed to eliminate external service errors */}
       </body>
     </html>
   )

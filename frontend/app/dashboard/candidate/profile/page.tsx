@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -16,8 +17,14 @@ import { Loader2, FileText, X } from "lucide-react"
 
 export default function CandidateProfilePage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user, token } = useAuth()
   const [formData, setFormData] = useState({
+    major: "",
+    year: 1,
+    scholarship: false,
+    highschool_gpa: 0,
+    gpa: 0,
+    esbp: 0,
     cv_base64: "",
     skills: [] as string[],
     skillInput: "",
@@ -32,13 +39,29 @@ export default function CandidateProfilePage() {
       return
     }
 
-    // Simulate loading candidate data
-    setFormData({
-      cv_base64: "existing_cv",
-      skills: ["JavaScript", "React", "Node.js"],
-      skillInput: "",
-    })
-  }, [isAuthenticated, isLoading, router])
+    const loadCandidateData = async () => {
+      if (!token || !user?.id) return
+
+      try {
+        const candidate = await apiClient.getCandidateByUserId(user.id, token)
+        setFormData({
+          major: candidate.major || "",
+          year: candidate.year || 1,
+          scholarship: candidate.scholarship || false,
+          highschool_gpa: candidate.highschool_gpa || 0,
+          gpa: candidate.gpa || 0,
+          esbp: candidate.esbp || 0,
+          cv_base64: candidate.cv_base64 || "",
+          skills: candidate.skills || [],
+          skillInput: "",
+        })
+      } catch (err) {
+        console.error("Failed to load candidate data:", err)
+      }
+    }
+
+    loadCandidateData()
+  }, [isAuthenticated, isLoading, router, token, user])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -76,7 +99,20 @@ export default function CandidateProfilePage() {
     setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!token || !user?.id) throw new Error("Not authenticated")
+
+      const updateData = {
+        major: formData.major,
+        year: formData.year,
+        scholarship: formData.scholarship,
+        highschool_gpa: formData.highschool_gpa,
+        gpa: formData.gpa,
+        esbp: formData.esbp,
+        cv_base64: formData.cv_base64,
+        skills: formData.skills,
+      }
+
+      await apiClient.updateCandidate(user.id, updateData, token)
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile")
@@ -105,8 +141,8 @@ export default function CandidateProfilePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Professional Information</CardTitle>
-            <CardDescription>Update your CV and skills</CardDescription>
+            <CardTitle>Academic Information</CardTitle>
+            <CardDescription>Update your academic details</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -122,6 +158,104 @@ export default function CandidateProfilePage() {
                 </Alert>
               )}
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="major">Major / Field of Study</Label>
+                  <Input
+                    id="major"
+                    placeholder="e.g., Computer Science"
+                    value={formData.major}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, major: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="year">Academic Year</Label>
+                  <Input
+                    id="year"
+                    type="number"
+                    min="1"
+                    max="8"
+                    value={formData.year}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, year: parseInt(e.target.value) || 1 }))}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gpa">Current GPA</Label>
+                  <Input
+                    id="gpa"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="10"
+                    placeholder="0.00"
+                    value={formData.gpa}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, gpa: parseFloat(e.target.value) || 0 }))}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="highschool_gpa">High School GPA</Label>
+                  <Input
+                    id="highschool_gpa"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="10"
+                    placeholder="0.00"
+                    value={formData.highschool_gpa}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, highschool_gpa: parseFloat(e.target.value) || 0 }))}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="esbp">ESBP Points</Label>
+                  <Input
+                    id="esbp"
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formData.esbp}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, esbp: parseInt(e.target.value) || 0 }))}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="scholarship">Scholarship</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="scholarship"
+                      type="checkbox"
+                      checked={formData.scholarship}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, scholarship: e.target.checked }))}
+                      disabled={loading}
+                      className="rounded"
+                    />
+                    <Label htmlFor="scholarship" className="text-sm">I receive a scholarship</Label>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Professional Information</CardTitle>
+            <CardDescription>Update your CV and skills</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="cv">CV / Resume</Label>
                 <Input id="cv" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} disabled={loading} />

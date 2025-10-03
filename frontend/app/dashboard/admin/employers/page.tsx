@@ -76,15 +76,7 @@ export default function AdminEmployersPage() {
   const handleReject = async (employerId: string) => {
     setProcessingId(employerId)
     try {
-      await apiClient.updateEmployer(
-        employerId,
-        {
-          approval_status: "Rejected",
-          approved_at: new Date().toISOString(),
-          approved_by: user?.id,
-        },
-        token!,
-      )
+      await apiClient.rejectEmployer(employerId, token!)
       toast({
         title: "Employer Rejected",
         description: "The employer registration has been rejected.",
@@ -99,6 +91,24 @@ export default function AdminEmployersPage() {
       })
     } finally {
       setProcessingId(null)
+    }
+  }
+
+  const handleClearTestData = async () => {
+    try {
+      await apiClient.clearTestData(token!)
+      toast({
+        title: "Test Data Cleared",
+        description: "All test companies and job listings have been removed.",
+      })
+      loadEmployers()
+    } catch (error) {
+      console.error("Failed to clear test data:", error)
+      toast({
+        title: "Clear Failed",
+        description: error instanceof Error ? error.message : "Failed to clear test data. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -124,9 +134,18 @@ export default function AdminEmployersPage() {
   return (
     <DashboardLayout title="Employer Management">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Employer Management</h1>
-          <p className="text-muted-foreground">Review and approve employer registrations</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold">Employer Management</h1>
+            <p className="text-muted-foreground">Review and approve employer registrations</p>
+          </div>
+          <Button 
+            variant="destructive" 
+            onClick={handleClearTestData}
+            disabled={loading}
+          >
+            Clear Test Data
+          </Button>
         </div>
 
         <div className="flex gap-2">
@@ -199,7 +218,7 @@ export default function AdminEmployersPage() {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => handleApprove(employer.id)}
-                        className="flex-1"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                         disabled={processingId === employer.id}
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />

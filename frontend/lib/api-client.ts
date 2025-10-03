@@ -716,6 +716,7 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to delete job listing")
+    return response.json()
   }
 
   // Employment Service APIs - Applications
@@ -725,6 +726,44 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to fetch applications")
+    return response.json()
+  }
+
+  async getApplicationsByCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch candidate applications")
+    return response.json()
+  }
+
+  async getApplicationsByEmployer(employerId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/applications/employer/${employerId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch employer applications")
+    return response.json()
+  }
+
+  async acceptApplication(applicationId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/applications/${applicationId}/accept`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to accept application")
+    return response.json()
+  }
+
+  async rejectApplication(applicationId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/applications/${applicationId}/reject`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to reject application")
     return response.json()
   }
 
@@ -809,6 +848,36 @@ class ApiClient {
     return response.json()
   }
 
+  // Employment Service APIs - Companies
+  async getCompanies(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/companies`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch companies")
+    return response.json()
+  }
+
+  async getCompanyByEmployer(employerId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/companies/employer/${employerId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch company profile")
+    return response.json()
+  }
+
+  async updateCompany(companyId: string, data: any, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/companies/${companyId}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to update company profile")
+    return response.json()
+  }
+
   async deleteEmployer(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}`, {
       method: "DELETE",
@@ -818,15 +887,6 @@ class ApiClient {
     if (!response.ok) throw new Error("Failed to delete employer")
   }
 
-  async approveEmployer(id: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}/approve`, {
-      method: "POST",
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to approve employer")
-    return response.json()
-  }
 
   // Employment Service APIs - Candidates
   async getCandidates(token: string) {
@@ -844,6 +904,15 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to fetch candidate")
+    return response.json()
+  }
+
+  async getCandidateByUserId(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/user/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch candidate by user ID")
     return response.json()
   }
 
@@ -965,6 +1034,96 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to delete document")
+  }
+
+  // Employment Service APIs - Users (Profile Management)
+  async updateUser(id: string, data: any, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/users/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to update user profile")
+    return response.json()
+  }
+
+  async getUserById(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/users/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch user profile")
+    return response.json()
+  }
+
+  // Employment Service APIs - Admin Approve/Reject
+  async approveJobListing(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to approve job listing")
+    return response.json()
+  }
+
+  async rejectJobListing(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/${id}/reject`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to reject job listing")
+    return response.json()
+  }
+
+  async approveEmployer(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to approve employer")
+    return response.json()
+  }
+
+  async rejectEmployer(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/${id}/reject`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to reject employer")
+    return response.json()
+  }
+
+  async getPendingJobListings(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/pending`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch pending job listings")
+    return response.json()
+  }
+
+  async getPendingEmployers(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/pending`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch pending employers")
+    return response.json()
+  }
+
+  async clearTestData(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/clear-test-data`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to clear test data")
+    return response.json()
   }
 }
 

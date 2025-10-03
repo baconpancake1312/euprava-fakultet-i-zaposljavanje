@@ -670,22 +670,16 @@ func CreateServiceAccount() gin.HandlerFunc {
 
 // getServiceToken retrieves a token for service-to-service communication
 func getServiceToken(serviceName string) (string, error) {
-	// This would typically be stored securely (e.g., in environment variables or a secure vault)
-	// For now, we'll use a simple approach with hardcoded credentials
-	serviceCredentials := map[string]string{
-		"auth-service": "auth-service-password",
-		// Add other service credentials as needed
-	}
-
-	password, exists := serviceCredentials[serviceName]
-	if !exists {
-		return "", fmt.Errorf("no credentials found for service: %s", serviceName)
+	// Get service credentials from environment variables
+	servicePassword := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(serviceName)))
+	if servicePassword == "" {
+		return "", fmt.Errorf("service password not found for %s", serviceName)
 	}
 
 	// Make request to generate service token
 	requestData := map[string]string{
 		"service_name": serviceName,
-		"password":     password,
+		"password":     servicePassword,
 	}
 
 	jsonData, err := json.Marshal(requestData)

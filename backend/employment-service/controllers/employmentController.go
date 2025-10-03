@@ -146,13 +146,45 @@ func (ec *EmploymentController) GetApplicationsForJob() gin.HandlerFunc {
 func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var listing models.JobListing
-		listing.ApprovalStatus = "PENDING"
-		listing.CreatedAt = time.Now()
-		listing.ExpireAt = time.Now().AddDate(0, 1, 0) //one month from now (d,m,y)
 
 		if err := c.BindJSON(&listing); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
+		}
+
+		// Get employer name from poster_id
+		if !listing.PosterId.IsZero() {
+			fmt.Printf("CreateJobListing: Looking up employer with ID: %s\n", listing.PosterId.Hex())
+			employer, err := ec.repo.GetEmployer(listing.PosterId.Hex())
+			if err != nil {
+				fmt.Printf("CreateJobListing: Error getting employer: %v\n", err)
+			} else if employer != nil {
+				fmt.Printf("CreateJobListing: Found employer: %+v\n", employer)
+				// Use firm name if available, otherwise use first and last name
+				if employer.FirmName != "" {
+					listing.PosterName = employer.FirmName
+					fmt.Printf("CreateJobListing: Set poster name to firm name: %s\n", employer.FirmName)
+				} else if employer.FirstName != nil && employer.LastName != nil {
+					listing.PosterName = *employer.FirstName + " " + *employer.LastName
+					fmt.Printf("CreateJobListing: Set poster name to full name: %s\n", listing.PosterName)
+				}
+			} else {
+				fmt.Printf("CreateJobListing: Employer not found\n")
+			}
+		} else {
+			fmt.Printf("CreateJobListing: PosterId is zero\n")
+		}
+
+		// Set default values only if not provided
+		if listing.ApprovalStatus == "" {
+			listing.ApprovalStatus = "pending"
+		}
+		if listing.CreatedAt.IsZero() {
+			listing.CreatedAt = time.Now()
+		}
+		if listing.ExpireAt.IsZero() {
+			// Default to 1 month from creation if not specified
+			listing.ExpireAt = time.Now().AddDate(0, 1, 0)
 		}
 
 		listingId, err := ec.repo.CreateJobListing(&listing)
@@ -337,6 +369,20 @@ func (ec *EmploymentController) GetCandidate() gin.HandlerFunc {
 		candidate, err := ec.repo.GetCandidate(candidateId)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, candidate)
+	}
+}
+
+func (ec *EmploymentController) GetCandidateByUserID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("user_id")
+
+		candidate, err := ec.repo.GetCandidateByUserID(userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Candidate not found"})
 			return
 		}
 
@@ -897,6 +943,7 @@ func (ec *EmploymentController) ApproveEmployer() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		employerId := c.Param("id")
 		adminId, exists := c.Get("user_id")
+
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not authenticated"})
 			return
@@ -909,6 +956,154 @@ func (ec *EmploymentController) ApproveEmployer() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Employer approved successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetCompanyProfile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+
+		company, err := ec.repo.GetCompanyByEmployerId(employerId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, company)
+	}
+}
+
+func (ec *EmploymentController) UpdateCompanyProfile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyId := c.Param("id")
+
+		var company models.Company
+		if err := c.BindJSON(&company); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		err := ec.repo.UpdateCompany(companyId, &company)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Company profile updated successfully"})
+	}
+}
+
+func (ec *EmploymentController) GetAllCompanies() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companies, err := ec.repo.GetAllCompanies()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, companies)
+	}
+}
+
+func (ec *EmploymentController) GetCompanyById() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyId := c.Param("id")
+
+		company, err := ec.repo.GetCompanyById(companyId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, company)
+	}
+}
+
+func (ec *EmploymentController) GetApplicationsByCandidate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("id")
+
+		applications, err := ec.repo.GetApplicationsByCandidateId(candidateId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, applications)
+	}
+}
+
+func (ec *EmploymentController) GetApplicationsByEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+
+		applications, err := ec.repo.GetApplicationsByEmployerId(employerId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, applications)
+	}
+}
+
+func (ec *EmploymentController) AcceptApplication() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		applicationId := c.Param("id")
+		userId, exists := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			return
+		}
+
+		// Allow admins to accept any application, employers to accept their own
+		if userType == "ADMIN" {
+			err := ec.repo.UpdateApplicationStatusByAdmin(applicationId, "accepted")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			err := ec.repo.UpdateApplicationStatus(applicationId, "accepted", userId.(string))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Application accepted successfully"})
+	}
+}
+
+func (ec *EmploymentController) RejectApplication() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		applicationId := c.Param("id")
+		userId, exists := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			return
+		}
+
+		// Allow admins to reject any application, employers to reject their own
+		if userType == "ADMIN" {
+			err := ec.repo.UpdateApplicationStatusByAdmin(applicationId, "rejected")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			err := ec.repo.UpdateApplicationStatus(applicationId, "rejected", userId.(string))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Application rejected successfully"})
 	}
 }
 
@@ -981,6 +1176,18 @@ func (ec *EmploymentController) RejectJobListing() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing rejected successfully"})
+	}
+}
+
+func (ec *EmploymentController) ClearTestData() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err := ec.repo.ClearTestData()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Test data cleared successfully"})
 	}
 }
 

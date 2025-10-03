@@ -51,15 +51,7 @@ export default function AdminJobListingsPage() {
   const handleApprove = async (listingId: string) => {
     setProcessingId(listingId)
     try {
-      await apiClient.updateJobListing(
-        listingId,
-        {
-          approval_status: "Approved",
-          approved_at: new Date().toISOString(),
-          approved_by: user?.id,
-        },
-        token!,
-      )
+      await apiClient.approveJobListing(listingId, token!)
       toast({
         title: "Job Listing Approved",
         description: "The job listing is now visible to candidates and students.",
@@ -80,15 +72,7 @@ export default function AdminJobListingsPage() {
   const handleReject = async (listingId: string) => {
     setProcessingId(listingId)
     try {
-      await apiClient.updateJobListing(
-        listingId,
-        {
-          approval_status: "Rejected",
-          approved_at: new Date().toISOString(),
-          approved_by: user?.id,
-        },
-        token!,
-      )
+      await apiClient.rejectJobListing(listingId, token!)
       toast({
         title: "Job Listing Rejected",
         description: "The job listing has been rejected and will not be visible to users.",
@@ -182,7 +166,7 @@ export default function AdminJobListingsPage() {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => handleApprove(listing.id)}
-                        className="flex-1"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                         disabled={processingId === listing.id}
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />

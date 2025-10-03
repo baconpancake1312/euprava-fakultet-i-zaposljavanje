@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -16,14 +17,20 @@ import { Loader2, Building2 } from "lucide-react"
 
 export default function CompanyProfilePage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user, token } = useAuth()
   const [formData, setFormData] = useState({
-    firm_name: "",
+    name: "",
+    description: "",
+    website: "",
+    industry: "",
+    size: "",
+    founded: "",
+    logo: "",
+    address: "",
+    phone: "",
+    email: "",
     pib: "",
     maticni_broj: "",
-    delatnost: "",
-    firm_address: "",
-    firm_phone: "",
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -35,16 +42,52 @@ export default function CompanyProfilePage() {
       return
     }
 
-    // Simulate loading company data
-    setFormData({
-      firm_name: "Tech Solutions Inc.",
-      pib: "123456789",
-      maticni_broj: "12345678",
-      delatnost: "Software development and IT consulting",
-      firm_address: "123 Business St, City",
-      firm_phone: "+1234567890",
-    })
-  }, [isAuthenticated, isLoading, router])
+    const loadCompanyData = async () => {
+      if (!token || !user?.id) return
+
+      try {
+        const company = await apiClient.getCompanyByEmployer(user.id, token)
+        setFormData({
+          name: company.name || "",
+          description: company.description || "",
+          website: company.website || "",
+          industry: company.industry || "",
+          size: company.size || "",
+          founded: company.founded?.toString() || "",
+          logo: company.logo || "",
+          address: company.address || "",
+          phone: company.phone || "",
+          email: company.email || "",
+          pib: company.pib || "",
+          maticni_broj: company.maticni_broj || "",
+        })
+      } catch (err) {
+        console.error("Failed to load company data:", err)
+        // If company doesn't exist, try to load from employer data
+        try {
+          const employer = await apiClient.getEmployerById(user.id, token)
+          setFormData({
+            name: employer.firm_name || "",
+            description: employer.delatnost || "",
+            website: "",
+            industry: "",
+            size: "",
+            founded: "",
+            logo: "",
+            address: employer.firm_address || "",
+            phone: employer.firm_phone || "",
+            email: "",
+            pib: employer.pib || "",
+            maticni_broj: employer.maticni_broj || "",
+          })
+        } catch (employerErr) {
+          console.error("Failed to load employer data:", employerErr)
+        }
+      }
+    }
+
+    loadCompanyData()
+  }, [isAuthenticated, isLoading, router, token, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +96,23 @@ export default function CompanyProfilePage() {
     setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!token || !user?.id) throw new Error("Not authenticated")
+
+      // First try to get the company to update it
+      try {
+        const company = await apiClient.getCompanyByEmployer(user.id, token)
+        await apiClient.updateCompany(company.id, formData, token)
+      } catch (companyErr) {
+        // If company doesn't exist, update employer data instead
+        await apiClient.updateEmployer(user.id, {
+          firm_name: formData.name,
+          pib: formData.pib,
+          maticni_broj: formData.maticni_broj,
+          delatnost: formData.description,
+          firm_address: formData.address,
+          firm_phone: formData.phone,
+        }, token)
+      }
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update company profile")
@@ -103,11 +162,11 @@ export default function CompanyProfilePage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="firm_name">Company Name</Label>
+                <Label htmlFor="name">Company Name</Label>
                 <Input
-                  id="firm_name"
-                  value={formData.firm_name}
-                  onChange={(e) => setFormData({ ...formData, firm_name: e.target.value })}
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   disabled={loading}
                 />
               </div>
@@ -135,35 +194,93 @@ export default function CompanyProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="delatnost">Business Activity</Label>
+                <Label htmlFor="description">Company Description</Label>
                 <Textarea
-                  id="delatnost"
-                  value={formData.delatnost}
-                  onChange={(e) => setFormData({ ...formData, delatnost: e.target.value })}
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   disabled={loading}
                   rows={3}
                 />
               </div>
 
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input
+                    id="website"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="industry">Industry</Label>
+                  <Input
+                    id="industry"
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="size">Company Size</Label>
+                  <Input
+                    id="size"
+                    value={formData.size}
+                    onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="founded">Founded Year</Label>
+                  <Input
+                    id="founded"
+                    type="number"
+                    value={formData.founded}
+                    onChange={(e) => setFormData({ ...formData, founded: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="firm_address">Company Address</Label>
+                <Label htmlFor="address">Company Address</Label>
                 <Input
-                  id="firm_address"
-                  value={formData.firm_address}
-                  onChange={(e) => setFormData({ ...formData, firm_address: e.target.value })}
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   disabled={loading}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="firm_phone">Company Phone</Label>
-                <Input
-                  id="firm_phone"
-                  type="tel"
-                  value={formData.firm_phone}
-                  onChange={(e) => setFormData({ ...formData, firm_phone: e.target.value })}
-                  disabled={loading}
-                />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Company Phone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Company Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

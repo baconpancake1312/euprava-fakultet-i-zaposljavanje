@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
-  GraduationCap,
   LogOut,
   User,
   Menu,
@@ -109,7 +108,6 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <GraduationCap className="h-6 w-6 text-primary" />
                 <span className="text-lg font-semibold">euprava</span>
               </Link>
 

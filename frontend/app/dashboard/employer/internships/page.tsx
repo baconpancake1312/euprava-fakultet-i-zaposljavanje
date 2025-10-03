@@ -30,20 +30,20 @@ export default function EmployerInternshipsPage() {
       return
     }
 
-    // Simulate loading internships
-    setTimeout(() => {
-      setInternships([
-        {
-          id: "1",
-          position: "Software Development Intern",
-          description: "3-month internship program for students",
-          applicants: 5,
-          status: "Active",
-          created_at: "2025-01-10",
-        },
-      ])
-      setLoading(false)
-    }, 1000)
+    const loadInternships = async () => {
+      try {
+        // TODO: Implement real API call when internship endpoints are available
+        // const data = await apiClient.getInternships(token)
+        // setInternships(data)
+        setInternships([])
+      } catch (error) {
+        console.error("Failed to load internships:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadInternships()
   }, [isAuthenticated, isLoading, router])
 
   if (isLoading || loading) {

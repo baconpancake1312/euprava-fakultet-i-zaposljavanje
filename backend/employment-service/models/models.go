@@ -55,16 +55,43 @@ type Employer struct {
 	ApprovedBy     string    `bson:"approved_by" json:"approved_by"`
 }
 
+type Company struct {
+	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	EmployerId  primitive.ObjectID `bson:"employer_id" json:"employer_id"`
+	Name        string             `bson:"name" json:"name"`
+	Description string             `bson:"description" json:"description"`
+	Website     string             `bson:"website" json:"website"`
+	Industry    string             `bson:"industry" json:"industry"`
+	Size        string             `bson:"size" json:"size"`
+	Founded     int                `bson:"founded" json:"founded"`
+	Logo        string             `bson:"logo" json:"logo"`
+	Address     string             `bson:"address" json:"address"`
+	Phone       string             `bson:"phone" json:"phone"`
+	Email       string             `bson:"email" json:"email"`
+	PIB         string             `bson:"pib" json:"pib"`
+	MatBr       string             `bson:"maticni_broj" json:"maticni_broj"`
+	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
 type Candidate struct {
 	User
-	CVFile   string   `bson:"cv_file" json:"cv_file"`
-	CVBase64 string   `bson:"cv_base64" json:"cv_base64"`
-	Skills   []string `bson:"skills" json:"skills"`
+	ID            primitive.ObjectID `bson:"_id" json:"id"`
+	Major         string             `bson:"major" json:"major,omitempty"`
+	Year          int                `bson:"year" json:"year,omitempty"`
+	Scholarship   bool               `bson:"scholarship" json:"scholarship,omitempty"`
+	HighschoolGPA float64            `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
+	GPA           float64            `bson:"gpa" json:"gpa,omitempty"`
+	ESBP          int                `bson:"esbp" json:"esbp,omitempty"`
+	CVFile        string             `json:"cv_file,omitempty"`
+	CVBase64      string             `json:"cv_base64,omitempty"`
+	Skills        []string           `json:"skills,omitempty"`
 }
 
 type JobListing struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	PosterId       primitive.ObjectID `bson:"poster_id" json:"poster_id"`
+	PosterName     string             `bson:"poster_name,omitempty" json:"poster_name,omitempty"`
 	Position       string             `bson:"position" json:"position"`
 	Description    string             `bson:"description" json:"description"`
 	CreatedAt      time.Time          `bson:"created_at,omitempty" json:"created_at"`
