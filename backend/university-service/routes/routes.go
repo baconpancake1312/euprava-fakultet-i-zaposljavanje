@@ -27,7 +27,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 	{
 		protected.POST("/students/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateStudent)
 		protected.GET("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "STUDENT"}), ctrl.GetStudentByID)
-		protected.PUT("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateStudent)
+		protected.PUT("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "STUDENT"}), ctrl.UpdateStudent)
 		protected.DELETE("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteStudent)
 
 		protected.POST("/professors/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateProfessor)

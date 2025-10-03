@@ -323,74 +323,103 @@ class ApiClient {
     if (!response.ok) throw new Error("Failed to delete university")
   }
 
-  // University Service APIs - Exams
-  async getAllExams(token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams`, {
+  // University Service APIs - Exam Sessions (Updated from deprecated exams API)
+  async getAllExamSessions(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
       headers: this.getAuthHeaders(token),
     })
 
-    if (!response.ok) throw new Error("Failed to fetch exams")
+    if (!response.ok) throw new Error("Failed to fetch exam sessions")
     return response.json()
   }
 
-  async getExamById(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams/${id}`, {
+  async getExamSessionById(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       headers: this.getAuthHeaders(token),
     })
 
-    if (!response.ok) throw new Error("Failed to fetch exam")
+    if (!response.ok) throw new Error("Failed to fetch exam session")
     return response.json()
   }
 
-  async createExam(data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams/create`, {
+  async createExamSession(data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error("Failed to create exam")
+    if (!response.ok) throw new Error("Failed to create exam session")
     return response.json()
   }
 
-  async updateExam(id: string, data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams/${id}`, {
+  async updateExamSession(id: string, data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error("Failed to update exam")
+    if (!response.ok) throw new Error("Failed to update exam session")
     return response.json()
   }
 
-  async deleteExam(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams/${id}`, {
+  async deleteExamSession(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
 
-    if (!response.ok) throw new Error("Failed to delete exam")
+    if (!response.ok) throw new Error("Failed to delete exam session")
   }
 
-  async registerExam(data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams/register`, {
+  async registerForExamSession(data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/register`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error("Failed to register for exam")
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "Failed to register for exam session" }))
+      throw new Error(errorData.error || "Failed to register for exam session")
+    }
     return response.json()
   }
 
-  async deregisterExam(studentId: string, courseId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exams/deregister/${studentId}/${courseId}`, {
+  async deregisterFromExamSession(studentId: string, courseId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/deregister/${studentId}/${courseId}`, {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
 
-    if (!response.ok) throw new Error("Failed to deregister from exam")
+    if (!response.ok) throw new Error("Failed to deregister from exam session")
+  }
+
+  async getStudentExamRegistrations(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch student exam registrations")
+    return response.json()
+  }
+
+  // Legacy exam methods for backward compatibility (deprecated)
+  async getAllExams(token: string) {
+    return this.getAllExamSessions(token)
+  }
+
+  async getExamById(id: string, token: string) {
+    return this.getExamSessionById(id, token)
+  }
+
+  async registerExam(data: any, token: string) {
+    return this.registerForExamSession(data, token)
+  }
+
+  async deregisterExam(studentId: string, courseId: string, token: string) {
+    return this.deregisterFromExamSession(studentId, courseId, token)
   }
 
   async getExamCalendar(token: string) {
