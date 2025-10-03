@@ -65,9 +65,9 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteApplication())
 
 		// Job listing management (protected)
-		protected.POST("/job-listings", ec.CreateJobListing())
-		protected.PUT("/job-listings/:id", ec.UpdateJobListing())
-		protected.DELETE("/job-listings/:id", ec.DeleteJobListing())
+		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.CreateJobListing())
+		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateJobListing())
+		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteJobListing())
 		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetApplicationsForJob())
 
 		// Document management
