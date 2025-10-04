@@ -29,3 +29,16 @@ type User struct {
 	IsServiceAccount bool   `json:"is_service_account" bson:"is_service_account"`
 	ServiceName      string `json:"service_name,omitempty" bson:"service_name,omitempty"`
 }
+
+type Student struct {
+	User
+	Major         string   `bson:"major" json:"major,omitempty"`
+	Year          int      `bson:"year" json:"year,omitempty"`
+	Scholarship   bool     `bson:"scholarship" json:"scholarship,omitempty"`
+	HighschoolGPA float64  `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
+	GPA           float64  `bson:"gpa" json:"gpa,omitempty"`
+	ESBP          int      `bson:"esbp" json:"esbp,omitempty"`
+	CVFile        string   `json:"cv_file,omitempty"`
+	CVBase64      string   `json:"cv_base64,omitempty"`
+	Skills        []string `json:"skills,omitempty"`
+}

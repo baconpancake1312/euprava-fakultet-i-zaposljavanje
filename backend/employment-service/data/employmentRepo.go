@@ -87,7 +87,11 @@ func (er *EmploymentRepo) GetClient() *mongo.Client {
 }
 
 func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
-	var collection *mongo.Collection = client.Database(os.Getenv("EMPLOYMENT_DB_HOST")).Collection(collectionName)
+	dbName := os.Getenv("EMPLOYMENT_DB_HOST")
+	if dbName == "" {
+		dbName = "employmentDB" // fallback
+	}
+	var collection *mongo.Collection = client.Database(dbName).Collection(collectionName)
 	return collection
 }
 
@@ -98,6 +102,12 @@ func (er *EmploymentRepo) CreateJobListing(listing *models.JobListing) (primitiv
 	defer cancel()
 	lisCollection := OpenCollection(er.cli, "listings")
 	listing.ID = primitive.NewObjectID()
+
+	// Set default approval status if not provided
+	if listing.ApprovalStatus == "" {
+		listing.ApprovalStatus = "pending"
+	}
+
 	result, err := lisCollection.InsertOne(ctx, &listing)
 	if err != nil {
 		er.logger.Println(err)
@@ -224,7 +234,7 @@ func (er *EmploymentRepo) GetApplication(applicationId string) (*models.Applicat
 	return &application, nil
 }
 
-func (er *EmploymentRepo) GetApplicationsForJob(client *mongo.Client, listingID string) (models.Applications, error) {
+func (er *EmploymentRepo) GetApplicationsForJob(client *mongo.Client, listingID string) ([]*models.Application, error) {
 	listingObjID, err := primitive.ObjectIDFromHex(listingID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid listing ID: %v", err)
@@ -243,12 +253,12 @@ func (er *EmploymentRepo) GetApplicationsForJob(client *mongo.Client, listingID 
 	}
 	defer cursor.Close(ctx)
 
-	var applications *models.Applications
+	var applications []*models.Application
 	if err := cursor.All(ctx, &applications); err != nil {
 		return nil, fmt.Errorf("error decoding applications: %v", err)
 	}
 
-	return *applications, nil
+	return applications, nil
 }
 
 func (er *EmploymentRepo) CreateApplication(application *models.Application) (primitive.ObjectID, error) {
@@ -342,6 +352,12 @@ func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.O
 	defer cancel()
 	employerCollection := OpenCollection(er.cli, "employers")
 	employer.ID = primitive.NewObjectID()
+
+	// Set default approval status if not provided
+	if employer.ApprovalStatus == "" {
+		employer.ApprovalStatus = "pending"
+	}
+
 	result, err := employerCollection.InsertOne(ctx, &employer)
 	if err != nil {
 		er.logger.Println(err)
@@ -447,6 +463,48 @@ func (er *EmploymentRepo) DeleteEmployer(employerId string) error {
 	return nil
 }
 
+// ClearTestData removes test employers and job listings
+func (er *EmploymentRepo) ClearTestData() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Clear test employers (those with test email patterns)
+	employerCollection := OpenCollection(er.cli, "employers")
+	testEmployerFilter := bson.M{
+		"$or": []bson.M{
+			{"email": bson.M{"$regex": ".*@company\\.com$"}},
+			{"email": bson.M{"$regex": ".*@test\\.com$"}},
+			{"firm_name": bson.M{"$regex": ".*Tech Solutions.*"}},
+			{"firm_name": bson.M{"$regex": ".*Test.*"}},
+		},
+	}
+
+	employerResult, err := employerCollection.DeleteMany(ctx, testEmployerFilter)
+	if err != nil {
+		er.logger.Printf("Error clearing test employers: %v", err)
+	} else {
+		er.logger.Printf("Cleared %d test employers", employerResult.DeletedCount)
+	}
+
+	// Clear test job listings
+	listingCollection := OpenCollection(er.cli, "listings")
+	testListingFilter := bson.M{
+		"$or": []bson.M{
+			{"position": bson.M{"$regex": ".*Test.*"}},
+			{"position": bson.M{"$regex": ".*Software Development Intern.*"}},
+		},
+	}
+
+	listingResult, err := listingCollection.DeleteMany(ctx, testListingFilter)
+	if err != nil {
+		er.logger.Printf("Error clearing test job listings: %v", err)
+	} else {
+		er.logger.Printf("Cleared %d test job listings", listingResult.DeletedCount)
+	}
+
+	return nil
+}
+
 // Candidate CRUD operations
 
 func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitive.ObjectID, error) {
@@ -454,6 +512,24 @@ func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitiv
 	defer cancel()
 	candidateCollection := OpenCollection(er.cli, "candidates")
 	candidate.ID = primitive.NewObjectID()
+
+	// Set default values for new fields if not provided
+	if candidate.Major == "" {
+		candidate.Major = ""
+	}
+	if candidate.Year == 0 {
+		candidate.Year = 1 // Default to first year
+	}
+	if candidate.GPA == 0 {
+		candidate.GPA = 0.0
+	}
+	if candidate.HighschoolGPA == 0 {
+		candidate.HighschoolGPA = 0.0
+	}
+	if candidate.ESBP == 0 {
+		candidate.ESBP = 0
+	}
+
 	result, err := candidateCollection.InsertOne(ctx, &candidate)
 	if err != nil {
 		er.logger.Println(err)
@@ -474,6 +550,21 @@ func (er *EmploymentRepo) GetCandidate(candidateId string) (*models.Candidate, e
 	err = candidateCollection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&candidate)
 	if err != nil {
 		return nil, fmt.Errorf("no candidate found for id: %s", candidateId)
+	}
+
+	return &candidate, nil
+}
+
+func (er *EmploymentRepo) GetCandidateByUserID(userID string) (*models.Candidate, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	candidateCollection := OpenCollection(er.cli, "candidates")
+
+	var candidate models.Candidate
+	err := candidateCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&candidate)
+	if err != nil {
+		return nil, fmt.Errorf("no candidate found for user id: %s", userID)
 	}
 
 	return &candidate, nil
@@ -1094,7 +1185,8 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	// Try to find the employer by the user ID instead of the employer ID
+	result, err := collection.UpdateOne(ctx, bson.M{"user._id": objectId}, updateData)
 	if err != nil {
 		return fmt.Errorf("error approving employer: %v", err)
 	}
@@ -1103,6 +1195,14 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 	}
 
 	er.logger.Printf("Employer %s approved by admin %s", employerId, adminId)
+
+	// Create company profile for approved employer
+	err = er.CreateCompanyProfile(employerId, adminId)
+	if err != nil {
+		er.logger.Printf("Failed to create company profile for employer %s: %v", employerId, err)
+		// Don't fail the approval if company creation fails
+	}
+
 	return nil
 }
 
@@ -1124,7 +1224,8 @@ func (er *EmploymentRepo) RejectEmployer(employerId, adminId string) error {
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	// Try to find the employer by the user ID instead of the employer ID
+	result, err := collection.UpdateOne(ctx, bson.M{"user._id": objectId}, updateData)
 	if err != nil {
 		return fmt.Errorf("error rejecting employer: %v", err)
 	}
@@ -1141,19 +1242,30 @@ func (er *EmploymentRepo) GetPendingEmployers() ([]*models.Employer, error) {
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "employers")
-	filter := bson.M{"approval_status": "pending"}
+	filter := bson.M{
+		"$or": []bson.M{
+			{"approval_status": "pending"},
+			{"approval_status": "Pending"},
+			{"approval_status": ""},
+		},
+	}
+
+	er.logger.Printf("GetPendingEmployers: Filter: %+v", filter)
 
 	cursor, err := collection.Find(ctx, filter, options.Find().SetSort(bson.D{{"created_at", -1}}))
 	if err != nil {
+		er.logger.Printf("GetPendingEmployers: Error finding employers: %v", err)
 		return nil, err
 	}
 	defer cursor.Close(ctx)
 
 	var employers []*models.Employer
 	if err := cursor.All(ctx, &employers); err != nil {
+		er.logger.Printf("GetPendingEmployers: Error decoding employers: %v", err)
 		return nil, err
 	}
 
+	er.logger.Printf("GetPendingEmployers: Found %d employers", len(employers))
 	return employers, nil
 }
 
@@ -1222,7 +1334,13 @@ func (er *EmploymentRepo) GetPendingJobListings() ([]*models.JobListing, error) 
 	defer cancel()
 
 	collection := OpenCollection(er.cli, "listings")
-	filter := bson.M{"approval_status": "pending"}
+	filter := bson.M{
+		"$or": []bson.M{
+			{"approval_status": "pending"},
+			{"approval_status": "Pending"},
+			{"approval_status": ""},
+		},
+	}
 
 	cursor, err := collection.Find(ctx, filter, options.Find().SetSort(bson.D{{"created_at", -1}}))
 	if err != nil {
@@ -1409,7 +1527,6 @@ func (er *EmploymentRepo) DeleteUnemployedRecord(recordId string) error {
 	return nil
 }
 
-// GetInternships returns all job listings with position "Internship"
 func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -1417,8 +1534,9 @@ func (er *EmploymentRepo) GetInternships(limit int) ([]*models.JobListing, error
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"position":  "Internship",
-		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+		"is_internship":   "true",
+		"expire_at":       bson.M{"$gt": time.Now()}, // Only active internships
+		"approval_status": models.Approved,
 	}
 
 	if limit <= 0 {
@@ -1450,8 +1568,8 @@ func (er *EmploymentRepo) GetInternshipsForStudent(studentId string, page, limit
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"position":  "Internship",
-		"expire_at": bson.M{"$gt": time.Now()}, // Only active internships
+		"is_internship": "Internship",
+		"expire_at":     bson.M{"$gt": time.Now()}, // Only active internships
 	}
 
 	total, err := collection.CountDocuments(ctx, filter)
@@ -1482,4 +1600,296 @@ func (er *EmploymentRepo) GetInternshipsForStudent(studentId string, page, limit
 	}
 
 	return internships, total, nil
+}
+
+// Company CRUD operations
+
+func (er *EmploymentRepo) CreateCompanyProfile(employerId, adminId string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get employer data
+	employerCollection := OpenCollection(er.cli, "employers")
+	objectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return fmt.Errorf("invalid employer ID: %v", err)
+	}
+
+	var employer models.Employer
+	err = employerCollection.FindOne(ctx, bson.M{"user._id": objectId}).Decode(&employer)
+	if err != nil {
+		return fmt.Errorf("employer not found: %v", err)
+	}
+
+	// Create company profile
+	companyCollection := OpenCollection(er.cli, "companies")
+	company := models.Company{
+		ID:          primitive.NewObjectID(),
+		EmployerId:  objectId,
+		Name:        employer.FirmName,
+		Description: employer.Delatnost,
+		Address:     employer.FirmAddress,
+		Phone:       employer.FirmPhone,
+		PIB:         employer.PIB,
+		MatBr:       employer.MatBr,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	_, err = companyCollection.InsertOne(ctx, &company)
+	if err != nil {
+		return fmt.Errorf("failed to create company profile: %v", err)
+	}
+
+	er.logger.Printf("Company profile created for employer %s", employerId)
+	return nil
+}
+
+func (er *EmploymentRepo) GetCompanyByEmployerId(employerId string) (*models.Company, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	companyCollection := OpenCollection(er.cli, "companies")
+	objectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid employer ID: %v", err)
+	}
+
+	var company models.Company
+	err = companyCollection.FindOne(ctx, bson.M{"employer_id": objectId}).Decode(&company)
+	if err != nil {
+		return nil, fmt.Errorf("company not found: %v", err)
+	}
+
+	return &company, nil
+}
+
+func (er *EmploymentRepo) UpdateCompany(companyId string, company *models.Company) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	companyCollection := OpenCollection(er.cli, "companies")
+	objectId, err := primitive.ObjectIDFromHex(companyId)
+	if err != nil {
+		return fmt.Errorf("invalid company ID: %v", err)
+	}
+
+	company.UpdatedAt = time.Now()
+	updateData := bson.M{
+		"$set": bson.M{
+			"name":         company.Name,
+			"description":  company.Description,
+			"website":      company.Website,
+			"industry":     company.Industry,
+			"size":         company.Size,
+			"founded":      company.Founded,
+			"logo":         company.Logo,
+			"address":      company.Address,
+			"phone":        company.Phone,
+			"email":        company.Email,
+			"pib":          company.PIB,
+			"maticni_broj": company.MatBr,
+			"updated_at":   company.UpdatedAt,
+		},
+	}
+
+	result, err := companyCollection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	if err != nil {
+		return fmt.Errorf("error updating company: %v", err)
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("company not found")
+	}
+
+	return nil
+}
+
+func (er *EmploymentRepo) GetAllCompanies() ([]*models.Company, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	companyCollection := OpenCollection(er.cli, "companies")
+	var companies []*models.Company
+	cursor, err := companyCollection.Find(ctx, bson.M{})
+	if err != nil {
+		er.logger.Println(err)
+		return nil, err
+	}
+	if err = cursor.All(ctx, &companies); err != nil {
+		er.logger.Println(err)
+		return nil, err
+	}
+	return companies, nil
+}
+
+func (er *EmploymentRepo) GetCompanyById(companyId string) (*models.Company, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	companyCollection := OpenCollection(er.cli, "companies")
+	objectId, err := primitive.ObjectIDFromHex(companyId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid company ID: %v", err)
+	}
+
+	var company models.Company
+	err = companyCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&company)
+	if err != nil {
+		return nil, fmt.Errorf("company not found: %v", err)
+	}
+
+	return &company, nil
+}
+
+func (er *EmploymentRepo) GetApplicationsByCandidateId(candidateId string) ([]*models.Application, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	appCollection := OpenCollection(er.cli, "applications")
+	objectId, err := primitive.ObjectIDFromHex(candidateId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid candidate ID: %v", err)
+	}
+
+	var applications []*models.Application
+	cursor, err := appCollection.Find(ctx, bson.M{"applicant_id": objectId})
+	if err != nil {
+		return nil, fmt.Errorf("error querying applications: %v", err)
+	}
+	defer cursor.Close(ctx)
+
+	if err := cursor.All(ctx, &applications); err != nil {
+		return nil, fmt.Errorf("error decoding applications: %v", err)
+	}
+
+	return applications, nil
+}
+
+func (er *EmploymentRepo) GetApplicationsByEmployerId(employerId string) ([]*models.Application, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// First get all job listings by this employer
+	jobCollection := OpenCollection(er.cli, "job_listings")
+	employerObjectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid employer ID: %v", err)
+	}
+
+	// Find all job listings by this employer
+	cursor, err := jobCollection.Find(ctx, bson.M{"poster_id": employerObjectId})
+	if err != nil {
+		return nil, fmt.Errorf("error querying job listings: %v", err)
+	}
+	defer cursor.Close(ctx)
+
+	var jobListings []*models.JobListing
+	if err := cursor.All(ctx, &jobListings); err != nil {
+		return nil, fmt.Errorf("error decoding job listings: %v", err)
+	}
+
+	if len(jobListings) == 0 {
+		return []*models.Application{}, nil
+	}
+
+	// Get all job listing IDs
+	var jobListingIds []primitive.ObjectID
+	for _, job := range jobListings {
+		jobListingIds = append(jobListingIds, job.ID)
+	}
+
+	// Find all applications for these job listings
+	appCollection := OpenCollection(er.cli, "applications")
+	appCursor, err := appCollection.Find(ctx, bson.M{"listing_id": bson.M{"$in": jobListingIds}})
+	if err != nil {
+		return nil, fmt.Errorf("error querying applications: %v", err)
+	}
+	defer appCursor.Close(ctx)
+
+	var applications []*models.Application
+	if err := appCursor.All(ctx, &applications); err != nil {
+		return nil, fmt.Errorf("error decoding applications: %v", err)
+	}
+
+	return applications, nil
+}
+
+func (er *EmploymentRepo) UpdateApplicationStatus(applicationId, status, employerId string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	appCollection := OpenCollection(er.cli, "applications")
+	objectId, err := primitive.ObjectIDFromHex(applicationId)
+	if err != nil {
+		return fmt.Errorf("invalid application ID: %v", err)
+	}
+
+	// First verify that the application belongs to a job posted by this employer
+	var application models.Application
+	err = appCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&application)
+	if err != nil {
+		return fmt.Errorf("application not found: %v", err)
+	}
+
+	// Check if the job belongs to this employer
+	jobCollection := OpenCollection(er.cli, "job_listings")
+	employerObjectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		return fmt.Errorf("invalid employer ID: %v", err)
+	}
+
+	var jobListing models.JobListing
+	err = jobCollection.FindOne(ctx, bson.M{"_id": application.ListingId, "poster_id": employerObjectId}).Decode(&jobListing)
+	if err != nil {
+		return fmt.Errorf("application does not belong to this employer's job")
+	}
+
+	// Update the application status
+	updateData := bson.M{
+		"$set": bson.M{
+			"status":     status,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := appCollection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	if err != nil {
+		return fmt.Errorf("error updating application status: %v", err)
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("application not found")
+	}
+
+	er.logger.Printf("Application %s %s by employer %s", applicationId, status, employerId)
+	return nil
+}
+
+func (er *EmploymentRepo) UpdateApplicationStatusByAdmin(applicationId, status string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	appCollection := OpenCollection(er.cli, "applications")
+	objectId, err := primitive.ObjectIDFromHex(applicationId)
+	if err != nil {
+		return fmt.Errorf("invalid application ID: %v", err)
+	}
+
+	// Update the application status (admin can update any application)
+	updateData := bson.M{
+		"$set": bson.M{
+			"status":     status,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := appCollection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	if err != nil {
+		return fmt.Errorf("error updating application status: %v", err)
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("application not found")
+	}
+
+	er.logger.Printf("Application %s %s by admin", applicationId, status)
+	return nil
 }

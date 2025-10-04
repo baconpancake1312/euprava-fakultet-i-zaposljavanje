@@ -30,6 +30,7 @@ func Authentication() gin.HandlerFunc {
 		c.Set("first_name", claims.First_name)
 		c.Set("last_name", claims.Last_name)
 		c.Set("uid", claims.Uid)
+		c.Set("user_id", claims.Uid) // Add user_id for admin endpoints
 		c.Set("user_type", claims.User_type)
 
 		// Check if this is a service account token
@@ -60,10 +61,14 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 		user_type, _ := c.Get("user_type")
 		userRole := user_type.(string)
 		authorized := false
-		for _, role := range roles {
-			if userRole == role {
-				authorized = true
-				break
+		if isServiceAccountType(userRole) || userRole == "ADMIN" {
+			authorized = true
+		} else {
+			for _, role := range roles {
+				if userRole == role {
+					authorized = true
+					break
+				}
 			}
 		}
 

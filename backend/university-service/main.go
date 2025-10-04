@@ -33,13 +33,13 @@ func main() {
 	router.Use(gin.Logger())
 
 	router.Use(cors.Middleware(cors.Config{
-		Origins:         "http://localhost:8080, http://127.0.0.1:8080, *", // Allow local and all origins
-		Methods:         "GET, PUT, POST, DELETE, OPTIONS",                 // Allowed HTTP methods
-		RequestHeaders:  "Origin, Authorization, Content-Type",             // Allowed request headers
-		ExposedHeaders:  "",                                                // Exposed headers
-		MaxAge:          50 * time.Second,                                  // CORS preflight cache duration
-		Credentials:     true,                                              // Allow credentials
-		ValidateHeaders: false,                                             // Do not validate headers
+		Origins:         "http://localhost:4321, http://localhost:3000, http://localhost:4200",
+		Methods:         "GET, PUT, POST, DELETE, OPTIONS, PATCH",
+		RequestHeaders:  "Origin, Authorization, Content-Type, Accept, X-Requested-With",
+		ExposedHeaders:  "",
+		MaxAge:          50 * time.Second,
+		Credentials:     true,
+		ValidateHeaders: false,
 	}))
 
 	routes.RegisterRoutes(router, ctrl)

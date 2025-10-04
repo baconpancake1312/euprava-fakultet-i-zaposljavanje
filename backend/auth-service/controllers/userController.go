@@ -209,6 +209,7 @@ func updateUserServiceStatus(userID, field string, value bool) {
 }
 
 func RegisterIntoUni(user *models.User) error {
+
 	jsonData, err := json.Marshal(user)
 	if err != nil {
 		return err
@@ -265,9 +266,9 @@ func RegisterIntoEmployment(user *models.User) error {
 	var url string
 	switch user.User_type {
 	case models.StudentType, models.CandidateType:
-		url = "http://employment-service:8089/candidates/create"
+		url = "http://employment-service:8089/candidates"
 	case models.EmployerType:
-		url = "http://employment-service:8089/employers/create"
+		url = "http://employment-service:8089/employers"
 	default:
 		return fmt.Errorf("unsupported user type for employment service: %s", user.User_type)
 	}
@@ -317,7 +318,7 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		passwordIsValid, _ := VerifyPassword(*user.Password, *foundUser.Password)
+		passwordIsValid, _ := VerifyPassword(*foundUser.Password, *user.Password)
 		defer cancel()
 		if !passwordIsValid {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect password"})
@@ -669,22 +670,16 @@ func CreateServiceAccount() gin.HandlerFunc {
 
 // getServiceToken retrieves a token for service-to-service communication
 func getServiceToken(serviceName string) (string, error) {
-	// This would typically be stored securely (e.g., in environment variables or a secure vault)
-	// For now, we'll use a simple approach with hardcoded credentials
-	serviceCredentials := map[string]string{
-		"auth-service": "auth-service-password",
-		// Add other service credentials as needed
-	}
-
-	password, exists := serviceCredentials[serviceName]
-	if !exists {
-		return "", fmt.Errorf("no credentials found for service: %s", serviceName)
+	// Get service credentials from environment variables
+	servicePassword := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(serviceName)))
+	if servicePassword == "" {
+		return "", fmt.Errorf("service password not found for %s", serviceName)
 	}
 
 	// Make request to generate service token
 	requestData := map[string]string{
 		"service_name": serviceName,
-		"password":     password,
+		"password":     servicePassword,
 	}
 
 	jsonData, err := json.Marshal(requestData)
