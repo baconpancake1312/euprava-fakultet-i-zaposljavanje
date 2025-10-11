@@ -162,37 +162,37 @@ func (ctrl *Controllers) DeleteProfessor(c *gin.Context) {
 
 func (ctrl *Controllers) CreateCourse(c *gin.Context) {
 	fmt.Println("Hello, World!")
-	var course repositories.Course
-	if err := c.BindJSON(&course); err != nil {
+	var subject repositories.Subject
+	if err := c.BindJSON(&subject); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateCourse(&course)
+	err := ctrl.Repo.CreateSubject(&subject)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, course)
+	c.JSON(http.StatusCreated, subject)
 }
 
 func (ctrl *Controllers) GetCourseByID(c *gin.Context) {
 	id := c.Param("id")
 
-	course, err := ctrl.Repo.GetCourseByID(id)
+	subject, err := ctrl.Repo.GetSubjectByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, course)
+	c.JSON(http.StatusOK, subject)
 }
 
 func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
 	id := c.Param("id")
-	var course repositories.Course
-	if err := c.BindJSON(&course); err != nil {
+	var subject repositories.Subject
+	if err := c.BindJSON(&subject); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -203,15 +203,15 @@ func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
 		return
 	}
 
-	course.ID = objectID
+	subject.ID = objectID
 
-	err = ctrl.Repo.UpdateCourse(&course)
+	err = ctrl.Repo.UpdateCourse(&subject)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, course)
+	c.JSON(http.StatusOK, subject)
 }
 
 func (ctrl *Controllers) DeleteCourse(c *gin.Context) {
@@ -233,7 +233,31 @@ func (ctrl *Controllers) CreateDepartment(c *gin.Context) {
 		return
 	}
 
-	err := ctrl.Repo.CreateDepartment(&department)
+	departments, err := ctrl.Repo.GetAllDepartments()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for _, departmentElement := range departments {
+		for _, oldProgram := range departmentElement.MajorIDs {
+			for _, newProgram := range department.MajorIDs {
+				if oldProgram == newProgram {
+					major, err := ctrl.Repo.GetMajorByID(newProgram)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						return
+					}
+					if major != nil {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": "Department " + departmentElement.Name + " already has this major: " + major.Name,
+						})
+						return
+					}
+				}
+			}
+		}
+	}
+	err = ctrl.Repo.CreateDepartment(&department)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -506,14 +530,14 @@ func (ctrl *Controllers) GetAllProfessors(c *gin.Context) {
 	c.JSON(http.StatusOK, professors)
 }
 
-func (ctrl *Controllers) GetAllCourses(c *gin.Context) {
-	courses, err := ctrl.Repo.GetAllCourses()
+func (ctrl *Controllers) GetAllSubjects(c *gin.Context) {
+	subjects, err := ctrl.Repo.GetAllSubjects()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, courses)
+	c.JSON(http.StatusOK, subjects)
 }
 
 func (ctrl *Controllers) GetAllDepartments(c *gin.Context) {
@@ -589,13 +613,13 @@ func (ctrl *Controllers) DeregisterExam(c *gin.Context) {
 		return
 	}
 
-	courseID, err := primitive.ObjectIDFromHex(c.Param("courseID"))
+	subjectID, err := primitive.ObjectIDFromHex(c.Param("subjectID"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subject ID"})
 		return
 	}
 
-	err = ctrl.Repo.DeregisterExam(studentID, courseID)
+	err = ctrl.Repo.DeregisterExam(studentID, subjectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -924,8 +948,8 @@ func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
 		return
 	}
 
-	// Fetch the full course and professor objects
-	course, err := ctrl.Repo.GetCourseByID(req.CourseID.Hex())
+	// Fetch the full subject and professor objects
+	subject, err := ctrl.Repo.GetSubjectByID(req.SubjectID.Hex())
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
 		return
@@ -939,7 +963,7 @@ func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
 
 	// Create the exam session with full objects
 	examSession := repositories.ExamSession{
-		Course:      *course,
+		Subject:     *subject,
 		Professor:   *professor,
 		ExamDate:    req.ExamDate,
 		Location:    req.Location,
@@ -1269,4 +1293,102 @@ func (ctrl *Controllers) GetExamGradeByStudentAndExam(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, grade)
+}
+func (ctrl *Controllers) CreateMajor(c *gin.Context) {
+	var major repositories.Major
+	if err := c.BindJSON(&major); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := ctrl.Repo.CreateMajor(&major); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, major)
+}
+
+func (ctrl *Controllers) GetAllMajors(c *gin.Context) {
+	majors, err := ctrl.Repo.GetAllMajors()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch majors"})
+		return
+	}
+	c.JSON(http.StatusOK, majors)
+}
+
+func (ctrl *Controllers) GetMajorByID(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	major, err := ctrl.Repo.GetMajorByID(objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch major"})
+		return
+	}
+	if major == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Major not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, major)
+}
+
+func (ctrl *Controllers) UpdateMajor(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	var updateData map[string]interface{}
+	if err := c.BindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := ctrl.Repo.UpdateMajor(objID, updateData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update major"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Major updated successfully"})
+}
+func (ctrl *Controllers) DeleteMajor(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	if err := ctrl.Repo.DeleteMajor(objID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete major"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Major deleted successfully"})
+}
+
+func (ctrl *Controllers) GetSubjectsFromMajor(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	subjects, err := ctrl.Repo.GetSubjectsFromMajor(objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subjects"})
+		return
+	}
+
+	c.JSON(http.StatusOK, subjects)
 }

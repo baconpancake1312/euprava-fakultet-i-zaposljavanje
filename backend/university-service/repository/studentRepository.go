@@ -338,39 +338,39 @@ func (r *Repository) DeleteAssistant(assistantID string) error {
 }
 
 // CRUD operations for Course
-func (r *Repository) CreateCourse(course *Course) error {
-	collection := r.getCollection("course")
-	result, err := collection.InsertOne(context.TODO(), course)
+func (r *Repository) CreateSubject(subject *Subject) error {
+	collection := r.getCollection("subjects")
+	result, err := collection.InsertOne(context.TODO(), subject)
 	if err != nil {
 		return err
 	}
-	course.ID = result.InsertedID.(primitive.ObjectID)
+	subject.ID = result.InsertedID.(primitive.ObjectID)
 	return nil
 }
 
-func (r *Repository) GetCourseByID(courseID string) (*Course, error) {
-	collection := r.getCollection("course")
-	objectID, err := primitive.ObjectIDFromHex(courseID)
+func (r *Repository) GetSubjectByID(subjectID string) (*Subject, error) {
+	collection := r.getCollection("subjects")
+	objectID, err := primitive.ObjectIDFromHex(subjectID)
 	if err != nil {
 		return nil, err
 	}
-	var course Course
-	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&course)
+	var subject Subject
+	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&subject)
 	if err != nil {
 		return nil, err
 	}
-	return &course, nil
+	return &subject, nil
 }
 
-func (r *Repository) UpdateCourse(course *Course) error {
-	collection := r.getCollection("course")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": course.ID}, course)
+func (r *Repository) UpdateCourse(subject *Subject) error {
+	collection := r.getCollection("subjects")
+	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": subject.ID}, subject)
 	return err
 }
 
-func (r *Repository) DeleteCourse(courseID string) error {
-	collection := r.getCollection("course")
-	objectID, err := primitive.ObjectIDFromHex(courseID)
+func (r *Repository) DeleteCourse(subjectID string) error {
+	collection := r.getCollection("subjects")
+	objectID, err := primitive.ObjectIDFromHex(subjectID)
 	if err != nil {
 		return err
 	}
@@ -492,21 +492,21 @@ func (r *Repository) GetAllProfessors() ([]Professor, error) {
 	return professors, nil
 }
 
-func (r *Repository) GetAllCourses() ([]Course, error) {
-	collection := r.getCollection("course")
+func (r *Repository) GetAllSubjects() ([]Subject, error) {
+	collection := r.getCollection("subjects")
 	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		return nil, err
 	}
 	defer cursor.Close(context.TODO())
 
-	var courses []Course
-	err = cursor.All(context.TODO(), &courses)
+	var subjects []Subject
+	err = cursor.All(context.TODO(), &subjects)
 	if err != nil {
 		return nil, err
 	}
 
-	return courses, nil
+	return subjects, nil
 }
 
 func (r *Repository) GetAllDepartments() ([]Department, error) {
@@ -600,9 +600,9 @@ func (r *Repository) RegisterExam(exam *Exam) error {
 	return err
 }
 
-func (r *Repository) DeregisterExam(studentID, courseID primitive.ObjectID) error {
+func (r *Repository) DeregisterExam(studentID, subjectID primitive.ObjectID) error {
 	collection := r.getCollection("exams")
-	_, err := collection.DeleteOne(context.TODO(), bson.M{"student._id": studentID, "course._id": courseID})
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"student._id": studentID, "subject._id": subjectID})
 	return err
 }
 
@@ -622,15 +622,15 @@ func (r *Repository) GetExamCalendar() ([]Exam, error) {
 	return exams, nil
 }
 
-func (r *Repository) GetLectures() ([]Course, error) {
-	collection := r.getCollection("courses")
+func (r *Repository) GetLectures() ([]Subject, error) {
+	collection := r.getCollection("subjects")
 	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		return nil, err
 	}
 	defer cursor.Close(context.TODO())
 
-	var lectures []Course
+	var lectures []Subject
 	if err = cursor.All(context.TODO(), &lectures); err != nil {
 		return nil, err
 	}
@@ -1037,4 +1037,91 @@ func (r *Repository) GetStudentByIDObject(studentID primitive.ObjectID) (*Studen
 		return nil, err
 	}
 	return &student, nil
+}
+
+// CreateMajor inserts a new major into the "majors" collection.
+func (r *Repository) CreateMajor(major *Major) error {
+	collection := r.getCollection("majors")
+	_, err := collection.InsertOne(context.TODO(), major)
+	if err != nil {
+		r.logger.Println("Error inserting major:", err)
+		return err
+	}
+	return nil
+}
+
+// GetAllMajors retrieves all majors from the "majors" collection.
+func (r *Repository) GetAllMajors() ([]Major, error) {
+	collection := r.getCollection("majors")
+
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		r.logger.Println("Error finding majors:", err)
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var majors []Major
+	if err = cursor.All(context.TODO(), &majors); err != nil {
+		r.logger.Println("Error decoding majors:", err)
+		return nil, err
+	}
+	return majors, nil
+}
+
+// GetMajorByID fetches a single major by its ObjectID.
+func (r *Repository) GetMajorByID(id primitive.ObjectID) (*Major, error) {
+	collection := r.getCollection("majors")
+
+	var major Major
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&major)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		r.logger.Println("Error finding major by ID:", err)
+		return nil, err
+	}
+	return &major, nil
+}
+
+// UpdateMajor updates a major’s details.
+func (r *Repository) UpdateMajor(id primitive.ObjectID, update bson.M) error {
+	collection := r.getCollection("majors")
+
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id}, bson.M{"$set": update})
+	if err != nil {
+		r.logger.Println("Error updating major:", err)
+		return err
+	}
+	return nil
+}
+
+// DeleteMajor removes a major by ID.
+func (r *Repository) DeleteMajor(id primitive.ObjectID) error {
+	collection := r.getCollection("majors")
+
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
+	if err != nil {
+		r.logger.Println("Error deleting major:", err)
+		return err
+	}
+	return nil
+}
+
+// GetSubjectsFromMajor retrieves subjects for a given major ID.
+func (r *Repository) GetSubjectsFromMajor(id primitive.ObjectID) ([]Subject, error) {
+	collection := r.getCollection("majors")
+
+	var major Major
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&major)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		r.logger.Println("Error finding major subjects:", err)
+		return nil, err
+	}
+
+	return major.Subjects, nil
 }

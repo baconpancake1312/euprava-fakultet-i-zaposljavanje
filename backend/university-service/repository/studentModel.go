@@ -39,34 +39,38 @@ type University struct {
 }
 
 type Department struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name          string             `bson:"name" json:"name" validate:"required"`
-	Chief         Professor          `bson:"chief" json:"chief"`
-	StudyPrograms []string           `bson:"study_programs" json:"study_programs"`
-	Staff         []Professor        `bson:"staff" json:"staff"`
+	ID       primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
+	Name     string               `bson:"name" json:"name" validate:"required"`
+	Chief    Professor            `bson:"chief" json:"chief"`
+	MajorIDs []primitive.ObjectID `bson:"major_ids" json:"major_ids"`
+	Staff    []Professor          `bson:"staff" json:"staff"`
+}
+type Major struct {
+	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name     string             `bson:"name" json:"name" validate:"required"`
+	Subjects []Subject          `bson:"subjects" json:"subjects"`
 }
 
 type Professor struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	User
-	Subjects []Course `bson:"subjects" json:"subjects"`
-	Office   string   `bson:"office" json:"office"`
+	Subjects []Subject `bson:"subjects" json:"subjects"`
 }
 
 type Assistant struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	User
 	Professor Professor `bson:"professor" json:"professor"`
-	Courses   []Course  `bson:"courses" json:"courses"`
+	Subjects  []Subject `bson:"subjects" json:"subjects"`
 }
 
-type Course struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name          string             `bson:"name" json:"name" validate:"required"`
-	Department    Department         `bson:"department" json:"department"`
-	Professor     Professor          `bson:"professor" json:"professor"`
-	Schedule      string             `bson:"schedule" json:"schedule"`
-	Prerequisites []string           `bson:"prerequisites" json:"prerequisites"`
+type Subject struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name      string             `bson:"name" json:"name" validate:"required"`
+	MajorID   primitive.ObjectID `bson:"major_id" json:"major_id,omitempty"`
+	Professor Professor          `bson:"professor" json:"professor"`
+	Year      int                `bson:"year" json:"year"`
+	HasPassed bool               `bson:"has_passed" json:"has_passed"`
 }
 
 type StudentService struct {
@@ -96,7 +100,7 @@ type User struct {
 type Student struct {
 	User
 	ID            primitive.ObjectID `bson:"_id" json:"id"`
-	Major         string             `bson:"major" json:"major,omitempty"`
+	MajorID       primitive.ObjectID `bson:"major_id" json:"major_id,omitempty"`
 	Year          int                `bson:"year" json:"year,omitempty"`
 	Scholarship   bool               `bson:"scholarship" json:"scholarship,omitempty"`
 	HighschoolGPA float64            `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
@@ -110,7 +114,7 @@ type Student struct {
 // ExamSession represents an exam created by a professor
 type ExamSession struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Course      Course             `bson:"course" json:"course"`
+	Subject     Subject            `bson:"subject" json:"subject"`
 	Professor   Professor          `bson:"professor" json:"professor"`
 	ExamDate    time.Time          `bson:"exam_date" json:"exam_date"`
 	Location    string             `bson:"location" json:"location"`
@@ -119,7 +123,7 @@ type ExamSession struct {
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 }
 type CreateExamSessionRequest struct {
-	CourseID    primitive.ObjectID `json:"course_id" validate:"required"`
+	SubjectID   primitive.ObjectID `json:"subject_id" validate:"required"`
 	ProfessorID primitive.ObjectID `json:"professor_id" validate:"required"`
 	ExamDate    time.Time          `json:"exam_date" validate:"required"`
 	Location    string             `json:"location" validate:"required"`
@@ -164,7 +168,7 @@ type ExamGrade struct {
 type Exam struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Student  Student            `bson:"student" json:"student"`
-	Course   Course             `bson:"course" json:"course"`
+	Subject  Subject            `bson:"subject" json:"subject"`
 	ExamDate time.Time          `bson:"exam_date" json:"exam_date"`
 	Status   string             `bson:"status" json:"status"`
 }
@@ -192,7 +196,7 @@ type InternshipApplication struct {
 }
 type Internship struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Field     string             `bson:"field" json:"major,omitempty"`
+	Field     string             `bson:"field" json:"field,omitempty"`
 	PosterId  primitive.ObjectID `bson:"poster_id,omitempty" json:"poster_id"`
 	ExpireAt  time.Time          `bson:"expire_at" json:"expire_at"`
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
@@ -244,7 +248,7 @@ func (a *Assistant) ToJSON(w io.Writer) error {
 	return e.Encode(a)
 }
 
-func (c *Course) ToJSON(w io.Writer) error {
+func (c *Subject) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(c)
 }
@@ -294,7 +298,7 @@ func (a *Assistant) FromJSON(r io.Reader) error {
 	return d.Decode(a)
 }
 
-func (c *Course) FromJSON(r io.Reader) error {
+func (c *Subject) FromJSON(r io.Reader) error {
 	d := json.NewDecoder(r)
 	return d.Decode(c)
 }

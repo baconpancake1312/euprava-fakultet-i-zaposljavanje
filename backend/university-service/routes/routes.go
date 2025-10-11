@@ -13,13 +13,15 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 	{
 		public.GET("/students", ctrl.GetAllStudents)
 		public.GET("/professors", ctrl.GetAllProfessors)
-		public.GET("/courses", ctrl.GetAllCourses)
+		public.GET("/courses", ctrl.GetAllSubjects)
 		public.GET("/departments", ctrl.GetAllDepartments)
 		public.GET("/universities", ctrl.GetAllUniversities)
 		public.GET("/exams", ctrl.GetAllExams)
 		public.GET("/exam-sessions", ctrl.GetAllExamSessions)
 		public.GET("/administrators", ctrl.GetAllAdministrators)
 		public.GET("/assistants", ctrl.GetAllAssistants)
+		public.GET("/majors", ctrl.GetAllMajors)
+
 	}
 
 	protected := router.Group("/")
@@ -44,6 +46,12 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.GET("/departments/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetDepartmentByID)
 		protected.PUT("/departments/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateDepartment)
 		protected.DELETE("/departments/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteDepartment)
+
+		protected.GET("/majors/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetMajorByID)
+		protected.GET("/majors/:id/subjects", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetSubjectsFromMajor)
+		protected.POST("/majors", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.CreateMajor)
+		protected.PUT("/majors/:id", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.UpdateMajor)
+		protected.DELETE("/majors/:id", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.DeleteMajor)
 
 		protected.POST("/universities/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateUniversity)
 		protected.GET("/universities/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetUniversityByID)

@@ -20,14 +20,14 @@ export default function RegisterPage() {
   const router = useRouter()
   const { login } = useAuth()
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    password: "",
-    phone: "",
-    address: "",
+    first_name: "johnny",
+    last_name: "test",
+    email: "test@test.com",
+    password: "13121312",
+    phone: "123456789",
+    address: "Test valley 69",
     date_of_birth: "",
-    jmbg: "",
+    jmbg: "123456789123",
     user_type: "" as UserType,
   })
   const [error, setError] = useState("")

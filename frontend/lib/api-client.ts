@@ -47,9 +47,18 @@ class ApiClient {
       body: JSON.stringify(data),
     })
 
+    // Handle non-OK responses
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "Registration failed" }))
-      throw new Error(error.message || "Registration failed")
+      let errorMessage = "Registration failed"
+      try {
+        const errorData = await response.json()
+        // Your API sends { "error": "message" }
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        // fallback in case JSON parsing fails
+        errorMessage = "Registration failed (invalid server response)"
+      }
+      throw new Error(errorMessage)
     }
 
     const responseData = await response.json()
@@ -61,6 +70,7 @@ class ApiClient {
 
     return responseData
   }
+
 
   async logout(token: string): Promise<void> {
     const response = await fetch(`${AUTH_API_URL}/users/logout`, {
