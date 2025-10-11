@@ -458,46 +458,6 @@ func (r *Repository) DeleteAdministrator(administratorID string) error {
 	return err
 }
 
-func (r *Repository) CreateExam(exam *Exam) error {
-	collection := r.getCollection("exam")
-	result, err := collection.InsertOne(context.TODO(), exam)
-	if err != nil {
-		return err
-	}
-	exam.ID = result.InsertedID.(primitive.ObjectID)
-	return nil
-}
-
-func (r *Repository) GetExamByID(examID string) (*Exam, error) {
-	collection := r.getCollection("exams")
-	objectID, err := primitive.ObjectIDFromHex(examID)
-	if err != nil {
-		return nil, err
-	}
-	var exam Exam
-	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&exam)
-	if err != nil {
-		return nil, err
-	}
-	return &exam, nil
-}
-
-func (r *Repository) UpdateExam(exam *Exam) error {
-	collection := r.getCollection("exams")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": exam.ID}, exam)
-	return err
-}
-
-func (r *Repository) DeleteExam(examID string) error {
-	collection := r.getCollection("exams")
-	objectID, err := primitive.ObjectIDFromHex(examID)
-	if err != nil {
-		return err
-	}
-	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
-	return err
-}
-
 func (r *Repository) GetAllStudents() ([]Student, error) {
 	collection := r.getCollection("student")
 	cursor, err := collection.Find(context.TODO(), bson.M{})

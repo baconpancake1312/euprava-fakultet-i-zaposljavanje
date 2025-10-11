@@ -50,14 +50,6 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.PUT("/universities/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateUniversity)
 		protected.DELETE("/universities/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteUniversity)
 
-		// Legacy exam routes (deprecated)
-		protected.POST("/exams/create", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.CreateExam)
-		protected.GET("/exams/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamByID)
-		protected.PUT("/exams/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateExam)
-		protected.DELETE("/exams/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.DeleteExam)
-		protected.POST("/manage-exams", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.ManageExams)
-		protected.POST("/cancel-exam/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.CancelExam)
-
 		// New exam system routes
 		// ExamSession routes
 		protected.POST("/exam-sessions/create", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.CreateExamSession)
