@@ -634,23 +634,6 @@ func (r *Repository) GetAllUniversities() ([]University, error) {
 	return universities, nil
 }
 
-func (r *Repository) GetAllExams() ([]Exam, error) {
-	collection := r.getCollection("exams")
-	cursor, err := collection.Find(context.TODO(), bson.M{})
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(context.TODO())
-
-	var exams []Exam
-	err = cursor.All(context.TODO(), &exams)
-	if err != nil {
-		return nil, err
-	}
-
-	return exams, nil
-}
-
 func (r *Repository) GetAllAdministrators() ([]Administrator, error) {
 	collection := r.getCollection("administrator")
 	cursor, err := collection.Find(context.TODO(), bson.M{})
