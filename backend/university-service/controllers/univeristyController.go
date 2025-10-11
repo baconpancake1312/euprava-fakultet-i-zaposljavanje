@@ -169,6 +169,7 @@ func (ctrl *Controllers) CreateCourse(c *gin.Context) {
 	}
 
 	err := ctrl.Repo.CreateSubject(&subject)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -205,7 +206,7 @@ func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
 
 	subject.ID = objectID
 
-	err = ctrl.Repo.UpdateCourse(&subject)
+	err = ctrl.Repo.UpdateSubject(&subject)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -217,7 +218,7 @@ func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
 func (ctrl *Controllers) DeleteCourse(c *gin.Context) {
 	id := c.Param("id")
 
-	err := ctrl.Repo.DeleteCourse(id)
+	err := ctrl.Repo.DeleteSubject(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1347,13 +1348,13 @@ func (ctrl *Controllers) UpdateMajor(c *gin.Context) {
 		return
 	}
 
-	var updateData map[string]interface{}
+	var updateData repositories.Major
 	if err := c.BindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := ctrl.Repo.UpdateMajor(objID, updateData); err != nil {
+	if err := ctrl.Repo.UpdateMajor(objID, &updateData); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update major"})
 		return
 	}

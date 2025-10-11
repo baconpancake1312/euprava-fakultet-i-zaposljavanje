@@ -345,6 +345,16 @@ func (r *Repository) CreateSubject(subject *Subject) error {
 		return err
 	}
 	subject.ID = result.InsertedID.(primitive.ObjectID)
+	major, err := r.GetMajorByID(subject.MajorID)
+	if err != nil {
+		return err
+	}
+	major.Subjects = append(major.Subjects, *subject)
+	err = r.UpdateMajor(major.ID, major)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -362,20 +372,101 @@ func (r *Repository) GetSubjectByID(subjectID string) (*Subject, error) {
 	return &subject, nil
 }
 
-func (r *Repository) UpdateCourse(subject *Subject) error {
-	collection := r.getCollection("subjects")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": subject.ID}, subject)
-	return err
+func (r *Repository) UpdateSubject(subject *Subject) error {
+	subjectsCol := r.getCollection("subjects")
+
+	// Update the subject in its own collection
+	_, err := subjectsCol.ReplaceOne(context.TODO(), bson.M{"_id": subject.ID}, subject)
+	if err != nil {
+		r.logger.Println("Error updating subject in subjects collection:", err)
+		return err
+	}
+
+	// Fetch the related major
+	major, err := r.GetMajorByID(subject.MajorID)
+	if err != nil {
+		r.logger.Println("Error fetching major for subject:", err)
+		return err
+	}
+	if major == nil {
+		return fmt.Errorf("major with ID %v not found", subject.MajorID.Hex())
+	}
+
+	// Update the subject within the major’s Subjects array
+	updated := false
+	for i, s := range major.Subjects {
+		if s.ID == subject.ID {
+			major.Subjects[i] = *subject
+			updated = true
+			break
+		}
+	}
+
+	// If subject not found in major, append it (new subject for that major)
+	if !updated {
+		major.Subjects = append(major.Subjects, *subject)
+	}
+
+	// Persist the change in majors collection
+	err = r.UpdateMajor(major.ID, major)
+	if err != nil {
+		r.logger.Println("Error updating major with new subject data:", err)
+		return err
+	}
+
+	return nil
 }
 
-func (r *Repository) DeleteCourse(subjectID string) error {
-	collection := r.getCollection("subjects")
+func (r *Repository) DeleteSubject(subjectID string) error {
+	subjectsCol := r.getCollection("subjects")
+
 	objectID, err := primitive.ObjectIDFromHex(subjectID)
+	if err != nil {
+		return fmt.Errorf("invalid subject ID: %v", err)
+	}
+
+	// Get the subject to know which major to update
+	subject, err := r.GetSubjectByID(subjectID)
 	if err != nil {
 		return err
 	}
-	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
-	return err
+	if subject == nil {
+		return fmt.Errorf("subject not found")
+	}
+
+	// Delete the subject from "subjects" collection
+	_, err = subjectsCol.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting subject:", err)
+		return err
+	}
+
+	// Remove it from the major’s Subjects array
+	major, err := r.GetMajorByID(subject.MajorID)
+	if err != nil {
+		r.logger.Println("Error fetching major for subject deletion:", err)
+		return err
+	}
+	if major == nil {
+		return fmt.Errorf("major with ID %v not found", subject.MajorID.Hex())
+	}
+
+	newSubjects := make([]Subject, 0, len(major.Subjects))
+	for _, s := range major.Subjects {
+		if s.ID != objectID {
+			newSubjects = append(newSubjects, s)
+		}
+	}
+	major.Subjects = newSubjects
+
+	// Update the major in the DB
+	err = r.UpdateMajor(major.ID, major)
+	if err != nil {
+		r.logger.Println("Error updating major after subject deletion:", err)
+		return err
+	}
+
+	return nil
 }
 
 func (r *Repository) CreateStudentService(studentService *StudentService) error {
@@ -1086,10 +1177,17 @@ func (r *Repository) GetMajorByID(id primitive.ObjectID) (*Major, error) {
 }
 
 // UpdateMajor updates a major’s details.
-func (r *Repository) UpdateMajor(id primitive.ObjectID, update bson.M) error {
+func (r *Repository) UpdateMajor(id primitive.ObjectID, updatedMajor *Major) error {
 	collection := r.getCollection("majors")
 
-	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id}, bson.M{"$set": update})
+	update := bson.M{
+		"$set": bson.M{
+			"name":     updatedMajor.Name,
+			"subjects": updatedMajor.Subjects,
+		},
+	}
+
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id}, update)
 	if err != nil {
 		r.logger.Println("Error updating major:", err)
 		return err

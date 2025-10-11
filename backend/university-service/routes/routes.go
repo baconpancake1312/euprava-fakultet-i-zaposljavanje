@@ -13,7 +13,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 	{
 		public.GET("/students", ctrl.GetAllStudents)
 		public.GET("/professors", ctrl.GetAllProfessors)
-		public.GET("/courses", ctrl.GetAllSubjects)
+		public.GET("/subjects", ctrl.GetAllSubjects)
 		public.GET("/departments", ctrl.GetAllDepartments)
 		public.GET("/universities", ctrl.GetAllUniversities)
 		public.GET("/exams", ctrl.GetAllExams)
@@ -37,10 +37,10 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.PUT("/professors/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateProfessor)
 		protected.DELETE("/professors/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteProfessor)
 
-		protected.POST("/courses/create", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.CreateCourse)
-		protected.GET("/courses/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetCourseByID)
-		protected.PUT("/courses/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateCourse)
-		protected.DELETE("/courses/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteCourse)
+		protected.POST("/subject/create", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.CreateCourse)
+		protected.GET("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetCourseByID)
+		protected.PUT("/subject/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateCourse)
+		protected.DELETE("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteCourse)
 
 		protected.POST("/departments/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateDepartment)
 		protected.GET("/departments/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetDepartmentByID)

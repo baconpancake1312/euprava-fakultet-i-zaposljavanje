@@ -65,12 +65,12 @@ type Assistant struct {
 }
 
 type Subject struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name      string             `bson:"name" json:"name" validate:"required"`
-	MajorID   primitive.ObjectID `bson:"major_id" json:"major_id,omitempty"`
-	Professor Professor          `bson:"professor" json:"professor"`
-	Year      int                `bson:"year" json:"year"`
-	HasPassed bool               `bson:"has_passed" json:"has_passed"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name        string             `bson:"name" json:"name" validate:"required"`
+	MajorID     primitive.ObjectID `bson:"major_id" json:"major_id,omitempty"`
+	ProfessorID primitive.ObjectID `bson:"professor_id" json:"professor_id"`
+	Year        int                `bson:"year" json:"year"`
+	HasPassed   bool               `bson:"has_passed" json:"has_passed"`
 }
 
 type StudentService struct {
