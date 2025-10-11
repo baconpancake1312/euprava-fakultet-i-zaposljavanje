@@ -16,7 +16,6 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		public.GET("/subjects", ctrl.GetAllSubjects)
 		public.GET("/departments", ctrl.GetAllDepartments)
 		public.GET("/universities", ctrl.GetAllUniversities)
-		public.GET("/exams", ctrl.GetAllExams)
 		public.GET("/exam-sessions", ctrl.GetAllExamSessions)
 		public.GET("/administrators", ctrl.GetAllAdministrators)
 		public.GET("/assistants", ctrl.GetAllAssistants)
@@ -39,8 +38,8 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 
 		protected.POST("/subject/create", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.CreateCourse)
 		protected.GET("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetCourseByID)
-		protected.PUT("/subject/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateCourse)
-		protected.DELETE("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteCourse)
+		protected.PUT("/subject/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateSubject)
+		protected.DELETE("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteSubject)
 
 		protected.POST("/departments/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateDepartment)
 		protected.GET("/departments/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetDepartmentByID)
@@ -89,8 +88,6 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.PUT("/assistants/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateAssistant)
 		protected.DELETE("/assistants/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteAssistant)
 
-		protected.POST("/exams/register", middleware.AuthorizeRoles([]string{"STUDENT"}), ctrl.RegisterExam)
-		protected.DELETE("/exams/deregister/:studentID/:courseID", middleware.AuthorizeRoles([]string{"STUDENT"}), ctrl.DeregisterExam)
 		protected.GET("/exams/calendar", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR"}), ctrl.GetExamCalendar)
 
 		protected.GET("/lectures", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR"}), ctrl.GetLectures)

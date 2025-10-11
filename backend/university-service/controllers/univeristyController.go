@@ -190,7 +190,7 @@ func (ctrl *Controllers) GetCourseByID(c *gin.Context) {
 	c.JSON(http.StatusOK, subject)
 }
 
-func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
+func (ctrl *Controllers) UpdateSubject(c *gin.Context) {
 	id := c.Param("id")
 	var subject repositories.Subject
 	if err := c.BindJSON(&subject); err != nil {
@@ -215,7 +215,7 @@ func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
 	c.JSON(http.StatusOK, subject)
 }
 
-func (ctrl *Controllers) DeleteCourse(c *gin.Context) {
+func (ctrl *Controllers) DeleteSubject(c *gin.Context) {
 	id := c.Param("id")
 
 	err := ctrl.Repo.DeleteSubject(id)
@@ -560,17 +560,6 @@ func (ctrl *Controllers) GetAllUniversities(c *gin.Context) {
 
 	c.JSON(http.StatusOK, universities)
 }
-
-func (ctrl *Controllers) GetAllExams(c *gin.Context) {
-	exams, err := ctrl.Repo.GetAllExams()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, exams)
-}
-
 func (ctrl *Controllers) GetAllAdministrators(c *gin.Context) {
 	administrators, err := ctrl.Repo.GetAllAdministrators()
 	if err != nil {
@@ -589,44 +578,6 @@ func (ctrl *Controllers) GetAllAssistants(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, assistants)
-}
-
-func (ctrl *Controllers) RegisterExam(c *gin.Context) {
-	var exam repositories.Exam
-	if err := c.BindJSON(&exam); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err := ctrl.Repo.RegisterExam(&exam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "Exam registered successfully!"})
-}
-
-func (ctrl *Controllers) DeregisterExam(c *gin.Context) {
-	studentID, err := primitive.ObjectIDFromHex(c.Param("studentID"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
-		return
-	}
-
-	subjectID, err := primitive.ObjectIDFromHex(c.Param("subjectID"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subject ID"})
-		return
-	}
-
-	err = ctrl.Repo.DeregisterExam(studentID, subjectID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Exam deregistered successfully!"})
 }
 
 func (ctrl *Controllers) GetExamCalendar(c *gin.Context) {
