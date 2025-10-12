@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,11 +15,12 @@ import (
 )
 
 type Controllers struct {
-	Repo *repositories.Repository
+	Repo   *repositories.Repository
+	logger *log.Logger
 }
 
-func NewControllers(repo *repositories.Repository) *Controllers {
-	return &Controllers{Repo: repo}
+func NewControllers(repo *repositories.Repository, l *log.Logger) *Controllers {
+	return &Controllers{Repo: repo, logger: l}
 }
 
 func (ctrl *Controllers) CreateStudent(c *gin.Context) {
@@ -1149,6 +1151,14 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 		GradedBy:    professor,
 		Comments:    req.Comments,
 	}
+	if grade.Passed {
+		grade.Subject.HasPassed = true
+		err = ctrl.Repo.UpdateSubject(&grade.Subject)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
 	err = ctrl.Repo.CreateExamGrade(&grade)
 	if err != nil {
@@ -1254,6 +1264,7 @@ func (ctrl *Controllers) CreateMajor(c *gin.Context) {
 	}
 
 	if err := ctrl.Repo.CreateMajor(&major); err != nil {
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
 		return
 	}
@@ -1264,6 +1275,7 @@ func (ctrl *Controllers) CreateMajor(c *gin.Context) {
 func (ctrl *Controllers) GetAllMajors(c *gin.Context) {
 	majors, err := ctrl.Repo.GetAllMajors()
 	if err != nil {
+		ctrl.logger.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch majors"})
 		return
 	}

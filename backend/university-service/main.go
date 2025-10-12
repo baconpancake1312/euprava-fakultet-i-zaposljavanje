@@ -20,14 +20,16 @@ func main() {
 	}
 
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
+	repoLogger := log.New(os.Stdout, "[university-repository] ", log.LstdFlags)
+	controllerLogger := log.New(os.Stdout, "[university-api] ", log.LstdFlags)
 
 	ctx := context.Background()
-	repo, err := repositories.New(ctx, logger)
+	repo, err := repositories.New(ctx, repoLogger)
 	if err != nil {
 		logger.Fatalf("Failed to initialize repository: %v", err)
 	}
 
-	ctrl := controllers.NewControllers(repo)
+	ctrl := controllers.NewControllers(repo, controllerLogger)
 
 	router := gin.New()
 	router.Use(gin.Logger())
