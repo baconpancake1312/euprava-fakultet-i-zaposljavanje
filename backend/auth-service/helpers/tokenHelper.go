@@ -65,6 +65,9 @@ func GenerateAllTokens(email string, firstName string, lastName string, userType
 
 // ValidateToken validates the jwt token
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
+	if SECRET_KEY == "" {
+		log.Fatal("SECRET_KEY not set in environment")
+	}
 	token, err := jwt.ParseWithClaims(
 		signedToken,
 		&SignedDetails{},

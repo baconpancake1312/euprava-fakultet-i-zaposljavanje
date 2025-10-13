@@ -150,18 +150,24 @@ func Register() gin.HandlerFunc {
 			return
 		}
 
+		isRegisteredInOthers := false
 		// Register in appropriate services based on user type
 		go func() {
 			if err := RegisterInAppropriateServices(&user); err != nil {
+				isRegisteredInOthers = false
 				l.Printf("Error registering user in services: %v", err)
+			} else {
+				isRegisteredInOthers = true
 			}
+
 		}()
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":   "User registered successfully",
-			"user_id":   user.User_id,
-			"user_type": user.User_type,
-			"result":    resultInsertionNumber,
+			"message":                        "User registered successfully",
+			"user_id":                        user.User_id,
+			"user_type":                      user.User_type,
+			"result":                         resultInsertionNumber,
+			"registered for other services:": isRegisteredInOthers,
 		})
 	}
 }
@@ -671,7 +677,7 @@ func CreateServiceAccount() gin.HandlerFunc {
 // getServiceToken retrieves a token for service-to-service communication
 func getServiceToken(serviceName string) (string, error) {
 	// Get service credentials from environment variables
-	servicePassword := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(serviceName)))
+	servicePassword := os.Getenv("_PASSWORD")
 	if servicePassword == "" {
 		return "", fmt.Errorf("service password not found for %s", serviceName)
 	}
