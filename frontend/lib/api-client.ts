@@ -193,6 +193,15 @@ class ApiClient {
     return response.json()
   }
 
+  async getSubjectsByMajor(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/courses`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch courses")
+    return response.json()
+  }
+
   async getCourseById(id: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/courses/${id}`, {
       headers: this.getAuthHeaders(token),
@@ -340,6 +349,15 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to fetch exam sessions")
+    return response.json()
+  }
+
+  async getAllExamSessionsForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch exam sessions for student id: " + studentId)
     return response.json()
   }
 
@@ -1164,6 +1182,19 @@ class ApiClient {
     if (!response.ok) throw new Error("Failed to clear test data")
     return response.json()
   }
+
+  async getMajorById(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch major by id")
+    return response.json()
+  }
 }
+
+
+
+
 
 export const apiClient = new ApiClient()

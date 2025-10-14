@@ -20,8 +20,20 @@ export default function StudentAcademicPage() {
 
   const loadStudentData = async () => {
     try {
-      if (!token || !user?.id) throw new Error("Not authenticated")
+      if (!token || !user?.id) return
+
       const data = await apiClient.getStudentById(user.id, token)
+
+      // Fetch major data if major_id exists
+      if (data.major_id) {
+        try {
+          data.major = await apiClient.getMajorById(data.major_id, token)
+        } catch (majorError) {
+          console.error("Failed to fetch major data:", majorError)
+          // Keep the major_id for reference even if we can't fetch the full major object
+        }
+      }
+
       setStudentData(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load academic data")
@@ -56,7 +68,10 @@ export default function StudentAcademicPage() {
                 <GraduationCap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{studentData.major || "Not set"}</div>
+                <div className="text-2xl font-bold">
+                  {typeof studentData.major === 'string'
+                    ? studentData.major
+                    : studentData.major?.name || "Not set"}</div>
                 <p className="text-xs text-muted-foreground">Current program</p>
               </CardContent>
             </Card>
@@ -85,12 +100,12 @@ export default function StudentAcademicPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">ESPB</CardTitle>
+                <CardTitle className="text-sm font-medium">Courses completed</CardTitle>
                 <Award className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{studentData.espb || 0}</div>
-                <p className="text-xs text-muted-foreground">Credits earned</p>
+                <p className="text-xs text-muted-foreground">out of {5 + 1}</p>
               </CardContent>
             </Card>
 

@@ -30,13 +30,23 @@ export default function StudentDashboard() {
       if (!token || !user?.id) return
 
       const data = await apiClient.getStudentById(user.id, token)
+
+      // Fetch major data if major_id exists
+      if (data.major_id) {
+        try {
+          data.major = await apiClient.getMajorById(data.major_id, token)
+        } catch (majorError) {
+          console.error("Failed to fetch major data:", majorError)
+          // Keep the major_id for reference even if we can't fetch the full major object
+        }
+      }
+
       setStudentData(data)
 
       // Check if profile needs completion
       const missingFields = []
-      if (!data.major) missingFields.push("major")
+      if (!data.major_id) missingFields.push("major")
       if (!data.year) missingFields.push("year")
-      if (!data.gpa) missingFields.push("gpa")
 
       setNeedsProfileCompletion(missingFields.length > 0)
     } catch (error) {
@@ -69,7 +79,7 @@ export default function StudentDashboard() {
           <ProfileCompletionPrompt
             title="Complete Your Student Profile"
             description="To access all university services, please complete your student profile with academic information."
-            missingFields={["Major/Program", "Current Year", "GPA", "ESPB Credits"]}
+            missingFields={["Major/Program", "Current Year"]}
             onComplete={() => router.push("/dashboard/student/complete-profile")}
           />
         )}
@@ -131,7 +141,7 @@ export default function StudentDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">View GPA, ESPB credits, and academic standing</p>
+              <p className="text-sm text-muted-foreground">View GPA and academic standing</p>
             </CardContent>
           </Card>
 
@@ -165,7 +175,11 @@ export default function StudentDashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Major</p>
-                  <p className="text-lg font-semibold">{studentData.major || "Not set"}</p>
+                  <p className="text-lg font-semibold">
+                    {typeof studentData.major === 'string'
+                      ? studentData.major
+                      : studentData.major?.name || "Not set"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Year</p>
@@ -174,10 +188,6 @@ export default function StudentDashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">GPA</p>
                   <p className="text-lg font-semibold">{studentData.gpa?.toFixed(2) || "N/A"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">ESPB</p>
-                  <p className="text-lg font-semibold">{studentData.espb || 0}</p>
                 </div>
               </div>
             </CardContent>

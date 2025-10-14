@@ -66,7 +66,8 @@ export interface CandidateData extends RegisterData {
 
 // Student specific fields
 export interface StudentData {
-  major?: string
+  major?: Major | string
+  major_id?: string
   year?: number
   assigned_dorm?: string
   scholarship?: boolean
@@ -114,3 +115,18 @@ export interface EmployerProfile {
   approved_at?: string
   approved_by?: string
 }
+export interface Major {
+  id: string
+  name: string
+  subjects: Subject[]
+  department_id: string
+}
+export interface Subject {
+  id: string
+  Name: string
+  MajorId: string
+  ProfesorId: string
+  Year: number
+  HasPassed: boolean
+}
+

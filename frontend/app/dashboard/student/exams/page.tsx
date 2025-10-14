@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Loader2, Calendar, BookOpen, Clock } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { StudentData } from '../../../../lib/types';
 
 export default function StudentExamsPage() {
   const { token, user } = useAuth()
@@ -24,11 +25,13 @@ export default function StudentExamsPage() {
 
   const loadExams = async () => {
     try {
+      console.log("user token: " + token + " user id: " + user)
       if (!token || !user?.id) throw new Error("Not authenticated")
+
 
       // Load exam sessions and student registrations in parallel
       const [examSessionsData, registrationsData] = await Promise.all([
-        apiClient.getAllExamSessions(token),
+        apiClient.getAllExamSessionsForStudent(user.id, token),
         apiClient.getStudentExamRegistrations(user.id, token)
       ])
 
@@ -54,6 +57,7 @@ export default function StudentExamsPage() {
     } catch (err) {
       console.error("Error loading exams:", err)
       setError(err instanceof Error ? err.message : "Failed to load exam sessions")
+
     } finally {
       setLoading(false)
     }
@@ -157,7 +161,7 @@ export default function StudentExamsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-primary" />
-                    {examSession.course?.name || "Course"}
+                    {examSession.subject?.name || "Course"}
                   </CardTitle>
                   <CardDescription>
                     {examSession.professor?.first_name && examSession.professor?.last_name
