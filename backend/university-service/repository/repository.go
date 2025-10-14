@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
-
-	"reflect"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -723,32 +722,10 @@ func (r *Repository) GetAllAssistants() ([]Assistant, error) {
 	return assistants, nil
 }
 
-func (r *Repository) RegisterExam(exam *Exam) error {
-	collection := r.getCollection("exams")
-	_, err := collection.InsertOne(context.TODO(), exam)
-	return err
-}
-
 func (r *Repository) DeregisterExam(studentID, subjectID primitive.ObjectID) error {
 	collection := r.getCollection("exams")
 	_, err := collection.DeleteOne(context.TODO(), bson.M{"student._id": studentID, "subject._id": subjectID})
 	return err
-}
-
-func (r *Repository) GetExamCalendar() ([]Exam, error) {
-	collection := r.getCollection("exams")
-	cursor, err := collection.Find(context.TODO(), bson.M{})
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(context.TODO())
-
-	var exams []Exam
-	if err = cursor.All(context.TODO(), &exams); err != nil {
-		return nil, err
-	}
-
-	return exams, nil
 }
 
 func (r *Repository) GetLectures() ([]Subject, error) {
@@ -1099,7 +1076,14 @@ func (r *Repository) RegisterForExam(registration *ExamRegistration) error {
 
 func (r *Repository) DeregisterFromExam(studentID, examSessionID primitive.ObjectID) error {
 	collection := r.getCollection("exam_registrations")
-	_, err := collection.DeleteOne(context.TODO(), bson.M{
+	examSession, err := r.GetExamSessionByID(examSessionID.Hex())
+	if err != nil {
+		return fmt.Errorf("you can't unregister from a completed exam")
+	}
+	if examSession.Status == "Completed" {
+		return err
+	}
+	_, err = collection.DeleteOne(context.TODO(), bson.M{
 		"student._id":     studentID,
 		"exam_session_id": examSessionID,
 	})
@@ -1130,6 +1114,16 @@ func (r *Repository) GetExamRegistrationsByExamSession(examSessionID primitive.O
 	var registrations []ExamRegistration
 	err = cursor.All(context.TODO(), &registrations)
 	return registrations, err
+}
+
+func (r *Repository) GetExamRegistrationById(id primitive.ObjectID) (*ExamRegistration, error) {
+	collection := r.getCollection("exam_registrations")
+	var examRegistration ExamRegistration
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&examRegistration)
+	if err != nil {
+		return &examRegistration, err
+	}
+	return &examRegistration, nil
 }
 
 func (r *Repository) UpdateExamRegistration(registration *ExamRegistration) error {

@@ -41,6 +41,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		// Subjects
 		protected.POST("/subject/create", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.CreateCourse)
 		protected.GET("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetCourseByID)
+		protected.GET("/subjects/passed/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetPassedSubjectsForStudent)
 		protected.PUT("/subject/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateSubject)
 		protected.DELETE("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteSubject)
 
@@ -114,8 +115,6 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT"}), ctrl.GetInternshipsForStudent)
 
 		// Misc
-
-		protected.GET("/exams/calendar", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR"}), ctrl.GetExamCalendar)
 
 		protected.GET("/lectures", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR"}), ctrl.GetLectures)
 		protected.POST("/tuition/pay", middleware.AuthorizeRoles([]string{"STUDENT"}), ctrl.PayTuition)

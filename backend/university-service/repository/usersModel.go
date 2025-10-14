@@ -157,11 +157,6 @@ func (s *Student) ToJSON(w io.Writer) error {
 	return e.Encode(s)
 }
 
-func (e *Exam) ToJSON(w io.Writer) error {
-	encoder := json.NewEncoder(w)
-	return encoder.Encode(e)
-}
-
 func (u *University) FromJSON(r io.Reader) error {
 	d := json.NewDecoder(r)
 	return d.Decode(u)

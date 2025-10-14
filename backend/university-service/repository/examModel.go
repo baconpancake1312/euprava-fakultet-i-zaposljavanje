@@ -17,27 +17,6 @@ type ExamSession struct {
 	Status      ExamStatus         `bson:"status" json:"status"` // "scheduled", "completed", "cancelled"
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 }
-type CreateExamSessionRequest struct {
-	SubjectID   primitive.ObjectID `json:"subject_id" validate:"required"`
-	ProfessorID primitive.ObjectID `json:"professor_id" validate:"required"`
-	ExamDate    time.Time          `json:"exam_date" validate:"required"`
-	Location    string             `json:"location" validate:"required"`
-	MaxStudents int                `json:"max_students" validate:"required,min=1"`
-}
-
-type CreateExamRegistrationRequest struct {
-	StudentID     primitive.ObjectID `json:"student_id" validate:"required"`
-	ExamSessionID primitive.ObjectID `json:"exam_session_id" validate:"required"`
-}
-
-type CreateExamGradeRequest struct {
-	StudentID     primitive.ObjectID `json:"student_id" validate:"required"`
-	ExamSessionID primitive.ObjectID `json:"exam_session_id" validate:"required"`
-	Grade         int                `json:"grade" validate:"required,min=5,max=10"`
-	Comments      string             `json:"comments,omitempty"`
-}
-
-// ExamRegistration represents a student's registration for an exam
 type ExamRegistration struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Student       Student            `bson:"student" json:"student"`
@@ -48,22 +27,30 @@ type ExamRegistration struct {
 
 // ExamGrade represents a student's grade for an exam
 type ExamGrade struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Student     Student            `bson:"student" json:"student"`
-	ExamSession `bson:"exam_session" json:"exam_session"`
-	Grade       int       `bson:"grade" json:"grade"` // 5-10 scale
-	Passed      bool      `bson:"passed" json:"passed"`
-	GradedAt    time.Time `bson:"graded_at" json:"graded_at"`
-	GradedBy    Professor `bson:"graded_by" json:"graded_by"`
-	Comments    string    `bson:"comments" json:"comments,omitempty"`
+	ID                 primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Student            Student            `bson:"student" json:"student"`
+	ExamRegistrationId primitive.ObjectID `bson:"exam_registration_id" json:"exam_registration_id"`
+	Grade              int                `bson:"grade" json:"grade"` // 5-10 scale
+	Passed             bool               `bson:"passed" json:"passed"`
+	GradedAt           time.Time          `bson:"graded_at" json:"graded_at"`
+	GradedBy           Professor          `bson:"graded_by" json:"graded_by"`
+	Comments           string             `bson:"comments" json:"comments,omitempty"`
+}
+type CreateExamSessionRequest struct {
+	SubjectID   primitive.ObjectID `json:"subject_id" validate:"required"`
+	ProfessorID primitive.ObjectID `json:"professor_id" validate:"required"`
+	ExamDate    time.Time          `json:"exam_date" validate:"required"`
+	Location    string             `json:"location" validate:"required"`
+	MaxStudents int                `json:"max_students" validate:"required,min=1"`
+}
+type CreateExamRegistrationRequest struct {
+	StudentID     primitive.ObjectID `json:"student_id" validate:"required"`
+	ExamSessionID primitive.ObjectID `json:"exam_session_id" validate:"required"`
 }
 
-// DEPRECATED: Legacy Exam struct - keeping for backward compatibility but will be removed in future versions
-// Use ExamSession, ExamRegistration, and ExamGrade instead
-type Exam struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Student  Student            `bson:"student" json:"student"`
-	Subject  Subject            `bson:"subject" json:"subject"`
-	ExamDate time.Time          `bson:"exam_date" json:"exam_date"`
-	Status   string             `bson:"status" json:"status"`
+type CreateExamGradeRequest struct {
+	StudentID          primitive.ObjectID `json:"student_id" validate:"required"`
+	ExamRegistrationId primitive.ObjectID `json:"exam_registration_id" validate:"required"`
+	Grade              int                `json:"grade" validate:"required,min=5,max=10"`
+	Comments           string             `json:"comments,omitempty"`
 }

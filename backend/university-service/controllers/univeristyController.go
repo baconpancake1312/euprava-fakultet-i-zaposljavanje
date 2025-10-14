@@ -750,16 +750,6 @@ func (ctrl *Controllers) GetAllAssistants(c *gin.Context) {
 	c.JSON(http.StatusOK, assistants)
 }
 
-func (ctrl *Controllers) GetExamCalendar(c *gin.Context) {
-	exams, err := ctrl.Repo.GetExamCalendar()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, exams)
-}
-
 func (ctrl *Controllers) GetLectures(c *gin.Context) {
 	lectures, err := ctrl.Repo.GetLectures()
 	if err != nil {
@@ -1318,7 +1308,13 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 		return
 	}
 
-	examSession, err := ctrl.Repo.GetExamSessionByID(req.ExamSessionID.Hex())
+	examRegistration, err := ctrl.Repo.GetExamRegistrationById(req.ExamRegistrationId)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
+	examSession, err := ctrl.Repo.GetExamSessionByID(examRegistration.ExamSessionID.Hex())
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
 		return
@@ -1336,20 +1332,12 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 
 	// Create the grade with full objects
 	grade := repositories.ExamGrade{
-		Student:     *fetchedStudent,
-		ExamSession: *examSession,
-		Grade:       req.Grade,
-		Passed:      req.Grade >= 6,
-		GradedBy:    professor,
-		Comments:    req.Comments,
-	}
-	if grade.Passed {
-		grade.Subject.HasPassed = true
-		err = ctrl.Repo.UpdateSubject(&grade.Subject)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+		Student:            *fetchedStudent,
+		ExamRegistrationId: req.ExamRegistrationId,
+		Grade:              req.Grade,
+		Passed:             req.Grade >= 6,
+		GradedBy:           professor,
+		Comments:           req.Comments,
 	}
 
 	err = ctrl.Repo.CreateExamGrade(&grade)
@@ -1549,7 +1537,7 @@ func (ctrl *Controllers) GetSubjectsFromMajor(c *gin.Context) {
 
 	c.JSON(http.StatusOK, subjects)
 }
-func (ctrl *Controllers) GetPassedSubjects(c *gin.Context) {
+func (ctrl *Controllers) GetPassedSubjectsForStudent(c *gin.Context) {
 	// student id -> get his grades -> get subjects from grades
 	studentIdParam := c.Param("id")
 	studentObjID, err := primitive.ObjectIDFromHex(studentIdParam)
@@ -1562,15 +1550,38 @@ func (ctrl *Controllers) GetPassedSubjects(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch grades for student"})
 		return
 	}
+	fmt.Printf("grades: %v", grades)
 	var passedGrades []repositories.ExamGrade
 	for _, grade := range grades {
 		if grade.Passed {
 			passedGrades = append(passedGrades, grade)
 		}
 	}
-	var passedSubjects []repositories.Subject
+
+	var examRegistrations []repositories.ExamRegistration
 	for _, grade := range passedGrades {
-		passedSubjects = append(passedSubjects, grade.ExamSession.Subject)
+		registration, err := ctrl.Repo.GetExamRegistrationById(grade.ExamRegistrationId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch exam registraion"})
+			return
+		}
+		examRegistrations = append(examRegistrations, *registration)
+	}
+	fmt.Printf("registrations: %v", examRegistrations)
+
+	var exams []repositories.ExamSession
+	for _, registration := range examRegistrations {
+		exam, err := ctrl.Repo.GetExamSessionByID(registration.ExamSessionID.Hex())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		exams = append(exams, *exam)
+	}
+	fmt.Printf("exams: %v", exams)
+	var passedSubjects []repositories.Subject
+	for _, exam := range exams {
+		passedSubjects = append(passedSubjects, exam.Subject)
 	}
 
 	c.JSON(http.StatusOK, passedSubjects)
