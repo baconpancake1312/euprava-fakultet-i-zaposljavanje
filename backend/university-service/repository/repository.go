@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 	"time"
+
+	"reflect"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -62,6 +65,8 @@ func (r *Repository) getCollection(collectionName string) *mongo.Collection {
 
 func (r *Repository) CreateStudent(student *Student) error {
 	r.logger.Println("Creating student:", student)
+	student.GPA = 0
+
 	collection := r.getCollection("student")
 	_, err := collection.InsertOne(context.TODO(), student)
 	if err != nil {
@@ -92,7 +97,38 @@ func (r *Repository) GetStudentByID(userID string) (*Student, error) {
 func (r *Repository) UpdateStudent(student *Student) error {
 	r.logger.Println("Updating student with ID:", student.ID.Hex())
 	collection := r.getCollection("student")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": student.ID}, student)
+
+	// Use reflection to build update document with only non-zero fields
+	updateDoc := bson.M{}
+	v := reflect.ValueOf(student).Elem()
+	t := reflect.TypeOf(student).Elem()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+
+		// Skip the ID field
+		if fieldType.Name == "ID" {
+			continue
+		}
+
+		// Get the bson tag for the field name
+		bsonTag := fieldType.Tag.Get("bson")
+		if bsonTag == "" || bsonTag == "-" {
+			continue
+		}
+
+		// Check if field has a non-zero value
+		if !field.IsZero() {
+			updateDoc[bsonTag] = field.Interface()
+		}
+	}
+
+	_, err := collection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": student.ID},
+		bson.M{"$set": updateDoc},
+	)
 	if err != nil {
 		r.logger.Println("Error updating student:", err)
 	}
@@ -110,6 +146,25 @@ func (r *Repository) DeleteStudent(userID string) error {
 	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
 	if err != nil {
 		r.logger.Println("Error deleting student:", err)
+	}
+	return err
+}
+
+func (r *Repository) DeleteDynamic(entityID string, entityType string) error {
+	r.logger.Println("Deleting entity with ID:", entityID)
+	collections := []string{"student", "professor", "assistant", "department", "university", "subjects", "majors", "exam_sessions", "exam_registrations", "exam_grades", "notifications", "internship_applications", "student_services", "administrators"}
+	if !slices.Contains(collections, entityType) {
+		return fmt.Errorf("invalid entity type: %s", entityType)
+	}
+	collection := r.getCollection(entityType)
+	objectID, err := primitive.ObjectIDFromHex(entityID)
+	if err != nil {
+		r.logger.Println("Invalid "+entityType+" ID format:", err)
+		return err
+	}
+	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil {
+		r.logger.Println("Error deleting "+entityType+":", err)
 	}
 	return err
 }
@@ -148,7 +203,7 @@ func (r *Repository) GetUniversityByID(universityID string) (*University, error)
 func (r *Repository) UpdateUniversity(university *University) error {
 	r.logger.Println("Updating university with ID:", university.ID.Hex())
 	collection := r.getCollection("university")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": university.ID}, university)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": university.ID}, bson.M{"$set": university})
 	if err != nil {
 		r.logger.Println("Error updating university:", err)
 	}
@@ -203,7 +258,7 @@ func (r *Repository) GetDepartmentByID(departmentID string) (*Department, error)
 func (r *Repository) UpdateDepartment(department *Department) error {
 	r.logger.Println("Updating department with ID:", department.ID.Hex())
 	collection := r.getCollection("department")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": department.ID}, department)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": department.ID}, bson.M{"$set": department})
 	if err != nil {
 		r.logger.Println("Error updating department:", err)
 	}
@@ -259,7 +314,7 @@ func (r *Repository) GetProfessorByID(professorID string) (*Professor, error) {
 func (r *Repository) UpdateProfessor(professor *Professor) error {
 	r.logger.Println("Updating professor with ID:", professor.ID.Hex())
 	collection := r.getCollection("professor")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": professor.ID}, professor)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": professor.ID}, bson.M{"$set": professor})
 	if err != nil {
 		r.logger.Println("Error updating professor:", err)
 	}
@@ -315,7 +370,7 @@ func (r *Repository) GetAssistantByID(assistantID string) (*Assistant, error) {
 func (r *Repository) UpdateAssistant(assistant *Assistant) error {
 	r.logger.Println("Updating assistant with ID:", assistant.ID.Hex())
 	collection := r.getCollection("assistant")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": assistant.ID}, assistant)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": assistant.ID}, bson.M{"$set": assistant})
 	if err != nil {
 		r.logger.Println("Error updating assistant:", err)
 	}
@@ -376,7 +431,7 @@ func (r *Repository) UpdateSubject(subject *Subject) error {
 	subjectsCol := r.getCollection("subjects")
 
 	// Update the subject in its own collection
-	_, err := subjectsCol.ReplaceOne(context.TODO(), bson.M{"_id": subject.ID}, subject)
+	_, err := subjectsCol.UpdateOne(context.TODO(), bson.M{"_id": subject.ID}, subject)
 	if err != nil {
 		r.logger.Println("Error updating subject in subjects collection:", err)
 		return err
@@ -495,7 +550,7 @@ func (r *Repository) GetStudentServiceByID(studentServiceID string) (*StudentSer
 
 func (r *Repository) UpdateStudentService(studentService *StudentService) error {
 	collection := r.getCollection("studentservice")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": studentService.ID}, studentService)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": studentService.ID}, bson.M{"$set": studentService})
 	return err
 }
 
@@ -535,7 +590,7 @@ func (r *Repository) GetAdministratorByID(administratorID string) (*Administrato
 
 func (r *Repository) UpdateAdministrator(administrator *Administrator) error {
 	collection := r.getCollection("administrator")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": administrator.ID}, administrator)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": administrator.ID}, bson.M{"$set": administrator})
 	return err
 }
 
@@ -874,7 +929,7 @@ func (r *Repository) GetInternshipApplicationById(internAppID string) (*Internsh
 func (r *Repository) UpdateInternshipApplication(internApp *InternshipApplication) error {
 	r.logger.Println("Updating internship application with ID:", internApp.ID.Hex())
 	collection := r.getCollection("internship_applications")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": internApp.ID}, internApp)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": internApp.ID}, bson.M{"$set": internApp})
 	if err != nil {
 		r.logger.Println("Error updating internship application:", err)
 	}
@@ -960,10 +1015,53 @@ func (r *Repository) GetExamSessionsByProfessor(professorID primitive.ObjectID) 
 	return examSessions, err
 }
 
+func (r *Repository) GetExamSessionsByStudent(studentID primitive.ObjectID) ([]ExamSession, error) {
+	collection := r.getCollection("exam_sessions")
+	student, err := r.GetStudentByID(studentID.Hex())
+	if err != nil {
+		return nil, err
+	}
+	majorId := student.MajorID
+	cursor, err := collection.Find(context.TODO(), bson.M{"subject.major_id": majorId})
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(context.TODO())
+
+	var examSessions []ExamSession
+	err = cursor.All(context.TODO(), &examSessions)
+	return examSessions, err
+}
+
 func (r *Repository) UpdateExamSession(examSession *ExamSession) error {
 	collection := r.getCollection("exam_sessions")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": examSession.ID}, examSession)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": examSession.ID}, bson.M{"$set": examSession})
 	return err
+}
+func (r *Repository) UpdateExamSessionsToPending() error {
+	collection := r.getCollection("exam_sessions")
+	now := time.Now()
+
+	// Update all scheduled exams where exam_date <= now
+	filter := bson.M{
+		"status":    "Scheduled",
+		"exam_date": bson.M{"$lte": now},
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"status": "Pending",
+		},
+	}
+
+	result, err := collection.UpdateMany(context.TODO(), filter, update)
+	if err != nil {
+		return err
+	}
+
+	r.logger.Printf("Updated %d exam sessions to pending status", result.ModifiedCount)
+	return nil
 }
 
 func (r *Repository) DeleteExamSession(examSessionID string) error {
@@ -1036,7 +1134,7 @@ func (r *Repository) GetExamRegistrationsByExamSession(examSessionID primitive.O
 
 func (r *Repository) UpdateExamRegistration(registration *ExamRegistration) error {
 	collection := r.getCollection("exam_registrations")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": registration.ID}, registration)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": registration.ID}, bson.M{"$set": registration})
 	return err
 }
 
@@ -1060,7 +1158,7 @@ func (r *Repository) CreateExamGrade(grade *ExamGrade) error {
 
 func (r *Repository) UpdateExamGrade(grade *ExamGrade) error {
 	collection := r.getCollection("exam_grades")
-	_, err := collection.ReplaceOne(context.TODO(), bson.M{"_id": grade.ID}, grade)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": grade.ID}, bson.M{"$set": grade})
 	return err
 }
 
@@ -1114,14 +1212,14 @@ func (r *Repository) GetStudentByIDObject(studentID primitive.ObjectID) (*Studen
 }
 
 // CreateMajor inserts a new major into the "majors" collection.
-func (r *Repository) CreateMajor(major *Major) error {
+func (r *Repository) CreateMajor(major *Major) (string, error) {
 	collection := r.getCollection("majors")
 	_, err := collection.InsertOne(context.TODO(), major)
 	if err != nil {
 		r.logger.Println("Error inserting major:", err)
-		return err
+		return "", err
 	}
-	return nil
+	return major.ID.Hex(), nil
 }
 
 // GetAllMajors retrieves all majors from the "majors" collection.
@@ -1130,6 +1228,7 @@ func (r *Repository) GetAllMajors() ([]Major, error) {
 
 	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
+
 		r.logger.Println("Error finding majors:", err)
 		return nil, err
 	}

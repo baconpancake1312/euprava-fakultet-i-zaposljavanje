@@ -9,6 +9,8 @@ import (
 	repositories "university-service/repository"
 	"university-service/routes"
 
+	helper "university-service/helpers"
+
 	"github.com/gin-gonic/gin"
 	cors "github.com/itsjamie/gin-cors"
 )
@@ -30,6 +32,7 @@ func main() {
 	}
 
 	ctrl := controllers.NewControllers(repo, controllerLogger)
+	helper.StartExamStatusUpdater(repo, logger)
 
 	router := gin.New()
 	router.Use(gin.Logger())

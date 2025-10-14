@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	repositories "university-service/repository"
 
@@ -60,29 +61,196 @@ func (ctrl *Controllers) GetStudentByIDLocal(id string) (*repositories.Student, 
 	return student, nil
 }
 
+// Helper function to update User fields
+func (ctrl *Controllers) updateUserFields(user *repositories.User, updateData map[string]interface{}) error {
+	var errors []string
+
+	if firstName, ok := updateData["first_name"]; ok {
+		if firstNameStr, ok := firstName.(string); ok {
+			user.FirstName = &firstNameStr
+		} else {
+			errors = append(errors, "first_name must be a string")
+		}
+	}
+	if lastName, ok := updateData["last_name"]; ok {
+		if lastNameStr, ok := lastName.(string); ok {
+			user.LastName = &lastNameStr
+		} else {
+			errors = append(errors, "last_name must be a string")
+		}
+	}
+	if email, ok := updateData["email"]; ok {
+		if emailStr, ok := email.(string); ok {
+			user.Email = &emailStr
+		} else {
+			errors = append(errors, "email must be a string")
+		}
+	}
+	if password, ok := updateData["password"]; ok {
+		if passwordStr, ok := password.(string); ok {
+			user.Password = &passwordStr
+		} else {
+			errors = append(errors, "password must be a string")
+		}
+	}
+	if phone, ok := updateData["phone"]; ok {
+		if phoneStr, ok := phone.(string); ok {
+			user.Phone = &phoneStr
+		} else {
+			errors = append(errors, "phone must be a string")
+		}
+	}
+	if address, ok := updateData["address"]; ok {
+		if addressStr, ok := address.(string); ok {
+			user.Address = &addressStr
+		} else {
+			errors = append(errors, "address must be a string")
+		}
+	}
+	if dateOfBirth, ok := updateData["date_of_birth"]; ok {
+		if dateOfBirthStr, ok := dateOfBirth.(string); ok {
+			if parsedDate, err := time.Parse(time.RFC3339, dateOfBirthStr); err == nil {
+				user.DateOfBirth = parsedDate
+			} else {
+				errors = append(errors, "date_of_birth must be a valid RFC3339 date string")
+			}
+		} else {
+			errors = append(errors, "date_of_birth must be a string")
+		}
+	}
+	if jmbg, ok := updateData["jmbg"]; ok {
+		if jmbgStr, ok := jmbg.(string); ok {
+			user.JMBG = jmbgStr
+		} else {
+			errors = append(errors, "jmbg must be a string")
+		}
+	}
+	if userType, ok := updateData["user_type"]; ok {
+		if userTypeStr, ok := userType.(string); ok {
+			user.UserType = repositories.UserType(userTypeStr)
+		} else {
+			errors = append(errors, "user_type must be a string")
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("validation errors: %s", strings.Join(errors, ", "))
+	}
+	return nil
+}
+
+// Helper function to update Student-specific fields
+func (ctrl *Controllers) updateStudentFields(student *repositories.Student, updateData map[string]interface{}) error {
+	var errors []string
+
+	if majorID, ok := updateData["major_id"]; ok {
+		if majorIDStr, ok := majorID.(string); ok {
+			if objectID, err := primitive.ObjectIDFromHex(majorIDStr); err == nil {
+				student.MajorID = objectID
+			} else {
+				errors = append(errors, "major_id must be a valid ObjectID")
+			}
+		} else {
+			errors = append(errors, "major_id must be a string")
+		}
+	}
+	if year, ok := updateData["year"]; ok {
+		if yearFloat, ok := year.(float64); ok {
+			student.Year = int(yearFloat)
+		} else {
+			errors = append(errors, "year must be a number")
+		}
+	}
+	if highschoolGPA, ok := updateData["highschool_gpa"]; ok {
+		if gpaFloat, ok := highschoolGPA.(float64); ok {
+			student.HighschoolGPA = gpaFloat
+		} else {
+			errors = append(errors, "highschool_gpa must be a number")
+		}
+	}
+	if gpa, ok := updateData["gpa"]; ok {
+		if gpaFloat, ok := gpa.(float64); ok {
+			student.GPA = gpaFloat
+		} else {
+			errors = append(errors, "gpa must be a number")
+		}
+	}
+	if cvFile, ok := updateData["cv_file"]; ok {
+		if cvFileStr, ok := cvFile.(string); ok {
+			student.CVFile = cvFileStr
+		} else {
+			errors = append(errors, "cv_file must be a string")
+		}
+	}
+	if cvBase64, ok := updateData["cv_base64"]; ok {
+		if cvBase64Str, ok := cvBase64.(string); ok {
+			student.CVBase64 = cvBase64Str
+		} else {
+			errors = append(errors, "cv_base64 must be a string")
+		}
+	}
+	if skills, ok := updateData["skills"]; ok {
+		if skillsSlice, ok := skills.([]interface{}); ok {
+			var skillsList []string
+			for _, skill := range skillsSlice {
+				if skillStr, ok := skill.(string); ok {
+					skillsList = append(skillsList, skillStr)
+				} else {
+					errors = append(errors, "all skills must be strings")
+					break
+				}
+			}
+			student.Skills = skillsList
+		} else {
+			errors = append(errors, "skills must be an array of strings")
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("validation errors: %s", strings.Join(errors, ", "))
+	}
+	return nil
+}
+
+// Main UpdateStudent function
 func (ctrl *Controllers) UpdateStudent(c *gin.Context) {
 	id := c.Param("id")
-	var student repositories.Student
-	if err := c.BindJSON(&student); err != nil {
+
+	// First, get the existing student
+	existingStudent, err := ctrl.Repo.GetStudentByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	// Create a map to hold only the fields that should be updated
+	var updateData map[string]interface{}
+	if err := c.BindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+	// Update User fields (inherited from User struct)
+	if err := ctrl.updateUserFields(&existingStudent.User, updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	student.ID = objectID
+	// Update Student-specific fields
+	if err := ctrl.updateStudentFields(existingStudent, updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	err = ctrl.Repo.UpdateStudent(&student)
+	// Update the student in the database
+	err = ctrl.Repo.UpdateStudent(existingStudent)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, student)
+	// Return the updated student
+	c.JSON(http.StatusOK, existingStudent)
 }
 
 func (ctrl *Controllers) DeleteStudent(c *gin.Context) {
@@ -905,7 +1073,7 @@ func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
 	// Fetch the full subject and professor objects
 	subject, err := ctrl.Repo.GetSubjectByID(req.SubjectID.Hex())
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Subject not found"})
 		return
 	}
 
@@ -954,6 +1122,23 @@ func (ctrl *Controllers) GetExamSessionsByProfessor(c *gin.Context) {
 	}
 
 	examSessions, err := ctrl.Repo.GetExamSessionsByProfessor(objectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, examSessions)
+}
+
+func (ctrl *Controllers) GetExamSessionsByMajor(c *gin.Context) {
+	studentId := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(studentId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	examSessions, err := ctrl.Repo.GetExamSessionsByStudent(objectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1139,6 +1324,13 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 		return
 	}
 
+	examSession.Status = repositories.Completed
+	err = ctrl.Repo.UpdateExamSession(examSession)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
 	// Get professor from exam session for grading
 	professor := examSession.Professor
 
@@ -1263,11 +1455,12 @@ func (ctrl *Controllers) CreateMajor(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.Repo.CreateMajor(&major); err != nil {
-
+	id, err := ctrl.Repo.CreateMajor(&major)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
 		return
 	}
+	major.ID, err = primitive.ObjectIDFromHex(id)
 
 	c.JSON(http.StatusCreated, major)
 }
@@ -1355,4 +1548,30 @@ func (ctrl *Controllers) GetSubjectsFromMajor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, subjects)
+}
+func (ctrl *Controllers) GetPassedSubjects(c *gin.Context) {
+	// student id -> get his grades -> get subjects from grades
+	studentIdParam := c.Param("id")
+	studentObjID, err := primitive.ObjectIDFromHex(studentIdParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+	grades, err := ctrl.Repo.GetExamGradesByStudent(studentObjID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch grades for student"})
+		return
+	}
+	var passedGrades []repositories.ExamGrade
+	for _, grade := range grades {
+		if grade.Passed {
+			passedGrades = append(passedGrades, grade)
+		}
+	}
+	var passedSubjects []repositories.Subject
+	for _, grade := range passedGrades {
+		passedSubjects = append(passedSubjects, grade.ExamSession.Subject)
+	}
+
+	c.JSON(http.StatusOK, passedSubjects)
 }

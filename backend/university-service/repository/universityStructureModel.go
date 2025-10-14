@@ -24,15 +24,15 @@ type Department struct {
 }
 type Major struct {
 	ID           primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	Name         string              `bson:"name" json:"name" validate:"required"`
-	Subjects     []Subject           `bson:"subjects,omitempty" json:"subjects.omitempty"`
-	DepartmentID *primitive.ObjectID `bson:"department_id,omitempty" json:"department_id,omitempty"`
+	Name         string              `bson:"name" json:"name"`
+	Subjects     []Subject           `bson:"subjects,omitempty" json:"subjects,omitempty"`
+	DepartmentID *primitive.ObjectID `bson:"department_id,omitempty" json:"department_id	,omitempty"`
 }
 type Subject struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Name        string             `bson:"name" json:"name" validate:"required"`
 	MajorID     primitive.ObjectID `bson:"major_id" json:"major_id,omitempty"`
-	ProfessorID primitive.ObjectID `bson:"professor_id" json:"professor_id"`
+	ProfessorID primitive.ObjectID `bson:"professor_id,omitempty" json:"professor_id,omitempty"`
 	Year        int                `bson:"year" json:"year"`
-	HasPassed   bool               `bson:"has_passed" json:"has_passed"`
+	HasPassed   bool               `bson:"has_passed,omitempty" json:"has_passed,omitempty"`
 }

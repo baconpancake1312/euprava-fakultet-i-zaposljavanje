@@ -14,7 +14,7 @@ type ExamSession struct {
 	ExamDate    time.Time          `bson:"exam_date" json:"exam_date"`
 	Location    string             `bson:"location" json:"location"`
 	MaxStudents int                `bson:"max_students" json:"max_students"`
-	Status      string             `bson:"status" json:"status"` // "scheduled", "completed", "cancelled"
+	Status      ExamStatus         `bson:"status" json:"status"` // "scheduled", "completed", "cancelled"
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 }
 type CreateExamSessionRequest struct {
@@ -43,7 +43,7 @@ type ExamRegistration struct {
 	Student       Student            `bson:"student" json:"student"`
 	ExamSessionID primitive.ObjectID `bson:"exam_session_id" json:"exam_session_id"`
 	RegisteredAt  time.Time          `bson:"registered_at" json:"registered_at"`
-	Status        string             `bson:"status" json:"status"` // "registered", "attended", "missed"
+	Status        ExamStatus         `bson:"status" json:"status"` // "registered", "attended", "missed"
 }
 
 // ExamGrade represents a student's grade for an exam
