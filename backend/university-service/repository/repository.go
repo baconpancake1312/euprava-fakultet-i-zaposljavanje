@@ -64,7 +64,7 @@ func (r *Repository) getCollection(collectionName string) *mongo.Collection {
 
 func (r *Repository) CreateStudent(student *Student) error {
 	r.logger.Println("Creating student:", student)
-	student.GPA = 0
+	student.GPA = 0.0
 
 	collection := r.getCollection("student")
 	_, err := collection.InsertOne(context.TODO(), student)
@@ -961,6 +961,7 @@ func (r *Repository) CreateExamSession(examSession *ExamSession) error {
 	examSession.ID = primitive.NewObjectID()
 	examSession.CreatedAt = time.Now()
 	examSession.Status = "scheduled"
+
 	_, err := collection.InsertOne(context.TODO(), examSession)
 	return err
 }
@@ -1013,7 +1014,39 @@ func (r *Repository) GetExamSessionsByStudent(studentID primitive.ObjectID) ([]E
 
 func (r *Repository) UpdateExamSession(examSession *ExamSession) error {
 	collection := r.getCollection("exam_sessions")
-	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": examSession.ID}, bson.M{"$set": examSession})
+
+	// Create update document with only non-zero/non-empty fields
+	updateDoc := bson.M{}
+
+	// Check each field and only include non-zero values
+	if examSession.Subject.ID != primitive.NilObjectID {
+		updateDoc["subject"] = examSession.Subject
+	}
+	if examSession.Professor.ID != primitive.NilObjectID {
+		updateDoc["professor"] = examSession.Professor
+	}
+	if !examSession.ExamDate.IsZero() {
+		updateDoc["exam_date"] = examSession.ExamDate
+	}
+	if examSession.Location != "" {
+		updateDoc["location"] = examSession.Location
+	}
+	if examSession.MaxStudents != 0 {
+		updateDoc["max_students"] = examSession.MaxStudents
+	}
+	if examSession.Status != "" {
+		updateDoc["status"] = examSession.Status
+	}
+	if !examSession.CreatedAt.IsZero() {
+		updateDoc["created_at"] = examSession.CreatedAt
+	}
+
+	// Only update if there are fields to update
+	if len(updateDoc) == 0 {
+		return nil // No fields to update
+	}
+
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": examSession.ID}, bson.M{"$set": updateDoc})
 	return err
 }
 func (r *Repository) UpdateExamSessionsToPending() error {
@@ -1154,6 +1187,17 @@ func (r *Repository) UpdateExamGrade(grade *ExamGrade) error {
 	collection := r.getCollection("exam_grades")
 	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": grade.ID}, bson.M{"$set": grade})
 	return err
+}
+
+func (r *Repository) DeleteExamGrade(id primitive.ObjectID) error {
+	collection := r.getCollection("exam_grades")
+
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
+	if err != nil {
+		r.logger.Println("Error deleting exam grade:", err)
+		return err
+	}
+	return nil
 }
 
 func (r *Repository) GetExamGradesByStudent(studentID primitive.ObjectID) ([]ExamGrade, error) {
@@ -1298,4 +1342,16 @@ func (r *Repository) GetSubjectsFromMajor(id primitive.ObjectID) ([]Subject, err
 	}
 
 	return major.Subjects, nil
+}
+func (r *Repository) GetSubjectsByProfessorId(professorID primitive.ObjectID) ([]Subject, error) {
+	collection := r.getCollection("subjects")
+	cursor, err := collection.Find(context.TODO(), bson.M{"professor_id": professorID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var subjects []Subject
+	err = cursor.All(context.TODO(), &subjects)
+	return subjects, err
 }

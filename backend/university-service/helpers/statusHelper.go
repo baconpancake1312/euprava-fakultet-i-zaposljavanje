@@ -8,7 +8,12 @@ import (
 
 // Add to main.go
 func StartExamStatusUpdater(repo *repositories.Repository, logger *log.Logger) {
-	ticker := time.NewTicker(1 * time.Hour) // Check every hour
+	err := repo.UpdateExamSessionsToPending()
+	if err != nil {
+		logger.Printf("Error updating exam sessions to pending on startup: %v", err)
+	}
+
+	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
 		for {
 			select {

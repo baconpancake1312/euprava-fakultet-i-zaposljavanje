@@ -34,13 +34,14 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 
 		// Professors
 		protected.POST("/professors/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateProfessor)
-		protected.GET("/professors/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "PROFESSOR"}), ctrl.GetProfessorByID)
+		protected.GET("/professors/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "PROFESSOR", "STUDENT"}), ctrl.GetProfessorByID)
 		protected.PUT("/professors/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateProfessor)
 		protected.DELETE("/professors/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteProfessor)
 
 		// Subjects
 		protected.POST("/subject/create", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.CreateCourse)
 		protected.GET("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetCourseByID)
+		protected.GET("/subjects/professor/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetSubjectsByProfessorId)
 		protected.GET("/subjects/passed/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetPassedSubjectsForStudent)
 		protected.PUT("/subject/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateSubject)
 		protected.DELETE("/subject/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteSubject)
@@ -85,6 +86,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.GET("/exam-grades/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByStudent)
 		protected.GET("/exam-grades/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByExamSession)
 		protected.GET("/exam-grades/student/:studentId/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradeByStudentAndExam)
+		protected.DELETE("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteExamGrade)
 
 		// Admins
 		protected.POST("/administrators/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateAdministrator)

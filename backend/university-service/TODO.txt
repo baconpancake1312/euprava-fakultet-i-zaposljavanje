@@ -1,0 +1,35 @@
+student
+{	
+	kaskadno brisanje
+}
+
+profesor
+{
+	update profila
+	pravljenje ispita
+	ocenjivanje ispita
+	prikaz ispita
+	prikaz predmeta
+	prikaz svojih studenata
+	kaskadno brisanje
+}
+
+admin
+{
+
+	crud:
+	studenta i profesora
+	departmani
+	smerovi 
+	predmeti
+	kaskadno brisanje
+
+
+}
+
+auth{
+		x registrovanje na oba servisa: cant find password for auth service
+		update func
+		update na drugim da se odnosi i na auth entitete
+		
+	}

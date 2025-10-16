@@ -193,8 +193,8 @@ class ApiClient {
     return response.json()
   }
 
-  async getSubjectsByMajor(token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/courses`, {
+  async getSubjectsByMajor(majorId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors/${majorId}/subjects`, {
       headers: this.getAuthHeaders(token),
     })
 
@@ -203,7 +203,7 @@ class ApiClient {
   }
 
   async getCourseById(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/courses/${id}`, {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subject/${id}`, {
       headers: this.getAuthHeaders(token),
     })
 
@@ -212,7 +212,7 @@ class ApiClient {
   }
 
   async createCourse(data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/courses/create`, {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subject/create`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
@@ -223,7 +223,7 @@ class ApiClient {
   }
 
   async updateCourse(id: string, data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/courses/${id}`, {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subject/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
@@ -234,7 +234,7 @@ class ApiClient {
   }
 
   async deleteCourse(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/courses/${id}`, {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subject/${id}`, {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
@@ -371,7 +371,7 @@ class ApiClient {
   }
 
   async createExamSession(data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/create`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
@@ -433,6 +433,23 @@ class ApiClient {
     return response.json()
   }
 
+  async getPassedCorusesForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subjects/passed/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch courses")
+    return response.json()
+  }
+
+  async getAllExamGradesForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch courses")
+    return response.json()
+  }
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)
@@ -1191,7 +1208,81 @@ class ApiClient {
     if (!response.ok) throw new Error("Failed to fetch major by id")
     return response.json()
   }
+
+  // University Service APIs - Majors
+  async getAllMajors(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch majors")
+    return response.json()
+  }
+
+  // University Service APIs - Courses by Professor
+  async getCoursesByProfessor(professorId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subjects/professor/${professorId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch courses for professor")
+    return response.json()
+  }
+
+  // University Service APIs - Exam Sessions by Professor
+  async getExamSessionsByProfessor(professorId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/professor/${professorId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch exam sessions for professor")
+    return response.json()
+  }
+
+  // University Service APIs - Exam Registrations for Session
+  async getExamRegistrationsBySession(examSessionId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/exam-session/${examSessionId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch exam registrations for session")
+    return response.json()
+  }
+
+  // University Service APIs - Create Exam Grade
+  async createExamGrade(data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/create`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to create exam grade")
+    return response.json()
+  }
+
+  // University Service APIs - Update Exam Grade
+  async updateExamGrade(id: string, data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to update exam grade")
+    return response.json()
+  }
+
+  async getExamGradesForExamSession(examSessionId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/exam-session/${examSessionId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch exam registrations for session")
+    return response.json()
+  }
 }
+
 
 
 

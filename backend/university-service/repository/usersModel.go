@@ -51,7 +51,7 @@ type Student struct {
 	MajorID       primitive.ObjectID `bson:"major_id" json:"major_id,omitempty"`
 	Year          int                `bson:"year" json:"year,omitempty"`
 	HighschoolGPA float64            `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
-	GPA           float64            `bson:"gpa" json:"gpa,omitempty"`
+	GPA           float64            `bson:"gpa" json:"gpa"`
 	CVFile        string             `json:"cv_file,omitempty"`
 	CVBase64      string             `json:"cv_base64,omitempty"`
 	Skills        []string           `json:"skills,omitempty"`

@@ -30,6 +30,8 @@ type ExamGrade struct {
 	ID                 primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Student            Student            `bson:"student" json:"student"`
 	ExamRegistrationId primitive.ObjectID `bson:"exam_registration_id" json:"exam_registration_id"`
+	ExamSessionId      primitive.ObjectID `bson:"exam_session_id,omitempty" json:"exam_session_id,omitempty"`
+	SubjectId          primitive.ObjectID `bson:"subject_id,omitempty" json:"subject_id,omitempty"`
 	Grade              int                `bson:"grade" json:"grade"` // 5-10 scale
 	Passed             bool               `bson:"passed" json:"passed"`
 	GradedAt           time.Time          `bson:"graded_at" json:"graded_at"`

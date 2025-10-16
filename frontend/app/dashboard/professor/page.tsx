@@ -96,7 +96,7 @@ export default function ProfessorDashboard() {
 
           <Card
             className="hover:border-primary/50 transition-colors cursor-pointer"
-            onClick={() => router.push("/dashboard/professor/exams")}
+            onClick={() => router.push("/dashboard/professor/exam-sessions")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
