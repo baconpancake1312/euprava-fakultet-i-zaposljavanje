@@ -7,19 +7,8 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GraduationCap } from "lucide-react"
+import { Student } from "@/lib/types"
 
-interface Student {
-  id: string
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  major?: string
-  year?: number
-  gpa?: number
-  espb?: number
-  scholarship?: boolean
-}
 
 export default function AdminStudentsPage() {
   const { token } = useAuth()
@@ -44,7 +33,7 @@ export default function AdminStudentsPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="">
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Student Management</h1>

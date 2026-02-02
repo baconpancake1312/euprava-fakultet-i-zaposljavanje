@@ -46,6 +46,22 @@ export interface RegisterData {
   jmbg: string
   user_type: UserType
 }
+export interface Employer {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  firm_name: string
+  pib: string
+  maticni_broj: string
+  delatnost: string
+  firm_address: string
+  firm_phone: string
+  approval_status: string
+  approved_at?: string
+  approved_by?: string
+}
 
 // Employer specific fields
 export interface EmployerData extends RegisterData {
@@ -65,6 +81,19 @@ export interface CandidateData extends RegisterData {
 }
 
 // Student specific fields
+export interface Student {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  major?: string
+  year?: number
+  gpa?: number
+  espb?: number
+  scholarship?: boolean
+}
+
 export interface StudentData {
   major?: Major | string
   major_id?: string
@@ -94,6 +123,16 @@ export interface StudentFullData {
 }
 
 // Professor specific fields
+
+export interface Professor {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  office?: string
+  subjects?: Array<{ id: string; name?: string }>
+}
 export interface ProfessorData {
   subjects?: Array<{ id: string; name?: string }>
   office?: string
@@ -202,5 +241,36 @@ export interface ExamGrade {
   graded_at: string
   graded_by: ProfessorData
   comments: string
+}
+export type Guideline = {
+  icon?: React.ElementType
+  title: string
+  text: string
+}
+
+export type EntityPageLayoutProps = {
+  /* Header */
+  title: string
+  description?: string
+
+  /* Navigation */
+  onBack?: () => void
+  backLabel?: string
+
+  /* Main card */
+  mainTitle: string
+  mainDescription?: string
+  MainIcon?: React.ElementType
+
+  /* Actions */
+  onSubmit?: () => void
+  submitLabel?: string
+  submittingLabel?: React.ReactNode
+  isSubmitting?: boolean
+  isSubmitDisabled?: boolean
+
+  /* Content */
+  children: React.ReactNode
+  guidelines?: Guideline[]
 }
 

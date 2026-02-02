@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
+import { useRouter, useParams } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +18,7 @@ interface Department {
 }
 
 export default function AdminDepartmentsPage() {
+  const router = useRouter()
   const { token } = useAuth()
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,14 +41,14 @@ export default function AdminDepartmentsPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Department Management">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Department Management</h1>
             <p className="text-muted-foreground">View and manage university departments</p>
           </div>
-          <Button>
+          <Button onClick={() => router.push("/dashboard/admin/departments/create/")}>
             <Plus className="mr-2 h-4 w-4" />
             Add Department
           </Button>
@@ -56,7 +58,7 @@ export default function AdminDepartmentsPage() {
           <div className="text-center py-12">
             <Loader2 className="h-8 w-8 animate-spin mx-auto" />
           </div>
-        ) : departments.length === 0 ? (
+        ) : (departments?.length ?? 0) === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">No departments found</CardContent>
           </Card>

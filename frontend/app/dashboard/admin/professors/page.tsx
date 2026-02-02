@@ -6,16 +6,8 @@ import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, UserCheck, Mail, Phone } from "lucide-react"
+import { Professor } from "@/lib/types"
 
-interface Professor {
-  id: string
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  office?: string
-  subjects?: Array<{ id: string; name?: string }>
-}
 
 export default function AdminProfessorsPage() {
   const { token } = useAuth()
@@ -40,7 +32,7 @@ export default function AdminProfessorsPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="">
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Professor Management</h1>
