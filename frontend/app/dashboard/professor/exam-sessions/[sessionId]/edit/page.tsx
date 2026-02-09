@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { ExamSession, Course } from "@/lib/types"
+import { ExamSession, Subject } from "@/lib/types"
 
 export default function EditExamSessionPage() {
     const router = useRouter()
@@ -21,7 +21,7 @@ export default function EditExamSessionPage() {
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [examSession, setExamSession] = useState<ExamSession | null>(null)
-    const [courses, setCourses] = useState<Course[]>([])
+    const [courses, setCourses] = useState<Subject[]>([])
     const [formData, setFormData] = useState({
         subject_id: "",
         exam_date: "",

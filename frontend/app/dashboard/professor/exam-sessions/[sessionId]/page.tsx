@@ -26,7 +26,7 @@ import {
     XCircle
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { ExamSession, ExamRegistration, Course } from "@/lib/types"
+import { ExamSession, ExamRegistration, Subject } from "@/lib/types"
 
 export default function ExamSessionDetailPage() {
     const router = useRouter()
@@ -36,7 +36,7 @@ export default function ExamSessionDetailPage() {
     const [examSession, setExamSession] = useState<ExamSession | null>(null)
     const [registrations, setRegistrations] = useState<ExamRegistration[]>([])
     const [filteredRegistrations, setFilteredRegistrations] = useState<ExamRegistration[]>([])
-    const [course, setCourse] = useState<Course | null>(null)
+    const [course, setCourse] = useState<Subject | null>(null)
     const [gradingFilter, setGradingFilter] = useState<string>("all")
     const [gradingDialogOpen, setGradingDialogOpen] = useState(false)
     const [selectedRegistration, setSelectedRegistration] = useState<ExamRegistration | null>(null)

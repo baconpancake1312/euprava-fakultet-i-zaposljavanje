@@ -21,14 +21,14 @@ import {
     BookOpen
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { ExamSession, Course } from "@/lib/types"
+import { ExamSession, Subject } from "@/lib/types"
 
 export default function ExamSessionsPage() {
     const router = useRouter()
     const { user, token, isAuthenticated } = useAuth()
     const [loading, setLoading] = useState(true)
     const [examSessions, setExamSessions] = useState<ExamSession[]>([])
-    const [courses, setCourses] = useState<Course[]>([])
+    const [courses, setCourses] = useState<Subject[]>([])
 
     useEffect(() => {
         if (!isAuthenticated || user?.user_type !== "PROFESSOR") {

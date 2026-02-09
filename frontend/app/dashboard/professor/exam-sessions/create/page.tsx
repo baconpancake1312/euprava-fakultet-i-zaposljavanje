@@ -12,14 +12,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { Course } from "@/lib/types"
+import { Subject } from "@/lib/types"
 
 export default function CreateExamSessionPage() {
     const router = useRouter()
     const { user, token, isAuthenticated } = useAuth()
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
-    const [courses, setCourses] = useState<Course[]>([])
+    const [courses, setCourses] = useState<Subject[]>([])
     const [formData, setFormData] = useState({
         subject_id: "",
         exam_date: "",
