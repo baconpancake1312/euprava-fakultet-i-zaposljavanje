@@ -7,38 +7,86 @@ import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Building2, Plus } from "lucide-react"
+import { Loader2, Building2, Plus, Pencil } from "lucide-react"
+import { Major, Professor } from "@/lib/types"
 
 interface Department {
   id: string
   name: string
-  description?: string
   head?: string
-  building?: string
+  majors?: Major[]
+  staff?: string[]
 }
 
 export default function AdminDepartmentsPage() {
   const router = useRouter()
+
   const { token } = useAuth()
   const [departments, setDepartments] = useState<Department[]>([])
+  const [professorsById, setProfessorsById] = useState<Record<string, Professor>>({})
+  const [majorsById, setMajorsById] = useState<Record<string, Major>>({})
   const [loading, setLoading] = useState(true)
 
+
+
+
   useEffect(() => {
-    if (token) {
-      loadDepartments()
+    if (!token) return
+
+    const loadData = async () => {
+      try {
+        setLoading(true)
+
+        const departments = await apiClient.getAllDepartments(token)
+        setDepartments(departments)
+
+        const professorIds = new Set<string>()
+        const majorIds = new Set<string>()
+
+        departments.forEach((d: Department) => {
+          if (d.head) professorIds.add(d.head)
+          d.staff?.forEach((id: string) => professorIds.add(id))
+          d.majors?.forEach((m: Major) => majorIds.add(m.id))
+        })
+
+        const professors = await Promise.all(
+          Array.from(professorIds).map((id) =>
+            apiClient.getProfessorById(id, token)
+          )
+        )
+
+        setProfessorsById(
+          Object.fromEntries(professors.map((p) => [p.id, p]))
+        )
+
+        const majors = await Promise.all(
+          Array.from(majorIds).map((id) =>
+            apiClient.getMajorById(id, token)
+          )
+        )
+
+        setMajorsById(
+          Object.fromEntries(majors.map((m) => [m.id, m]))
+        )
+      } catch (err) {
+        console.error("Failed to load departments data", err)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadData()
   }, [token])
 
-  const loadDepartments = async () => {
-    try {
-      const data = await apiClient.getAllDepartments(token!)
-      setDepartments(data)
-    } catch (error) {
-      console.error("Failed to load departments:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const getProfessorName = (id?: string) =>
+    id && professorsById[id]
+      ? `${professorsById[id].first_name} ${professorsById[id].last_name}`
+      : "Not assigned"
+
+  const getMajorName = (id: string) =>
+    majorsById[id]?.name ?? "Unknown major"
+
+
 
   return (
     <DashboardLayout title="Department Management">
@@ -48,10 +96,13 @@ export default function AdminDepartmentsPage() {
             <h1 className="text-3xl font-bold">Department Management</h1>
             <p className="text-muted-foreground">View and manage university departments</p>
           </div>
-          <Button onClick={() => router.push("/dashboard/admin/departments/create/")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Department
-          </Button>
+          <div className="grid md:grid-cols-1 gap-1">
+            <Button onClick={() => router.push("/dashboard/admin/departments/create/")}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Department
+            </Button>
+          </div>
+
         </div>
 
         {loading ? (
@@ -67,34 +118,60 @@ export default function AdminDepartmentsPage() {
             {departments.map((department) => (
               <Card key={department.id}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    {department.name}
-                  </CardTitle>
-                  {department.description && <CardDescription>{department.description}</CardDescription>}
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      {department.name}
+                    </CardTitle>
+
+                    <Button
+                      onClick={() =>
+                        router.push(`/dashboard/admin/departments/edit/${department.id}`)
+                      }
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardHeader>
+
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    {department.head && (
-                      <div>
-                        <p className="font-medium">Department Head</p>
-                        <p className="text-muted-foreground">{department.head}</p>
-                      </div>
-                    )}
-                    {department.building && (
-                      <div>
-                        <p className="font-medium">Building</p>
-                        <p className="text-muted-foreground">{department.building}</p>
-                      </div>
-                    )}
+                    {/* Head */}
                     <div>
-                      <p className="font-medium">Department ID</p>
-                      <p className="text-muted-foreground font-mono text-xs">{department.id}</p>
+                      <p className="font-medium">Department Head</p>
+                      <p className="text-muted-foreground">
+                        {getProfessorName(department.head)}
+                      </p>
+                    </div>
+
+                    {/* Majors */}
+                    <div>
+                      <p className="font-medium">Majors</p>
+                      <p className="text-muted-foreground">
+                        {department.majors?.length
+                          ? department.majors
+                            .map((m) => getMajorName(m.id))
+                            .join(", ")
+                          : "No majors"}
+                      </p>
+                    </div>
+
+                    {/* Staff */}
+                    <div>
+                      <p className="font-medium">Staff</p>
+                      <p className="text-muted-foreground">
+                        {department.staff?.length
+                          ? department.staff
+                            .map((id) => getProfessorName(id))
+                            .join(", ")
+                          : "No staff"}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
+
           </div>
         )}
       </div>
