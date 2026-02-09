@@ -24,14 +24,39 @@ func NewControllers(repo *repositories.Repository, l *log.Logger) *Controllers {
 	return &Controllers{Repo: repo, logger: l}
 }
 
+// createStudentRequest is used for binding the create-student payload.
+// When the auth service creates a user and then calls this endpoint, it sends user_id
+// so the university-service stores the same ID and the two services stay in sync.
+type createStudentRequest struct {
+	UserID string `json:"user_id"` // optional; from auth service – used as student.ID when set
+	repositories.Student
+}
+
 func (ctrl *Controllers) CreateStudent(c *gin.Context) {
-	var student repositories.Student
-	if err := c.BindJSON(&student); err != nil {
+	var req createStudentRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateStudent(&student)
+	student := &req.Student
+
+	// Use auth service's user_id as student ID so it matches the user record in auth DB
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		student.ID = objectID
+	} else {
+		// Caller did not send user_id (e.g. manual create); let repository use new ID if needed
+		if student.ID.IsZero() {
+			student.ID = primitive.NewObjectID()
+		}
+	}
+
+	err := ctrl.Repo.CreateStudent(student)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -265,14 +290,31 @@ func (ctrl *Controllers) DeleteStudent(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+type createProfessorRequest struct {
+	UserID string `json:"user_id"`
+	repositories.Professor
+}
+
 func (ctrl *Controllers) CreateProfessor(c *gin.Context) {
-	var professor repositories.Professor
-	if err := c.BindJSON(&professor); err != nil {
+	var req createProfessorRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateProfessor(&professor)
+	professor := &req.Professor
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		professor.ID = objectID
+	} else if professor.ID.IsZero() {
+		professor.ID = primitive.NewObjectID()
+	}
+
+	err := ctrl.Repo.CreateProfessor(professor)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -433,6 +475,13 @@ func (ctrl *Controllers) CreateDepartment(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	for _, majorID := range department.MajorIDs {
+		err = ctrl.AddDepartmentToMajor(department.ID, majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
 	c.JSON(http.StatusCreated, department)
 }
@@ -476,8 +525,20 @@ func (ctrl *Controllers) UpdateDepartment(c *gin.Context) {
 
 func (ctrl *Controllers) DeleteDepartment(c *gin.Context) {
 	id := c.Param("id")
+	department, err := ctrl.Repo.GetDepartmentByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for _, majorID := range department.MajorIDs {
+		err = ctrl.RemoveDepartmentFromMajor(majorID, department.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
-	err := ctrl.Repo.DeleteDepartment(id)
+	err = ctrl.Repo.DeleteDepartment(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -551,14 +612,31 @@ func (ctrl *Controllers) DeleteUniversity(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+type createAdministratorRequest struct {
+	UserID string `json:"user_id"`
+	repositories.Administrator
+}
+
 func (ctrl *Controllers) CreateAdministrator(c *gin.Context) {
-	var administrator repositories.Administrator
-	if err := c.BindJSON(&administrator); err != nil {
+	var req createAdministratorRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateAdministrator(&administrator)
+	administrator := &req.Administrator
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		administrator.ID = objectID
+	} else if administrator.ID.IsZero() {
+		administrator.ID = primitive.NewObjectID()
+	}
+
+	err := ctrl.Repo.CreateAdministrator(administrator)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -616,14 +694,31 @@ func (ctrl *Controllers) DeleteAdministrator(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+type createAssistantRequest struct {
+	UserID string `json:"user_id"`
+	repositories.Assistant
+}
+
 func (ctrl *Controllers) CreateAssistant(c *gin.Context) {
-	var assistant repositories.Assistant
-	if err := c.BindJSON(&assistant); err != nil {
+	var req createAssistantRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateAssistant(&assistant)
+	assistant := &req.Assistant
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		assistant.ID = objectID
+	} else if assistant.ID.IsZero() {
+		assistant.ID = primitive.NewObjectID()
+	}
+
+	err := ctrl.Repo.CreateAssistant(assistant)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1467,19 +1562,44 @@ func (ctrl *Controllers) GetExamGradeByStudentAndExam(c *gin.Context) {
 
 	c.JSON(http.StatusOK, grade)
 }
+
+// createMajorRequest binds department_id as a string so it is not dropped by JSON (ObjectID does not unmarshal from string by default).
+type createMajorRequest struct {
+	Name         string                 `json:"name"`
+	DepartmentID string                 `json:"department_id"`
+	Subjects     []repositories.Subject `json:"subjects,omitempty"`
+}
+
 func (ctrl *Controllers) CreateMajor(c *gin.Context) {
-	var major repositories.Major
-	if err := c.BindJSON(&major); err != nil {
+	var req createMajorRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, err := ctrl.Repo.CreateMajor(&major)
+	major := &repositories.Major{
+		Name:     req.Name,
+		Subjects: req.Subjects,
+	}
+	if req.DepartmentID != "" {
+		depID, err := primitive.ObjectIDFromHex(req.DepartmentID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid department_id format"})
+			return
+		}
+		major.DepartmentID = &depID
+	}
+
+	id, err := ctrl.Repo.CreateMajor(major)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
 		return
 	}
 	major.ID, err = primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
+		return
+	}
 
 	c.JSON(http.StatusCreated, major)
 }
@@ -1514,10 +1634,84 @@ func (ctrl *Controllers) GetMajorByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, major)
 }
+func (ctrl *Controllers) AddDepartmentToMajor(departmentID primitive.ObjectID, majorID primitive.ObjectID) error {
+	major, err := ctrl.Repo.GetMajorByID(majorID)
+	if err != nil {
+		return err
+	}
+	if major == nil {
+		return fmt.Errorf("major not found")
+	}
+	major.DepartmentID = &departmentID
+	err = ctrl.Repo.UpdateMajor(majorID, major)
+	if err != nil {
+		return fmt.Errorf("failed to update major: %w", err)
+	}
+	if major == nil {
+		return fmt.Errorf("major not found")
+	}
+	return nil
+}
+func (ctrl *Controllers) RemoveDepartmentFromMajor(majorID primitive.ObjectID, departmentID primitive.ObjectID) error {
+	major, err := ctrl.Repo.GetMajorByID(majorID)
+	if err != nil {
+		return err
+	}
+	if major == nil {
+		return fmt.Errorf("major not found")
+	}
+	major.DepartmentID = nil
+	err = ctrl.Repo.UpdateMajor(majorID, major)
+	if err != nil {
+		return fmt.Errorf("failed to update major: %w", err)
+	}
+	if major.DepartmentID == nil {
+		return fmt.Errorf("department not found")
+	}
+	return nil
+}
+func (ctrl *Controllers) AddMajorToDepartment(departmentID primitive.ObjectID, majorID primitive.ObjectID) error {
+	department, err := ctrl.Repo.GetDepartmentByID(departmentID.Hex())
+	if err != nil {
+		return err
+	}
+	if department == nil {
+		return fmt.Errorf("department not found")
+	}
+	department.MajorIDs = append(department.MajorIDs, majorID)
+	err = ctrl.Repo.UpdateDepartment(department)
+	if err != nil {
+		return fmt.Errorf("failed to update department: %w", err)
+	}
+	return nil
+}
+func (ctrl *Controllers) RemoveMajorFromDepartment(departmentID primitive.ObjectID, majorID primitive.ObjectID) error {
+	department, err := ctrl.Repo.GetDepartmentByID(departmentID.Hex())
+	if err != nil {
+		return err
+	}
+	if department == nil {
+		return fmt.Errorf("department not found")
+	}
+	department.MajorIDs = remove(department.MajorIDs, majorID)
+	err = ctrl.Repo.UpdateDepartment(department)
+	if err != nil {
+		return fmt.Errorf("failed to update department: %w", err)
+	}
+	return nil
+}
+func remove(slice []primitive.ObjectID, item primitive.ObjectID) []primitive.ObjectID {
+	for i, v := range slice {
+		if v == item {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
+}
 
 func (ctrl *Controllers) UpdateMajor(c *gin.Context) {
 	idParam := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(idParam)
+	majorObjID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
 		return
@@ -1529,13 +1723,21 @@ func (ctrl *Controllers) UpdateMajor(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.Repo.UpdateMajor(objID, &updateData); err != nil {
+	if err := ctrl.Repo.UpdateMajor(majorObjID, &updateData); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update major"})
 		return
+	}
+	if updateData.DepartmentID != nil {
+		err = ctrl.AddMajorToDepartment(*updateData.DepartmentID, majorObjID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Major updated successfully"})
 }
+
 func (ctrl *Controllers) DeleteMajor(c *gin.Context) {
 	idParam := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(idParam)
@@ -1543,10 +1745,27 @@ func (ctrl *Controllers) DeleteMajor(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
 		return
 	}
+	major, err := ctrl.Repo.GetMajorByID(objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get major"})
+		return
+	}
+	if major == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Major not found"})
+		return
+	}
 
 	if err := ctrl.Repo.DeleteMajor(objID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete major"})
 		return
+	}
+
+	if major.DepartmentID != nil {
+		err = ctrl.RemoveMajorFromDepartment(*major.DepartmentID, objID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Major deleted successfully"})
@@ -1565,8 +1784,15 @@ func (ctrl *Controllers) GetSubjectsFromMajor(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subjects"})
 		return
 	}
-
 	c.JSON(http.StatusOK, subjects)
+}
+
+func (ctrl *Controllers) RegisterStudentForMajor(c *gin.Context) {
+	//studentId := c.Param("id")
+	//studentObjId, err := primitive.ObjectIDFromHex(studentId)
+	//majorId := c.Param("major_id")
+	//	majorObjId, err := primitive.ObjectIDFromHex(majorId)
+
 }
 func (ctrl *Controllers) GetPassedSubjectsForStudent(c *gin.Context) {
 	// student id -> get his grades -> get subjects from grades
