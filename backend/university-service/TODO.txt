@@ -1,6 +1,7 @@
 student
 {	
 	kaskadno brisanje
+	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd
 }
 
 profesor
