@@ -16,7 +16,7 @@ import { Loader2 } from "lucide-react"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, isAuthenticated, isLoading, token } = useAuth()
+  const { user, isAuthenticated, isLoading, token, updateUser } = useAuth()
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -56,7 +56,8 @@ export default function ProfilePage() {
     try {
       if (!token || !user?.id) throw new Error("Not authenticated")
 
-      await apiClient.updateUser(user.id, formData, token)
+      await apiClient.updateUserInfo(user.id, formData, token)
+      updateUser({ ...user, ...formData })
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile")

@@ -218,6 +218,16 @@ class ApiClient {
     return response.json()
   }
 
+  async getAllSubjects(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subjects`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch subjects")
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  }
+
   async getCourseById(id: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/subject/${id}`, {
       headers: this.getAuthHeaders(token),
@@ -1149,9 +1159,8 @@ class ApiClient {
     if (!response.ok) throw new Error("Failed to delete document")
   }
 
-  // Employment Service APIs - Users (Profile Management)
-  async updateUser(id: string, data: any, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/users/${id}`, {
+  async updateUserInfo(id: string, data: any, token: string) {
+    const response = await fetch(`${AUTH_API_URL}/users/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
@@ -1161,7 +1170,7 @@ class ApiClient {
     return response.json()
   }
 
-  async getUserById(id: string, token: string) {
+  async getEmploymentUserById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/users/${id}`, {
       headers: this.getAuthHeaders(token),
     })
@@ -1256,6 +1265,54 @@ class ApiClient {
 
     if (!response.ok) throw new Error("Failed to fetch majors")
     return response.json()
+  }
+  async getMajorsBy(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch majors")
+    return response.json()
+  }
+
+  async createMajor(data: { name: string; department_id: string }, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify({ name: data.name.trim(), department_id: data.department_id }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Failed to create major" }))
+      throw new Error(err.error || "Failed to create major")
+    }
+    return response.json()
+  }
+
+  async updateMajor(id: string, data: { name: string; department_id: string }, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify({ name: data.name.trim(), department_id: data.department_id }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Failed to update major" }))
+      throw new Error(err.error || "Failed to update major")
+    }
+    return response.json()
+  }
+
+  async deleteMajor(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/majors/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Failed to delete major" }))
+      throw new Error(err.error || "Failed to delete major")
+    }
   }
 
   // University Service APIs - Courses by Professor

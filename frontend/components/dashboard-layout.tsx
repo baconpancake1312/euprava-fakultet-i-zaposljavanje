@@ -17,6 +17,7 @@ import {
   Calendar,
   BookOpen,
   Settings,
+  GraduationCap,
 } from "lucide-react"
 import { useState } from "react"
 import {
@@ -92,7 +93,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/admin/employers", label: "Employers", icon: Building },
           { href: "/dashboard/admin/job-listings", label: "Job Listings", icon: Briefcase },
           { href: "/dashboard/admin/students", label: "Students", icon: Users },
-          { href: "/dashboard/admin/departments", label: "Departments", icon: Settings },
+          { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
         ]
       default:
         return [{ href: "/dashboard", label: "Dashboard", icon: Home }]
@@ -137,6 +138,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                 <DropdownMenuTrigger asChild className="md:hidden">
                   <Button variant="ghost" size="icon">
                     <Menu className="h-5 w-5" />
+                    
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -164,30 +166,6 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                 >
                   <LogOut className="h-5 w-5" />
                 </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <User className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium">
-                          {user?.first_name} {user?.last_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{user?.email}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{user?.user_type?.toLowerCase()}</p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </div>
           </div>

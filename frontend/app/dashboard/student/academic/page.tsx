@@ -181,7 +181,7 @@ export default function StudentAcademicPage() {
       console.log("Calling API...")
       await Promise.all([
         apiClient.updateStudent(user.id, studentUpdateData, token),
-        Object.keys(userUpdateData).length > 0 ? apiClient.updateUser(user.id, userUpdateData, token) : Promise.resolve()
+        Object.keys(userUpdateData).length > 0 ? apiClient.updateUserInfo(user.id, userUpdateData, token) : Promise.resolve()
       ])
 
       console.log("API calls successful, reloading data...")

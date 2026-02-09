@@ -187,10 +187,10 @@ export interface EmployerProfile {
 export interface Major {
   id: string
   name: string
-  courses: Course[]
+  courses: Subject[]
   department_id: string
 }
-export interface Course {
+export interface Subject {
   id: string
   name: string
   major_id: string
@@ -200,7 +200,7 @@ export interface Course {
 }
 export interface ExamSession {
   id: string
-  subject: Course
+  subject: Subject
   professor_id: string
   exam_date: string // ISO string format (e.g., "2025-10-15T20:50:00+02:00")
   location: string
