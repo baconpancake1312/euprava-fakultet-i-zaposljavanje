@@ -153,7 +153,8 @@ func Register() gin.HandlerFunc {
 		isRegisteredInOthers := false
 		// Register in appropriate services based on user type
 		go func() {
-			if err := RegisterInAppropriateServices(&user); err != nil {
+			err := RegisterInAppropriateServices(&user)
+			if err != nil {
 				isRegisteredInOthers = false
 				l.Printf("Error registering user in services: %v", err)
 			} else {
@@ -505,6 +506,18 @@ func UpdateUser() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+		// If not found by user_id, try by _id (client may send MongoDB ObjectID hex)
+		if result.MatchedCount == 0 {
+			objectID, err := primitive.ObjectIDFromHex(userID)
+			if err == nil {
+				filter = bson.M{"_id": objectID}
+				result, err = userCollection.UpdateOne(ctx, filter, bson.M{"$set": update})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+			}
 		}
 		if result.MatchedCount == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
