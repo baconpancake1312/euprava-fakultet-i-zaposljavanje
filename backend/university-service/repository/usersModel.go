@@ -55,6 +55,7 @@ type Student struct {
 	CVFile        string             `json:"cv_file,omitempty"`
 	CVBase64      string             `json:"cv_base64,omitempty"`
 	Skills        []string           `json:"skills,omitempty"`
+	Subjects      []Subject          `json:"subjects,omitempty"`
 }
 
 type TuitionPayment struct {

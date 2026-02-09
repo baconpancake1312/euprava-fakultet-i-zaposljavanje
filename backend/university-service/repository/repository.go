@@ -430,7 +430,7 @@ func (r *Repository) UpdateSubject(subject *Subject) error {
 	subjectsCol := r.getCollection("subjects")
 
 	// Update the subject in its own collection
-	_, err := subjectsCol.UpdateOne(context.TODO(), bson.M{"_id": subject.ID}, subject)
+	_, err := subjectsCol.UpdateOne(context.TODO(), bson.M{"_id": subject.ID}, bson.M{"$set": subject})
 	if err != nil {
 		r.logger.Println("Error updating subject in subjects collection:", err)
 		return err
@@ -1294,6 +1294,10 @@ func (r *Repository) GetMajorByID(id primitive.ObjectID) (*Major, error) {
 		return nil, err
 	}
 	return &major, nil
+}
+func (r *Repository) RegisterStudentForMajor(id primitive.ObjectID, major_id primitive.ObjectID) error {
+	//collection := r.getCollection("majors")
+	return nil
 }
 
 // UpdateMajor updates a major’s details.
