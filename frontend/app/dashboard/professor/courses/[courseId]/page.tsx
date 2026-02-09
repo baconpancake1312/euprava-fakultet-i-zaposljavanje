@@ -19,14 +19,14 @@ import {
     User
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { Course, Major } from "@/lib/types"
+import { Subject, Major } from "@/lib/types"
 
 export default function CourseDetailPage() {
     const router = useRouter()
     const params = useParams()
     const { user, token, isAuthenticated } = useAuth()
     const [loading, setLoading] = useState(true)
-    const [course, setCourse] = useState<Course | null>(null)
+    const [course, setCourse] = useState<Subject | null>(null)
     const [major, setMajor] = useState<Major | null>(null)
     const [students, setStudents] = useState<any[]>([])
 

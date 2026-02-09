@@ -11,15 +11,15 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, Filter, Search, Users, Calendar, Loader2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { Course, Major } from "@/lib/types"
+import { Subject, Major } from "@/lib/types"
 
 export default function ProfessorCoursesPage() {
     const router = useRouter()
     const { user, token, isAuthenticated } = useAuth()
     const [loading, setLoading] = useState(true)
-    const [courses, setCourses] = useState<Course[]>([])
+    const [courses, setCourses] = useState<Subject[]>([])
     const [majors, setMajors] = useState<Major[]>([])
-    const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
+    const [filteredCourses, setFilteredCourses] = useState<Subject[]>([])
     const [selectedMajor, setSelectedMajor] = useState<string>("all")
     const [selectedYear, setSelectedYear] = useState<string>("all")
     const [searchTerm, setSearchTerm] = useState("")
