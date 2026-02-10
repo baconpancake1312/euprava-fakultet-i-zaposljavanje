@@ -33,13 +33,23 @@ export default function RegisterPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
+  const formatDateToISO = (dateString: string): string => {
+    if (!dateString) return ""
+    const date = new Date(dateString + "T12:00:00.000Z")
+    return date.toISOString()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     try {
-      const response = await apiClient.register(formData)
+      const payload = {
+        ...formData,
+        date_of_birth: formatDateToISO(formData.date_of_birth),
+      }
+      const response = await apiClient.register(payload)
       login(response.user, response.token)
       router.push("/dashboard")
     } catch (err) {
