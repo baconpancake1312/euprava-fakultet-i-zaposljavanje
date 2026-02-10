@@ -14,6 +14,7 @@ type User struct {
 	Password      *string            `json:"password" validate:"required,min=8"`
 	Phone         *string            `json:"phone" validate:"required"`
 	Address       *string            `json:"address" validate:"required"`
+	JMBG          *string            `json:"jmbg" validate:"required,len=13"`
 	Token         *string            `json:"token"`
 	User_type     UserType           `json:"user_type" validate:"required,usertype"`
 	Refresh_token *string            `json:"refresh_token"`

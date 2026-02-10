@@ -6,7 +6,7 @@ student
 
 profesor
 {
-	update profila
+	✅ update profila
 	pravljenje ispita
 	ocenjivanje ispita
 	prikaz ispita
@@ -20,17 +20,23 @@ admin
 
 	crud:
 	studenta i profesora
-	departmani
-	smerovi 
-	predmeti
 	kaskadno brisanje
+	pravljenje notifikacija
+	notifikacija
+
+	slanje/editovanje/brisanje notifikacija po roleu/smeru/departmanu
 
 
 }
 
 auth{
-		x registrovanje na oba servisa: cant find password for auth service
+		✅ registrovanje na oba servisa: cant find password for auth service
 		update func
 		update na drugim da se odnosi i na auth entitete
 		
 	}
+
+notifikacije{
+	kada se notifikacija da se vidi crveni broj notifikacija
+
+}

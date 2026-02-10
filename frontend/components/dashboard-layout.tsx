@@ -18,6 +18,7 @@ import {
   BookOpen,
   Settings,
   GraduationCap,
+  Bell,
 } from "lucide-react"
 import { useState } from "react"
 import {
@@ -90,10 +91,12 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       case "admin":
         return [
           { href: "/dashboard/admin", label: "Dashboard", icon: Home },
+          { href: "/dashboard/admin/students", label: "Students", icon: Users },
+          { href: "/dashboard/admin/professors", label: "Professors", icon: Users },
           { href: "/dashboard/admin/employers", label: "Employers", icon: Building },
           { href: "/dashboard/admin/job-listings", label: "Job Listings", icon: Briefcase },
-          { href: "/dashboard/admin/students", label: "Students", icon: Users },
           { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
+          { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
         ]
       default:
         return [{ href: "/dashboard", label: "Dashboard", icon: Home }]
