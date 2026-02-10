@@ -18,6 +18,7 @@ import type { Subject, Major, Professor } from "@/lib/types"
 interface DepartmentRef {
   id: string
   name: string
+  head?: string
   staff?: string[]
 }
 
@@ -44,17 +45,21 @@ export default function AdminSubjectsPage() {
         ])
         const deptList = Array.isArray(deptData) ? deptData : []
         setDepartments(
-          deptList.map((d: { id: string; name: string; staff?: string[] }) => ({
-            id: d.id,
-            name: d.name,
-            staff: Array.isArray(d.staff) ? d.staff : [],
-          }))
+          deptList.map(
+            (d: { id: string; name: string; head?: string; staff?: string[] }) => ({
+              id: d.id,
+              name: d.name,
+              head: d.head,
+              staff: Array.isArray(d.staff) ? d.staff : [],
+            })
+          )
         )
         setMajors(Array.isArray(majorsData) ? majorsData : [])
         setSubjects(Array.isArray(subjectsData) ? subjectsData : [])
 
         const staffIds = new Set<string>()
-        deptList.forEach((d: { staff?: string[] }) => {
+        deptList.forEach((d: { head?: string; staff?: string[] }) => {
+          if (d.head) staffIds.add(d.head)
           if (Array.isArray(d.staff)) d.staff.forEach((id: string) => staffIds.add(id))
         })
         const professors = await Promise.all(
@@ -247,6 +252,33 @@ export default function AdminSubjectsPage() {
                     </div>
                     <CollapsibleContent>
                       <CardContent className="pt-0 pb-3 px-4">
+                        
+
+                        
+                        {/* Head of department */}
+                        <div className="py-2 pl-8">
+                          <div className="flex items-center gap-2 text-sm font-medium mb-1">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            Head of department
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Edit department"
+                              onClick={() => router.push(`/dashboard/admin/departments/edit/${dept.id}`)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground pl-6">
+                            {dept.head && professorsById[dept.head]
+                              ? `${professorsById[dept.head].first_name} ${
+                                  professorsById[dept.head].last_name
+                                }`.trim() || professorsById[dept.head].email
+                              : "No head assigned"}
+                          </p>
+                        </div>
+
                         {/* Staff */}
                         <div className="py-2 pl-8">
                           <div className="flex items-center gap-2 text-sm font-medium mb-1">
