@@ -1170,16 +1170,6 @@ class ApiClient {
     return response.json()
   }
 
-  async updateUserInfoUniversity(id: string, data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/users/${id}`, {
-      method: "PUT",
-      headers: this.getAuthHeaders(token),
-      body: JSON.stringify(data),
-    })
-
-    if (!response.ok) throw new Error("Failed to update user profile")
-    return response.json()
-  }
   async getEmploymentUserById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/users/${id}`, {
       headers: this.getAuthHeaders(token),
