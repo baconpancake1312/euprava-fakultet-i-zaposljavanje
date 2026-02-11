@@ -1,7 +1,8 @@
 student
 {	
-	kaskadno brisanje
+	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu
 	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd
+	kaskadno brisanje
 }
 
 profesor
@@ -19,14 +20,15 @@ admin
 {
 
 	crud:
-	studenta i profesora
-	kaskadno brisanje
-	pravljenje notifikacija
-	notifikacija
-
-	slanje/editovanje/brisanje notifikacija po roleu/smeru/departmanu
-
-
+		studenta
+		profesora  ✅
+		departmani ✅ 
+	 	smerovi i predmeti ✅ 
+		notifikacija:
+			slanje/editovanje/brisanje notifikacija po roleu/smeru/departmanu
+		poslovi
+		poslodavci
+		
 }
 
 auth{

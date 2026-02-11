@@ -483,6 +483,9 @@ func UpdateUser() gin.HandlerFunc {
 		if userUpdate.Phone != nil {
 			update["phone"] = userUpdate.Phone
 		}
+		if userUpdate.Date_of_birth != nil {
+			update["date_of_birth"] = userUpdate.Date_of_birth
+		}
 		if userUpdate.Password != nil && *userUpdate.Password != "" {
 			hashedPassword := HashPassword(*userUpdate.Password)
 			update["password"] = hashedPassword
