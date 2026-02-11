@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -97,41 +96,68 @@ func (r *Repository) UpdateStudent(student *Student) error {
 	r.logger.Println("Updating student with ID:", student.ID.Hex())
 	collection := r.getCollection("student")
 
-	// Use reflection to build update document with only non-zero fields
-	updateDoc := bson.M{}
-	v := reflect.ValueOf(student).Elem()
-	t := reflect.TypeOf(student).Elem()
-
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
-
-		// Skip the ID field
-		if fieldType.Name == "ID" {
-			continue
-		}
-
-		// Get the bson tag for the field name
-		bsonTag := fieldType.Tag.Get("bson")
-		if bsonTag == "" || bsonTag == "-" {
-			continue
-		}
-
-		// Check if field has a non-zero value
-		if !field.IsZero() {
-			updateDoc[bsonTag] = field.Interface()
-		}
+	// Marshal the student struct to BSON to get correct field names
+	// This handles embedded structs (User) and pointer fields correctly
+	bsonData, err := bson.Marshal(student)
+	if err != nil {
+		r.logger.Println("Error marshaling student to BSON:", err)
+		return err
 	}
 
-	_, err := collection.UpdateOne(
+	// Unmarshal into a map to work with the fields
+	var updateDoc bson.M
+	err = bson.Unmarshal(bsonData, &updateDoc)
+	if err != nil {
+		r.logger.Println("Error unmarshaling BSON:", err)
+		return err
+	}
+
+	// Remove the _id field as we don't want to update it
+	delete(updateDoc, "_id")
+
+	// Filter out nil values (unset pointer fields) but keep zero values for non-pointer fields
+	// The controller already filters what should be updated, so if a field is present
+	// (even with zero value), it should be included
+	filteredDoc := bson.M{}
+	for key, value := range updateDoc {
+		// Skip nil values (unset pointer fields)
+		if value == nil {
+			continue
+		}
+		// Include all values (time.Time fields are included since they're not pointers)
+		// The controller ensures only fields that should be updated are set on the struct
+		filteredDoc[key] = value
+	}
+
+	// Explicitly ensure date_of_birth is included if it was set on the student
+	// This handles the case where the date might not be in updateDoc due to zero value handling
+	if !student.DateOfBirth.IsZero() {
+		filteredDoc["date_of_birth"] = student.DateOfBirth
+		r.logger.Printf("Explicitly including date_of_birth: %v", student.DateOfBirth)
+	}
+
+	// Only update if there are fields to update
+	if len(filteredDoc) == 0 {
+		r.logger.Println("No fields to update")
+		return nil
+	}
+
+	r.logger.Println("Update document:", filteredDoc)
+	result, err := collection.UpdateOne(
 		context.TODO(),
 		bson.M{"_id": student.ID},
-		bson.M{"$set": updateDoc},
+		bson.M{"$set": filteredDoc},
 	)
 	if err != nil {
 		r.logger.Println("Error updating student:", err)
+		return err
 	}
-	return err
+	if result.MatchedCount == 0 {
+		r.logger.Println("No student found with ID:", student.ID.Hex())
+		return fmt.Errorf("student not found")
+	}
+	r.logger.Printf("Student updated successfully. Matched: %d, Modified: %d", result.MatchedCount, result.ModifiedCount)
+	return nil
 }
 
 func (r *Repository) DeleteStudent(userID string) error {

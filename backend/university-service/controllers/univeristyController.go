@@ -134,10 +134,16 @@ func (ctrl *Controllers) updateUserFields(user *repositories.User, updateData ma
 	}
 	if dateOfBirth, ok := updateData["date_of_birth"]; ok {
 		if dateOfBirthStr, ok := dateOfBirth.(string); ok {
-			if parsedDate, err := time.Parse(time.RFC3339, dateOfBirthStr); err == nil {
+			// Try RFC3339Nano first (handles milliseconds), then RFC3339
+			var parsedDate time.Time
+			var err error
+			if parsedDate, err = time.Parse(time.RFC3339Nano, dateOfBirthStr); err != nil {
+				if parsedDate, err = time.Parse(time.RFC3339, dateOfBirthStr); err != nil {
+					errors = append(errors, fmt.Sprintf("date_of_birth must be a valid RFC3339 date string: %v", err))
+				}
+			}
+			if err == nil {
 				user.DateOfBirth = parsedDate
-			} else {
-				errors = append(errors, "date_of_birth must be a valid RFC3339 date string")
 			}
 		} else {
 			errors = append(errors, "date_of_birth must be a string")
