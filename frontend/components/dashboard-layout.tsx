@@ -19,8 +19,10 @@ import {
   Settings,
   GraduationCap,
   Bell,
+  CheckCheck,
+  Trash2,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +34,9 @@ import {
 import { apiClient } from "@/lib/api-client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import type { Notification } from "@/lib/types"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -43,6 +48,70 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!token || !user) return
+
+    const loadNotifications = async () => {
+      if (!token) return
+      try {
+        setNotificationsLoading(true)
+        const data = await apiClient.getUserNotifications(user.id as string, token)
+
+        setNotifications(Array.isArray(data) ? data : [])
+      } catch (error) {
+        console.error("Failed to load notifications:", error)
+        setNotifications([])
+      } finally {
+        setNotificationsLoading(false)
+      }
+    }
+
+    loadNotifications()
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [token, user])
+
+  const handleMarkAsSeen = async (notificationId: string) => {
+    if (!token) return
+    try {
+      await apiClient.markNotificationAsSeen(notificationId, token)
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, seen: true } : n))
+      )
+    } catch (error) {
+      console.error("Failed to mark notification as seen:", error)
+    }
+  }
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.seen) {
+      await handleMarkAsSeen(notification.id)
+    }
+  }
+
+  const handleDeleteNotification = async (e: React.MouseEvent | React.PointerEvent, notificationId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!token) return
+    try {
+      await apiClient.deleteNotification(notificationId, token)
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
+    } catch (error) {
+      console.error("Failed to delete notification:", error)
+    }
+  }
+
+  const handleMarkAsReadClick = async (e: React.MouseEvent | React.PointerEvent, notificationId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    await handleMarkAsSeen(notificationId)
+  }
+
+  const unseenCount = notifications.filter((n) => !n.seen).length
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -107,7 +176,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card sticky top-0 z-50">
+      <header className="border-b border-border bg-card sticky top-0 z-50 overflow-visible">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -158,6 +227,116 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-[3px] hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 size-9"
+                        title="Notifications"
+                      >
+                        <Bell className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    {unseenCount > 0 && (
+                      <Badge
+                        className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-background pointer-events-none"
+                      >
+                        {unseenCount > 99 ? "99+" : unseenCount}
+                      </Badge>
+                    )}
+                  <DropdownMenuContent 
+                    align="end" 
+                    className="w-80 !opacity-100 !visible"
+                    sideOffset={8}
+                  >
+                    <DropdownMenuLabel className="flex items-center justify-between">
+                      <span>Notifications</span>
+                      {unseenCount > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          {unseenCount} new
+                        </Badge>
+                      )}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <div className="max-h-[400px] overflow-y-auto">
+                      {notificationsLoading ? (
+                        <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                          Loading notifications...
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                          No notifications
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={cn(
+                                "flex items-start justify-between w-full gap-2 p-3 border-b last:border-b-0",
+                                !notification.seen && "bg-accent/50"
+                              )}
+                            >
+                              <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={() => handleNotificationClick(notification)}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p
+                                    className={cn(
+                                      "text-sm truncate",
+                                      !notification.seen ? "font-semibold" : "font-medium"
+                                    )}
+                                  >
+                                    {notification.title}
+                                  </p>
+                                  {!notification.seen && (
+                                    <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-2 break-words">
+                                  {notification.content}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0 self-center">
+                                {!notification.seen && (
+                                  <button
+                                    type="button"
+                                    className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent cursor-pointer border-0 bg-transparent p-0"
+                                    title="Mark as read"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      handleMarkAsReadClick(e, notification.id)
+                                    }}
+                                  >
+                                    <CheckCheck className="h-4 w-4 shrink-0" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent cursor-pointer border-0 bg-transparent p-0 text-destructive hover:text-destructive"
+                                  title="Delete"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    handleDeleteNotification(e, notification.id)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 shrink-0" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                </div>
+              </div>
 
               <div className="flex items-center gap-2">
                 <Button
