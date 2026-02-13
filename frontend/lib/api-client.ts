@@ -673,6 +673,45 @@ class ApiClient {
     return response.json()
   }
 
+  async updateNotification(id: string, data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/notifications/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to update notification")
+    return response.json()
+  }
+
+  async getUserNotifications(userId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/notifications/user/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user notifications")
+    }
+
+    const data = await response.json()
+
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    return data
+  }
+
+  async markNotificationAsSeen(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/notifications/${id}/seen`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to mark notification as seen")
+    return response.json()
+  }
+
   async deleteNotification(id: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/notifications/${id}`, {
       method: "DELETE",

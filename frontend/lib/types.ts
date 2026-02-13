@@ -273,4 +273,11 @@ export type EntityPageLayoutProps = {
   children: React.ReactNode
   guidelines?: Guideline[]
 }
-
+export interface Notification {
+  id: string
+  title: string
+  content: string
+  recipient_type: "id" | "role" | "department" | "major"
+  recipient_value: string
+  seen: boolean
+}
