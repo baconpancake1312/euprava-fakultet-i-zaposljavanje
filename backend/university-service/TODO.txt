@@ -1,7 +1,7 @@
 student
 {	
-	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu
-	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd
+	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu ✅
+ 	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd
 	kaskadno brisanje
 }
 
@@ -10,8 +10,8 @@ profesor
 	✅ update profila
 	pravljenje ispita
 	ocenjivanje ispita
-	prikaz ispita
-	prikaz predmeta
+	prikaz ispita ✅
+	prikaz predmeta ✅
 	prikaz svojih studenata
 	kaskadno brisanje
 }
@@ -20,12 +20,13 @@ admin
 {
 
 	crud:
-		studenta
+		studenta   ✅
 		profesora  ✅
 		departmani ✅ 
 	 	smerovi i predmeti ✅ 
 		notifikacija:
-			slanje/editovanje/brisanje notifikacija po roleu/smeru/departmanu
+			slanje✅/editovanje/brisanje✅ notifikacija po roleu/smeru/departmanu/korisniku✅
+			kada korisnik klikne mark as read posalje se i uradi se update ali front jos uvek pokazuje kao da ima neprocitana notifikacija
 		poslovi
 		poslodavci
 		

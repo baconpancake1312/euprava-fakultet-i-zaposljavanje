@@ -549,6 +549,65 @@ func (r *Repository) DeleteSubject(subjectID string) error {
 	return nil
 }
 
+// ... existing code ...
+
+// GetStudentsByMajorID retrieves all students for a given major ID
+func (r *Repository) GetStudentsByMajorID(majorID primitive.ObjectID) ([]Student, error) {
+	collection := r.getCollection("student")
+	cursor, err := collection.Find(context.TODO(), bson.M{"major_id": majorID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var students []Student
+	err = cursor.All(context.TODO(), &students)
+	return students, err
+}
+
+// GetUsersByDepartmentID retrieves all users (students, professors, assistants) for a given department ID
+func (r *Repository) GetUsersByDepartmentID(departmentID primitive.ObjectID) ([]primitive.ObjectID, error) {
+	var userIDs []primitive.ObjectID
+
+	// Get department to find staff IDs and major IDs
+	department, err := r.GetDepartmentByID(departmentID.Hex())
+	if err != nil {
+		return nil, err
+	}
+	if department == nil {
+		return nil, fmt.Errorf("department not found")
+	}
+
+	// Add staff IDs (professors, assistants, administrators)
+	userIDs = append(userIDs, department.StaffIDs...)
+
+	// Get all students whose major belongs to this department
+	majors, err := r.GetAllMajors()
+	if err != nil {
+		return nil, err
+	}
+
+	var departmentMajorIDs []primitive.ObjectID
+	for _, major := range majors {
+		if major.DepartmentID != nil && *major.DepartmentID == departmentID {
+			departmentMajorIDs = append(departmentMajorIDs, major.ID)
+		}
+	}
+
+	// Get all students with these majors
+	for _, majorID := range departmentMajorIDs {
+		students, err := r.GetStudentsByMajorID(majorID)
+		if err != nil {
+			return nil, err
+		}
+		for _, student := range students {
+			userIDs = append(userIDs, student.ID)
+		}
+	}
+
+	return userIDs, nil
+}
+
 func (r *Repository) CreateStudentService(studentService *StudentService) error {
 	collection := r.getCollection("studentservice")
 	result, err := collection.InsertOne(context.TODO(), studentService)
@@ -803,6 +862,22 @@ func (r *Repository) GetNotificationByDescription(facultyName string, fieldOfStu
 	}
 
 	return &notification, nil
+}
+func (r *Repository) GetNotificationsByUserID(userID primitive.ObjectID) ([]Notification, error) {
+	collection := r.getCollection("notifications")
+	filter := bson.M{"recipient_id": userID}
+	cursor, err := collection.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var notifications []Notification
+	err = cursor.All(context.TODO(), &notifications)
+	if err != nil {
+		return nil, err
+	}
+	return notifications, nil
 }
 
 func (r *Repository) UpdateNotification(notification *Notification) error {

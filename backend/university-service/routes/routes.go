@@ -102,11 +102,12 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.DELETE("/assistants/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteAssistant)
 
 		// Notifications
-		protected.POST("/notificationsByHealthcare", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateNotificationByHealthcareHandler)
-		protected.POST("/notifications", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateNotificationHandler)
-		protected.GET("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByIDHandler)
-		protected.GET("/notifications", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.GetAllNotificationsHandler)
-		protected.DELETE("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteNotificationHandler)
+		protected.POST("/notifications", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateNotificationByRecipientHandler)
+		protected.GET("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByIDHandler)
+		protected.PUT("/notifications/:id/seen", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.UpdateNotificationSeen)
+		protected.GET("/notifications/user/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByUserIDHandler)
+		protected.GET("/notifications", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetAllNotificationsHandler)
+		protected.DELETE("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.DeleteNotificationHandler)
 
 		// Internship
 		protected.POST("/internship/apply/:id", middleware.AuthorizeRoles([]string{"STUDENT"}), ctrl.CreateInternshipApplication)

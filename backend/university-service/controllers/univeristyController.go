@@ -876,21 +876,146 @@ func (ctrl *Controllers) PayTuition(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Tuition payment successful!"})
 }
-func (ctrl *Controllers) CreateNotificationHandler(c *gin.Context) {
-	var newNotification repositories.Notification
-	if err := c.ShouldBindJSON(&newNotification); err != nil {
+func (ctrl *Controllers) CreateNotificationByRecipientHandler(c *gin.Context) {
+	var req repositories.Notification
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := ctrl.Repo.CreateNotification(&newNotification); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Validate recipient type
+	validTypes := map[string]bool{
+		"id":         true,
+		"role":       true,
+		"department": true,
+		"major":      true,
+	}
+	if !validTypes[req.RecipientType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid recipient_type. Must be: id, role, department, or major"})
 		return
 	}
 
-	c.Status(http.StatusCreated)
-}
+	var recipientIDs []primitive.ObjectID
 
+	switch req.RecipientType {
+	case "id":
+		// Single user by ID
+		userID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+			return
+		}
+		recipientIDs = []primitive.ObjectID{userID}
+
+	case "role":
+		// All users with a specific role
+		validRoles := map[string]bool{
+			"STUDENT":           true,
+			"PROFESSOR":         true,
+			"ASSISTANT":         true,
+			"ADMINISTRATOR":     true,
+			"STUDENTSKA_SLUZBA": true,
+		}
+		if !validRoles[req.RecipientValue] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role. Must be: STUDENT, PROFESSOR, ASSISTANT, ADMINISTRATOR, or STUDENTSKA_SLUZBA"})
+			return
+		}
+
+		switch req.RecipientValue {
+		case "STUDENT":
+			students, err := ctrl.Repo.GetAllStudents()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, student := range students {
+				recipientIDs = append(recipientIDs, student.ID)
+			}
+		case "PROFESSOR":
+			professors, err := ctrl.Repo.GetAllProfessors()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, professor := range professors {
+				recipientIDs = append(recipientIDs, professor.ID)
+			}
+		case "ASSISTANT":
+			assistants, err := ctrl.Repo.GetAllAssistants()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, assistant := range assistants {
+				recipientIDs = append(recipientIDs, assistant.ID)
+			}
+		case "ADMINISTRATOR", "STUDENTSKA_SLUZBA":
+			administrators, err := ctrl.Repo.GetAllAdministrators()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, admin := range administrators {
+				recipientIDs = append(recipientIDs, admin.ID)
+			}
+		}
+
+	case "department":
+		// All users in a department
+		departmentID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid department ID format"})
+			return
+		}
+		recipientIDs, err = ctrl.Repo.GetUsersByDepartmentID(departmentID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+	case "major":
+		// All students in a major
+		majorID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID format"})
+			return
+		}
+		students, err := ctrl.Repo.GetStudentsByMajorID(majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, student := range students {
+			recipientIDs = append(recipientIDs, student.ID)
+		}
+	}
+
+	// Create notification for each recipient
+	createdCount := 0
+	for _, recipientID := range recipientIDs {
+		notification := repositories.Notification{
+			RecipientID:    recipientID,
+			RecipientType:  req.RecipientType,
+			RecipientValue: req.RecipientValue,
+			Title:          req.Title,
+			Content:        req.Content,
+			CreatedAt:      time.Now(),
+			Seen:           false,
+		}
+		if err := ctrl.Repo.CreateNotification(&notification); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": fmt.Sprintf("Failed to create notification for user %s: %v", recipientID.Hex(), err),
+			})
+			return
+		}
+		createdCount++
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": fmt.Sprintf("Successfully created %d notifications", createdCount),
+		"count":   createdCount,
+	})
+}
 func (ctrl *Controllers) CreateNotificationByHealthcareHandler(c *gin.Context) {
 	var appointmentData map[string]interface{}
 
@@ -947,6 +1072,25 @@ func (ctrl *Controllers) CreateNotificationByHealthcareHandler(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+func (ctrl *Controllers) UpdateNotificationSeen(c *gin.Context) {
+	notificationID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification ID"})
+		return
+	}
+	notification, err := ctrl.Repo.GetNotificationByID(notificationID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+		return
+	}
+	notification.Seen = true
+	err = ctrl.Repo.UpdateNotification(notification)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusOK)
+}
 func (ctrl *Controllers) GetNotificationByIDHandler(c *gin.Context) {
 	notificationID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -961,6 +1105,20 @@ func (ctrl *Controllers) GetNotificationByIDHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, notification)
+}
+func (ctrl *Controllers) GetNotificationByUserIDHandler(c *gin.Context) {
+	userID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	notifications, err := ctrl.Repo.GetNotificationsByUserID(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notifications not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, notifications)
 }
 
 func (ctrl *Controllers) GetAllNotificationsHandler(c *gin.Context) {

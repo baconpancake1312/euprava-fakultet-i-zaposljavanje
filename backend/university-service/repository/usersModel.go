@@ -66,10 +66,14 @@ type TuitionPayment struct {
 }
 
 type Notification struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Title     string             `bson:"title" json:"title" validate:"required"`
-	Content   string             `bson:"content" json:"content"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Title          string             `json:"title" binding:"required"`
+	Content        string             `json:"content"`
+	RecipientType  string             `json:"recipient_type" binding:"required"` // "id", "role", "department", "major"
+	RecipientValue string             `json:"recipient_value" binding:"required"`
+	RecipientID    primitive.ObjectID `bson:"recipient_id,omitempty" json:"recipient_id,omitempty"` // User ID this notification is for
+	CreatedAt      time.Time          `bson:"created_at" json:"created_at"`
+	Seen           bool               `bson:"seen" json:"seen"`
 }
 
 type InternshipApplication struct {
