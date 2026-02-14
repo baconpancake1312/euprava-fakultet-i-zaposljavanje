@@ -14,12 +14,14 @@ type User struct {
 	Password      *string            `json:"password" validate:"required,min=8"`
 	Phone         *string            `json:"phone" validate:"required"`
 	Address       *string            `json:"address" validate:"required"`
+	JMBG          *string            `json:"jmbg" validate:"required,len=13"`
+	Date_of_birth *time.Time         `json:"date_of_birth" bson:"date_of_birth"`
 	Token         *string            `json:"token"`
 	User_type     UserType           `json:"user_type" validate:"required,usertype"`
 	Refresh_token *string            `json:"refresh_token"`
 	Created_at    time.Time          `json:"created_at"`
 	Updated_at    time.Time          `json:"updated_at"`
-	User_id       string             `json:"user_id"`
+	User_id       string             `json:"user_id" bson:"user_id"`
 
 	// Service-specific registration status
 	UniversityProfileCreated bool `json:"university_profile_created"`

@@ -112,10 +112,11 @@ export default function AdminEmployersPage() {
     }
   }
 
-  const filteredEmployers = employers.filter((employer) => {
+  const filteredEmployers = (employers ?? []).filter((employer) => {
     if (filter === "all") return true
     return employer.approval_status?.toLowerCase() === filter
   })
+
 
   const getStatusBadge = (status?: string) => {
     if (!status) return <Badge className="bg-yellow-500">Pending</Badge>
@@ -139,8 +140,8 @@ export default function AdminEmployersPage() {
             <h1 className="text-3xl font-bold">Employer Management</h1>
             <p className="text-muted-foreground">Review and approve employer registrations</p>
           </div>
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             onClick={handleClearTestData}
             disabled={loading}
           >

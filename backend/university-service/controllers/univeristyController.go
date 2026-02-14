@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	repositories "university-service/repository"
 
@@ -14,21 +16,47 @@ import (
 )
 
 type Controllers struct {
-	Repo *repositories.Repository
+	Repo   *repositories.Repository
+	logger *log.Logger
 }
 
-func NewControllers(repo *repositories.Repository) *Controllers {
-	return &Controllers{Repo: repo}
+func NewControllers(repo *repositories.Repository, l *log.Logger) *Controllers {
+	return &Controllers{Repo: repo, logger: l}
+}
+
+// createStudentRequest is used for binding the create-student payload.
+// When the auth service creates a user and then calls this endpoint, it sends user_id
+// so the university-service stores the same ID and the two services stay in sync.
+type createStudentRequest struct {
+	UserID string `json:"user_id"` // optional; from auth service – used as student.ID when set
+	repositories.Student
 }
 
 func (ctrl *Controllers) CreateStudent(c *gin.Context) {
-	var student repositories.Student
-	if err := c.BindJSON(&student); err != nil {
+	var req createStudentRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateStudent(&student)
+	student := &req.Student
+
+	// Use auth service's user_id as student ID so it matches the user record in auth DB
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		student.ID = objectID
+	} else {
+		// Caller did not send user_id (e.g. manual create); let repository use new ID if needed
+		if student.ID.IsZero() {
+			student.ID = primitive.NewObjectID()
+		}
+	}
+
+	err := ctrl.Repo.CreateStudent(student)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -58,29 +86,202 @@ func (ctrl *Controllers) GetStudentByIDLocal(id string) (*repositories.Student, 
 	return student, nil
 }
 
+// Helper function to update User fields
+func (ctrl *Controllers) updateUserFields(user *repositories.User, updateData map[string]interface{}) error {
+	var errors []string
+
+	if firstName, ok := updateData["first_name"]; ok {
+		if firstNameStr, ok := firstName.(string); ok {
+			user.FirstName = &firstNameStr
+		} else {
+			errors = append(errors, "first_name must be a string")
+		}
+	}
+	if lastName, ok := updateData["last_name"]; ok {
+		if lastNameStr, ok := lastName.(string); ok {
+			user.LastName = &lastNameStr
+		} else {
+			errors = append(errors, "last_name must be a string")
+		}
+	}
+	if email, ok := updateData["email"]; ok {
+		if emailStr, ok := email.(string); ok {
+			user.Email = &emailStr
+		} else {
+			errors = append(errors, "email must be a string")
+		}
+	}
+	if password, ok := updateData["password"]; ok {
+		if passwordStr, ok := password.(string); ok {
+			user.Password = &passwordStr
+		} else {
+			errors = append(errors, "password must be a string")
+		}
+	}
+	if phone, ok := updateData["phone"]; ok {
+		if phoneStr, ok := phone.(string); ok {
+			user.Phone = &phoneStr
+		} else {
+			errors = append(errors, "phone must be a string")
+		}
+	}
+	if address, ok := updateData["address"]; ok {
+		if addressStr, ok := address.(string); ok {
+			user.Address = &addressStr
+		} else {
+			errors = append(errors, "address must be a string")
+		}
+	}
+	if dateOfBirth, ok := updateData["date_of_birth"]; ok {
+		if dateOfBirthStr, ok := dateOfBirth.(string); ok {
+			// Try RFC3339Nano first (handles milliseconds), then RFC3339
+			var parsedDate time.Time
+			var err error
+			if parsedDate, err = time.Parse(time.RFC3339Nano, dateOfBirthStr); err != nil {
+				if parsedDate, err = time.Parse(time.RFC3339, dateOfBirthStr); err != nil {
+					errors = append(errors, fmt.Sprintf("date_of_birth must be a valid RFC3339 date string: %v", err))
+				}
+			}
+			if err == nil {
+				user.DateOfBirth = parsedDate
+			}
+		} else {
+			errors = append(errors, "date_of_birth must be a string")
+		}
+	}
+	if jmbg, ok := updateData["jmbg"]; ok {
+		if jmbgStr, ok := jmbg.(string); ok {
+			user.JMBG = jmbgStr
+		} else {
+			errors = append(errors, "jmbg must be a string")
+		}
+	}
+	if userType, ok := updateData["user_type"]; ok {
+		if userTypeStr, ok := userType.(string); ok {
+			user.UserType = repositories.UserType(userTypeStr)
+		} else {
+			errors = append(errors, "user_type must be a string")
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("validation errors: %s", strings.Join(errors, ", "))
+	}
+	return nil
+}
+
+// Helper function to update Student-specific fields
+func (ctrl *Controllers) updateStudentFields(student *repositories.Student, updateData map[string]interface{}) error {
+	var errors []string
+
+	if majorID, ok := updateData["major_id"]; ok {
+		if majorIDStr, ok := majorID.(string); ok {
+			if objectID, err := primitive.ObjectIDFromHex(majorIDStr); err == nil {
+				student.MajorID = objectID
+			} else {
+				errors = append(errors, "major_id must be a valid ObjectID")
+			}
+		} else {
+			errors = append(errors, "major_id must be a string")
+		}
+	}
+	if year, ok := updateData["year"]; ok {
+		if yearFloat, ok := year.(float64); ok {
+			student.Year = int(yearFloat)
+		} else {
+			errors = append(errors, "year must be a number")
+		}
+	}
+	if highschoolGPA, ok := updateData["highschool_gpa"]; ok {
+		if gpaFloat, ok := highschoolGPA.(float64); ok {
+			student.HighschoolGPA = gpaFloat
+		} else {
+			errors = append(errors, "highschool_gpa must be a number")
+		}
+	}
+	if gpa, ok := updateData["gpa"]; ok {
+		if gpaFloat, ok := gpa.(float64); ok {
+			student.GPA = gpaFloat
+		} else {
+			errors = append(errors, "gpa must be a number")
+		}
+	}
+	if cvFile, ok := updateData["cv_file"]; ok {
+		if cvFileStr, ok := cvFile.(string); ok {
+			student.CVFile = cvFileStr
+		} else {
+			errors = append(errors, "cv_file must be a string")
+		}
+	}
+	if cvBase64, ok := updateData["cv_base64"]; ok {
+		if cvBase64Str, ok := cvBase64.(string); ok {
+			student.CVBase64 = cvBase64Str
+		} else {
+			errors = append(errors, "cv_base64 must be a string")
+		}
+	}
+	if skills, ok := updateData["skills"]; ok {
+		if skillsSlice, ok := skills.([]interface{}); ok {
+			var skillsList []string
+			for _, skill := range skillsSlice {
+				if skillStr, ok := skill.(string); ok {
+					skillsList = append(skillsList, skillStr)
+				} else {
+					errors = append(errors, "all skills must be strings")
+					break
+				}
+			}
+			student.Skills = skillsList
+		} else {
+			errors = append(errors, "skills must be an array of strings")
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("validation errors: %s", strings.Join(errors, ", "))
+	}
+	return nil
+}
+
+// Main UpdateStudent function
 func (ctrl *Controllers) UpdateStudent(c *gin.Context) {
 	id := c.Param("id")
-	var student repositories.Student
-	if err := c.BindJSON(&student); err != nil {
+
+	// First, get the existing student
+	existingStudent, err := ctrl.Repo.GetStudentByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	// Create a map to hold only the fields that should be updated
+	var updateData map[string]interface{}
+	if err := c.BindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+	// Update User fields (inherited from User struct)
+	if err := ctrl.updateUserFields(&existingStudent.User, updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	student.ID = objectID
+	// Update Student-specific fields
+	if err := ctrl.updateStudentFields(existingStudent, updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	err = ctrl.Repo.UpdateStudent(&student)
+	// Update the student in the database
+	err = ctrl.Repo.UpdateStudent(existingStudent)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, student)
+	// Return the updated student
+	c.JSON(http.StatusOK, existingStudent)
 }
 
 func (ctrl *Controllers) DeleteStudent(c *gin.Context) {
@@ -95,14 +296,31 @@ func (ctrl *Controllers) DeleteStudent(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+type createProfessorRequest struct {
+	UserID string `json:"user_id"`
+	repositories.Professor
+}
+
 func (ctrl *Controllers) CreateProfessor(c *gin.Context) {
-	var professor repositories.Professor
-	if err := c.BindJSON(&professor); err != nil {
+	var req createProfessorRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateProfessor(&professor)
+	professor := &req.Professor
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		professor.ID = objectID
+	} else if professor.ID.IsZero() {
+		professor.ID = primitive.NewObjectID()
+	}
+
+	err := ctrl.Repo.CreateProfessor(professor)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -162,37 +380,38 @@ func (ctrl *Controllers) DeleteProfessor(c *gin.Context) {
 
 func (ctrl *Controllers) CreateCourse(c *gin.Context) {
 	fmt.Println("Hello, World!")
-	var course repositories.Course
-	if err := c.BindJSON(&course); err != nil {
+	var subject repositories.Subject
+	if err := c.BindJSON(&subject); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateCourse(&course)
+	err := ctrl.Repo.CreateSubject(&subject)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, course)
+	c.JSON(http.StatusCreated, subject)
 }
 
 func (ctrl *Controllers) GetCourseByID(c *gin.Context) {
 	id := c.Param("id")
 
-	course, err := ctrl.Repo.GetCourseByID(id)
+	subject, err := ctrl.Repo.GetSubjectByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, course)
+	c.JSON(http.StatusOK, subject)
 }
 
-func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
+func (ctrl *Controllers) UpdateSubject(c *gin.Context) {
 	id := c.Param("id")
-	var course repositories.Course
-	if err := c.BindJSON(&course); err != nil {
+	var subject repositories.Subject
+	if err := c.BindJSON(&subject); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -203,21 +422,21 @@ func (ctrl *Controllers) UpdateCourse(c *gin.Context) {
 		return
 	}
 
-	course.ID = objectID
+	subject.ID = objectID
 
-	err = ctrl.Repo.UpdateCourse(&course)
+	err = ctrl.Repo.UpdateSubject(&subject)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, course)
+	c.JSON(http.StatusOK, subject)
 }
 
-func (ctrl *Controllers) DeleteCourse(c *gin.Context) {
+func (ctrl *Controllers) DeleteSubject(c *gin.Context) {
 	id := c.Param("id")
 
-	err := ctrl.Repo.DeleteCourse(id)
+	err := ctrl.Repo.DeleteSubject(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -233,10 +452,41 @@ func (ctrl *Controllers) CreateDepartment(c *gin.Context) {
 		return
 	}
 
-	err := ctrl.Repo.CreateDepartment(&department)
+	departments, err := ctrl.Repo.GetAllDepartments()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	for _, departmentElement := range departments {
+		for _, oldProgram := range departmentElement.MajorIDs {
+			for _, newProgram := range department.MajorIDs {
+				if oldProgram == newProgram {
+					major, err := ctrl.Repo.GetMajorByID(newProgram)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						return
+					}
+					if major != nil {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": "Department " + departmentElement.Name + " already has this major: " + major.Name,
+						})
+						return
+					}
+				}
+			}
+		}
+	}
+	err = ctrl.Repo.CreateDepartment(&department)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for _, majorID := range department.MajorIDs {
+		err = ctrl.AddDepartmentToMajor(department.ID, majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusCreated, department)
@@ -281,8 +531,20 @@ func (ctrl *Controllers) UpdateDepartment(c *gin.Context) {
 
 func (ctrl *Controllers) DeleteDepartment(c *gin.Context) {
 	id := c.Param("id")
+	department, err := ctrl.Repo.GetDepartmentByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for _, majorID := range department.MajorIDs {
+		err = ctrl.RemoveDepartmentFromMajor(majorID, department.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
-	err := ctrl.Repo.DeleteDepartment(id)
+	err = ctrl.Repo.DeleteDepartment(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -356,115 +618,31 @@ func (ctrl *Controllers) DeleteUniversity(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
-func (ctrl *Controllers) CreateExam(c *gin.Context) {
-	var exam repositories.Exam
-	if err := c.BindJSON(&exam); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err := ctrl.Repo.CreateExam(&exam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, exam)
-}
-
-func (ctrl *Controllers) GetExamByID(c *gin.Context) {
-	id := c.Param("id")
-
-	exam, err := ctrl.Repo.GetExamByID(id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Exam not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, exam)
-}
-
-func (ctrl *Controllers) UpdateExam(c *gin.Context) {
-	id := c.Param("id")
-	var exam repositories.Exam
-	if err := c.BindJSON(&exam); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
-	exam.ID = objectID
-
-	err = ctrl.Repo.UpdateExam(&exam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, exam)
-}
-
-func (ctrl *Controllers) DeleteExam(c *gin.Context) {
-	id := c.Param("id")
-
-	err := ctrl.Repo.DeleteExam(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusNoContent, nil)
-}
-
-func (ctrl *Controllers) ManageExams(c *gin.Context) {
-	var exam repositories.Exam
-	if err := c.BindJSON(&exam); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err := ctrl.Repo.CreateExam(&exam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, exam)
-}
-
-func (ctrl *Controllers) CancelExam(c *gin.Context) {
-	id := c.Param("id")
-
-	exam, err := ctrl.Repo.GetExamByID(id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Exam not found"})
-		return
-	}
-
-	exam.Status = "canceled"
-
-	err = ctrl.Repo.UpdateExam(exam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Exam canceled successfully"})
+type createAdministratorRequest struct {
+	UserID string `json:"user_id"`
+	repositories.Administrator
 }
 
 func (ctrl *Controllers) CreateAdministrator(c *gin.Context) {
-	var administrator repositories.Administrator
-	if err := c.BindJSON(&administrator); err != nil {
+	var req createAdministratorRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateAdministrator(&administrator)
+	administrator := &req.Administrator
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		administrator.ID = objectID
+	} else if administrator.ID.IsZero() {
+		administrator.ID = primitive.NewObjectID()
+	}
+
+	err := ctrl.Repo.CreateAdministrator(administrator)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -522,14 +700,31 @@ func (ctrl *Controllers) DeleteAdministrator(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+type createAssistantRequest struct {
+	UserID string `json:"user_id"`
+	repositories.Assistant
+}
+
 func (ctrl *Controllers) CreateAssistant(c *gin.Context) {
-	var assistant repositories.Assistant
-	if err := c.BindJSON(&assistant); err != nil {
+	var req createAssistantRequest
+	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := ctrl.Repo.CreateAssistant(&assistant)
+	assistant := &req.Assistant
+	if req.UserID != "" {
+		objectID, err := primitive.ObjectIDFromHex(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id format"})
+			return
+		}
+		assistant.ID = objectID
+	} else if assistant.ID.IsZero() {
+		assistant.ID = primitive.NewObjectID()
+	}
+
+	err := ctrl.Repo.CreateAssistant(assistant)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -607,14 +802,14 @@ func (ctrl *Controllers) GetAllProfessors(c *gin.Context) {
 	c.JSON(http.StatusOK, professors)
 }
 
-func (ctrl *Controllers) GetAllCourses(c *gin.Context) {
-	courses, err := ctrl.Repo.GetAllCourses()
+func (ctrl *Controllers) GetAllSubjects(c *gin.Context) {
+	subjects, err := ctrl.Repo.GetAllSubjects()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, courses)
+	c.JSON(http.StatusOK, subjects)
 }
 
 func (ctrl *Controllers) GetAllDepartments(c *gin.Context) {
@@ -636,17 +831,6 @@ func (ctrl *Controllers) GetAllUniversities(c *gin.Context) {
 
 	c.JSON(http.StatusOK, universities)
 }
-
-func (ctrl *Controllers) GetAllExams(c *gin.Context) {
-	exams, err := ctrl.Repo.GetAllExams()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, exams)
-}
-
 func (ctrl *Controllers) GetAllAdministrators(c *gin.Context) {
 	administrators, err := ctrl.Repo.GetAllAdministrators()
 	if err != nil {
@@ -665,54 +849,6 @@ func (ctrl *Controllers) GetAllAssistants(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, assistants)
-}
-
-func (ctrl *Controllers) RegisterExam(c *gin.Context) {
-	var exam repositories.Exam
-	if err := c.BindJSON(&exam); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err := ctrl.Repo.RegisterExam(&exam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "Exam registered successfully!"})
-}
-
-func (ctrl *Controllers) DeregisterExam(c *gin.Context) {
-	studentID, err := primitive.ObjectIDFromHex(c.Param("studentID"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
-		return
-	}
-
-	courseID, err := primitive.ObjectIDFromHex(c.Param("courseID"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
-		return
-	}
-
-	err = ctrl.Repo.DeregisterExam(studentID, courseID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Exam deregistered successfully!"})
-}
-
-func (ctrl *Controllers) GetExamCalendar(c *gin.Context) {
-	exams, err := ctrl.Repo.GetExamCalendar()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, exams)
 }
 
 func (ctrl *Controllers) GetLectures(c *gin.Context) {
@@ -740,21 +876,219 @@ func (ctrl *Controllers) PayTuition(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Tuition payment successful!"})
 }
-func (ctrl *Controllers) CreateNotificationHandler(c *gin.Context) {
-	var newNotification repositories.Notification
-	if err := c.ShouldBindJSON(&newNotification); err != nil {
+func (ctrl *Controllers) CreateNotificationByRecipientHandler(c *gin.Context) {
+	var req repositories.Notification
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := ctrl.Repo.CreateNotification(&newNotification); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Validate recipient type
+	validTypes := map[string]bool{
+		"id":                    true,
+		"role":                  true,
+		"department":            true,
+		"department_professors": true,
+		"department_students":   true,
+		"major":                 true,
+		"major_students":        true,
+		"major_professors":      true,
+	}
+	if !validTypes[req.RecipientType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid recipient_type. Must be: id, role, department, or major"})
 		return
 	}
 
-	c.Status(http.StatusCreated)
-}
+	var recipientIDs []primitive.ObjectID
 
+	switch req.RecipientType {
+	case "id":
+		// Single user by ID
+		userID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+			return
+		}
+		recipientIDs = []primitive.ObjectID{userID}
+
+	case "role":
+		// All users with a specific role
+		validRoles := map[string]bool{
+			"STUDENT":           true,
+			"PROFESSOR":         true,
+			"ASSISTANT":         true,
+			"ADMINISTRATOR":     true,
+			"STUDENTSKA_SLUZBA": true,
+		}
+		if !validRoles[req.RecipientValue] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role. Must be: STUDENT, PROFESSOR, ASSISTANT, ADMINISTRATOR, or STUDENTSKA_SLUZBA"})
+			return
+		}
+
+		switch req.RecipientValue {
+		case "STUDENT":
+			students, err := ctrl.Repo.GetAllStudents()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, student := range students {
+				recipientIDs = append(recipientIDs, student.ID)
+			}
+		case "PROFESSOR":
+			professors, err := ctrl.Repo.GetAllProfessors()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, professor := range professors {
+				recipientIDs = append(recipientIDs, professor.ID)
+			}
+		case "ASSISTANT":
+			assistants, err := ctrl.Repo.GetAllAssistants()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, assistant := range assistants {
+				recipientIDs = append(recipientIDs, assistant.ID)
+			}
+		case "ADMINISTRATOR", "STUDENTSKA_SLUZBA":
+			administrators, err := ctrl.Repo.GetAllAdministrators()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, admin := range administrators {
+				recipientIDs = append(recipientIDs, admin.ID)
+			}
+		}
+
+	case "department":
+		// All users in a department
+		departmentID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid department ID format"})
+			return
+		}
+		recipientIDs, err = ctrl.Repo.GetUsersByDepartmentID(departmentID)
+		ctrl.logger.Println("Sending notification to department", departmentID.Hex())
+		ctrl.logger.Println("recipientIDs", recipientIDs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+	case "major":
+		// All students in a major
+		majorID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID format"})
+			return
+		}
+		students, err := ctrl.Repo.GetStudentsByMajorID(majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, student := range students {
+			recipientIDs = append(recipientIDs, student.ID)
+		}
+		ctrl.logger.Println("Sending notification to major", majorID.Hex())
+		ctrl.logger.Println("recipientIDs", recipientIDs)
+	case "major_students":
+		majorID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID format"})
+			return
+		}
+		students, err := ctrl.Repo.GetStudentsByMajorID(majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, student := range students {
+			recipientIDs = append(recipientIDs, student.ID)
+		}
+	case "major_professors":
+		majorID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID format"})
+			return
+		}
+		professors, err := ctrl.Repo.GetProfessorsByMajorId(majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, professor := range professors {
+			recipientIDs = append(recipientIDs, professor.ID)
+		}
+	case "department_professors":
+		departmentID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid department ID format"})
+			return
+		}
+		department, err := ctrl.Repo.GetDepartmentByID(departmentID.Hex())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, user := range department.StaffIDs {
+			recipientIDs = append(recipientIDs, user)
+		}
+
+	case "department_students":
+		departmentID, err := primitive.ObjectIDFromHex(req.RecipientValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid department ID format"})
+			return
+		}
+		department, err := ctrl.Repo.GetDepartmentByID(departmentID.Hex())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		majorIds := department.MajorIDs
+		for _, majorId := range majorIds {
+			students, err := ctrl.Repo.GetStudentsByMajorID(majorId)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, student := range students {
+				recipientIDs = append(recipientIDs, student.ID)
+			}
+		}
+	}
+
+	// Create one separate notification document per recipient (no sharing)
+	createdCount := 0
+	for _, recipientID := range recipientIDs {
+		notification := repositories.Notification{
+			RecipientID:    recipientID,
+			RecipientType:  req.RecipientType,
+			RecipientValue: req.RecipientValue,
+			Title:          req.Title,
+			Content:        req.Content,
+			CreatedAt:      time.Now(),
+			Seen:           false,
+		}
+		if err := ctrl.Repo.CreateNotification(&notification); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": fmt.Sprintf("Failed to create notification for user %s: %v", recipientID.Hex(), err),
+			})
+			return
+		}
+		createdCount++
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": fmt.Sprintf("Successfully created %d notifications", createdCount),
+		"count":   createdCount,
+	})
+}
 func (ctrl *Controllers) CreateNotificationByHealthcareHandler(c *gin.Context) {
 	var appointmentData map[string]interface{}
 
@@ -811,6 +1145,51 @@ func (ctrl *Controllers) CreateNotificationByHealthcareHandler(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+func (ctrl *Controllers) UpdateNotificationHandler(c *gin.Context) {
+	notificationID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification ID"})
+		return
+	}
+	notification, err := ctrl.Repo.GetNotificationByID(notificationID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+		return
+	}
+	var req repositories.Notification
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	notification.Title = req.Title
+	notification.Content = req.Content
+	notification.Seen = req.Seen
+	err = ctrl.Repo.UpdateNotification(notification)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusOK)
+}
+func (ctrl *Controllers) UpdateNotificationSeen(c *gin.Context) {
+	notificationID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification ID"})
+		return
+	}
+	notification, err := ctrl.Repo.GetNotificationByID(notificationID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+		return
+	}
+	notification.Seen = true
+	err = ctrl.Repo.UpdateNotification(notification)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusOK)
+}
 func (ctrl *Controllers) GetNotificationByIDHandler(c *gin.Context) {
 	notificationID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -825,6 +1204,20 @@ func (ctrl *Controllers) GetNotificationByIDHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, notification)
+}
+func (ctrl *Controllers) GetNotificationByUserIDHandler(c *gin.Context) {
+	userID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	notifications, err := ctrl.Repo.GetNotificationsByUserID(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notifications not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, notifications)
 }
 
 func (ctrl *Controllers) GetAllNotificationsHandler(c *gin.Context) {
@@ -1025,10 +1418,10 @@ func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
 		return
 	}
 
-	// Fetch the full course and professor objects
-	course, err := ctrl.Repo.GetCourseByID(req.CourseID.Hex())
+	// Fetch the full subject and professor objects
+	subject, err := ctrl.Repo.GetSubjectByID(req.SubjectID.Hex())
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Subject not found"})
 		return
 	}
 
@@ -1040,7 +1433,7 @@ func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
 
 	// Create the exam session with full objects
 	examSession := repositories.ExamSession{
-		Course:      *course,
+		Subject:     *subject,
 		Professor:   *professor,
 		ExamDate:    req.ExamDate,
 		Location:    req.Location,
@@ -1077,6 +1470,23 @@ func (ctrl *Controllers) GetExamSessionsByProfessor(c *gin.Context) {
 	}
 
 	examSessions, err := ctrl.Repo.GetExamSessionsByProfessor(objectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, examSessions)
+}
+
+func (ctrl *Controllers) GetExamSessionsByMajor(c *gin.Context) {
+	studentId := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(studentId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	examSessions, err := ctrl.Repo.GetExamSessionsByStudent(objectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1256,7 +1666,20 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 		return
 	}
 
-	examSession, err := ctrl.Repo.GetExamSessionByID(req.ExamSessionID.Hex())
+	examRegistration, err := ctrl.Repo.GetExamRegistrationById(req.ExamRegistrationId)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
+	examSession, err := ctrl.Repo.GetExamSessionByID(examRegistration.ExamSessionID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
+		return
+	}
+
+	examSession.Status = repositories.Completed
+	err = ctrl.Repo.UpdateExamSession(examSession)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Exam session not found"})
 		return
@@ -1267,18 +1690,33 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 
 	// Create the grade with full objects
 	grade := repositories.ExamGrade{
-		Student:     *fetchedStudent,
-		ExamSession: *examSession,
-		Grade:       req.Grade,
-		Passed:      req.Grade >= 6,
-		GradedBy:    professor,
-		Comments:    req.Comments,
+		Student:            *fetchedStudent,
+		ExamRegistrationId: req.ExamRegistrationId,
+		ExamSessionId:      examSession.ID,
+		SubjectId:          examSession.Subject.ID,
+		Grade:              req.Grade,
+		Passed:             req.Grade >= 6,
+		GradedBy:           professor,
+		Comments:           req.Comments,
 	}
 
 	err = ctrl.Repo.CreateExamGrade(&grade)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if grade.Passed {
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		fetchedStudent.GPA = (fetchedStudent.GPA + float64(grade.Grade)) / 2
+
+		err := ctrl.Repo.UpdateStudent(fetchedStudent)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusCreated, grade)
@@ -1316,6 +1754,22 @@ func (ctrl *Controllers) UpdateExamGrade(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, grade)
+}
+
+func (ctrl *Controllers) DeleteExamGrade(c *gin.Context) {
+	id, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid grade ID"})
+		return
+	}
+
+	err = ctrl.Repo.DeleteExamGrade(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
 }
 
 func (ctrl *Controllers) GetExamGradesByStudent(c *gin.Context) {
@@ -1370,4 +1824,283 @@ func (ctrl *Controllers) GetExamGradeByStudentAndExam(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, grade)
+}
+
+// createMajorRequest binds department_id as a string so it is not dropped by JSON (ObjectID does not unmarshal from string by default).
+type createMajorRequest struct {
+	Name         string                 `json:"name"`
+	DepartmentID string                 `json:"department_id"`
+	Subjects     []repositories.Subject `json:"subjects,omitempty"`
+}
+
+func (ctrl *Controllers) CreateMajor(c *gin.Context) {
+	var req createMajorRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	major := &repositories.Major{
+		Name:     req.Name,
+		Subjects: req.Subjects,
+	}
+	if req.DepartmentID != "" {
+		depID, err := primitive.ObjectIDFromHex(req.DepartmentID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid department_id format"})
+			return
+		}
+		major.DepartmentID = &depID
+	}
+
+	id, err := ctrl.Repo.CreateMajor(major)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
+		return
+	}
+	major.ID, err = primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create major"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, major)
+}
+
+func (ctrl *Controllers) GetAllMajors(c *gin.Context) {
+	majors, err := ctrl.Repo.GetAllMajors()
+	if err != nil {
+		ctrl.logger.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch majors"})
+		return
+	}
+	c.JSON(http.StatusOK, majors)
+}
+
+func (ctrl *Controllers) GetMajorByID(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	major, err := ctrl.Repo.GetMajorByID(objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch major"})
+		return
+	}
+	if major == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Major not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, major)
+}
+func (ctrl *Controllers) AddDepartmentToMajor(departmentID primitive.ObjectID, majorID primitive.ObjectID) error {
+	major, err := ctrl.Repo.GetMajorByID(majorID)
+	if err != nil {
+		return err
+	}
+	if major == nil {
+		return fmt.Errorf("major not found")
+	}
+	major.DepartmentID = &departmentID
+	err = ctrl.Repo.UpdateMajor(majorID, major)
+	if err != nil {
+		return fmt.Errorf("failed to update major: %w", err)
+	}
+	if major == nil {
+		return fmt.Errorf("major not found")
+	}
+	return nil
+}
+func (ctrl *Controllers) RemoveDepartmentFromMajor(majorID primitive.ObjectID, departmentID primitive.ObjectID) error {
+	major, err := ctrl.Repo.GetMajorByID(majorID)
+	if err != nil {
+		return err
+	}
+	if major == nil {
+		return fmt.Errorf("major not found")
+	}
+	major.DepartmentID = nil
+	err = ctrl.Repo.UpdateMajor(majorID, major)
+	if err != nil {
+		return fmt.Errorf("failed to update major: %w", err)
+	}
+	if major.DepartmentID == nil {
+		return fmt.Errorf("department not found")
+	}
+	return nil
+}
+func (ctrl *Controllers) AddMajorToDepartment(departmentID primitive.ObjectID, majorID primitive.ObjectID) error {
+	department, err := ctrl.Repo.GetDepartmentByID(departmentID.Hex())
+	if err != nil {
+		return err
+	}
+	if department == nil {
+		return fmt.Errorf("department not found")
+	}
+	department.MajorIDs = append(department.MajorIDs, majorID)
+	err = ctrl.Repo.UpdateDepartment(department)
+	if err != nil {
+		return fmt.Errorf("failed to update department: %w", err)
+	}
+	return nil
+}
+func (ctrl *Controllers) RemoveMajorFromDepartment(departmentID primitive.ObjectID, majorID primitive.ObjectID) error {
+	department, err := ctrl.Repo.GetDepartmentByID(departmentID.Hex())
+	if err != nil {
+		return err
+	}
+	if department == nil {
+		return fmt.Errorf("department not found")
+	}
+	department.MajorIDs = remove(department.MajorIDs, majorID)
+	err = ctrl.Repo.UpdateDepartment(department)
+	if err != nil {
+		return fmt.Errorf("failed to update department: %w", err)
+	}
+	return nil
+}
+func remove(slice []primitive.ObjectID, item primitive.ObjectID) []primitive.ObjectID {
+	for i, v := range slice {
+		if v == item {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
+}
+
+func (ctrl *Controllers) UpdateMajor(c *gin.Context) {
+	idParam := c.Param("id")
+	majorObjID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	var updateData repositories.Major
+	if err := c.BindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := ctrl.Repo.UpdateMajor(majorObjID, &updateData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update major"})
+		return
+	}
+	if updateData.DepartmentID != nil {
+		err = ctrl.AddMajorToDepartment(*updateData.DepartmentID, majorObjID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Major updated successfully"})
+}
+
+func (ctrl *Controllers) DeleteMajor(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+	major, err := ctrl.Repo.GetMajorByID(objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get major"})
+		return
+	}
+	if major == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Major not found"})
+		return
+	}
+
+	if err := ctrl.Repo.DeleteMajor(objID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete major"})
+		return
+	}
+
+	if major.DepartmentID != nil {
+		err = ctrl.RemoveMajorFromDepartment(*major.DepartmentID, objID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Major deleted successfully"})
+}
+
+func (ctrl *Controllers) GetSubjectsFromMajor(c *gin.Context) {
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+
+	subjects, err := ctrl.Repo.GetSubjectsFromMajor(objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subjects"})
+		return
+	}
+	c.JSON(http.StatusOK, subjects)
+}
+
+func (ctrl *Controllers) RegisterStudentForMajor(c *gin.Context) {
+	//studentId := c.Param("id")
+	//studentObjId, err := primitive.ObjectIDFromHex(studentId)
+	//majorId := c.Param("major_id")
+	//	majorObjId, err := primitive.ObjectIDFromHex(majorId)
+
+}
+func (ctrl *Controllers) GetPassedSubjectsForStudent(c *gin.Context) {
+	// student id -> get his grades -> get subjects from grades
+	studentIdParam := c.Param("id")
+	studentObjID, err := primitive.ObjectIDFromHex(studentIdParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid major ID"})
+		return
+	}
+	grades, err := ctrl.Repo.GetExamGradesByStudent(studentObjID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch grades for student"})
+		return
+	}
+	fmt.Printf("grades: %v", grades)
+	var passingGrades []repositories.ExamGrade
+	for _, grade := range grades {
+		if grade.Passed {
+			passingGrades = append(passingGrades, grade)
+		}
+	}
+	var passedSubjects []repositories.Subject
+	for _, passingGrade := range passingGrades {
+		subject, err := ctrl.Repo.GetSubjectByID(passingGrade.SubjectId.Hex())
+		id := passingGrade.ID
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Subject id in grade " + id.Hex() + " is invalid"})
+			return
+		}
+		passedSubjects = append(passedSubjects, *subject)
+	}
+
+	c.JSON(http.StatusOK, passedSubjects)
+}
+func (ctrl *Controllers) GetSubjectsByProfessorId(c *gin.Context) {
+	professorId, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid professor ID"})
+		return
+	}
+
+	subjects, err := ctrl.Repo.GetSubjectsByProfessorId(professorId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, subjects)
 }

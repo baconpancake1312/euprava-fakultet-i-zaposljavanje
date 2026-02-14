@@ -3,12 +3,13 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
-    restart: always
+    restart: no
     container_name: auth-service
     hostname: "auth-service"
     ports:
       - 8080:8080
     environment:
+      - _PASSWORD=auth-service-password
       - PORT=8080
       - MONGO_DB_URI=mongodb://admin:admin@user_data_base:27017/userDB?authSource=admin
       - SECRET_KEY=your-secret-key-here
@@ -22,7 +23,7 @@ services:
     hostname: "user_data_base"
     container_name: "user_data_base"
     image: mongo
-    restart: always
+    restart: no
     ports:
       - "27019:27017"
     environment:
@@ -43,7 +44,7 @@ services:
     build:
       context: ./university-service
       dockerfile: Dockerfile
-    restart: always
+    restart: no
     container_name: university-service
     hostname: "university-service"
     ports:
@@ -82,7 +83,7 @@ services:
     hostname: "university_data_base"
     container_name: "university_data_base"
     image: mongo
-    restart: always
+    restart: no
     ports:
       - "27018:27017"
     environment:
@@ -103,7 +104,7 @@ services:
     hostname: "employment_data_base"
     container_name: "employment_data_base"
     image: mongo
-    restart: always
+    restart: no
     ports:
       - "27020:27017"
     environment:

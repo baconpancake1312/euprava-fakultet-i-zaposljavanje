@@ -20,18 +20,24 @@ export default function RegisterPage() {
   const router = useRouter()
   const { login } = useAuth()
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    password: "",
-    phone: "",
-    address: "",
+    first_name: "johnny",
+    last_name: "test",
+    email: "test@test.com",
+    password: "13121312",
+    phone: "123456789",
+    address: "Test valley 69",
     date_of_birth: "",
-    jmbg: "",
+    jmbg: "123456789123",
     user_type: "" as UserType,
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const formatDateToISO = (dateString: string): string => {
+    if (!dateString) return ""
+    const date = new Date(dateString + "T12:00:00.000Z")
+    return date.toISOString()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +45,11 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const response = await apiClient.register(formData)
+      const payload = {
+        ...formData,
+        date_of_birth: formatDateToISO(formData.date_of_birth),
+      }
+      const response = await apiClient.register(payload)
       login(response.user, response.token)
       router.push("/dashboard")
     } catch (err) {

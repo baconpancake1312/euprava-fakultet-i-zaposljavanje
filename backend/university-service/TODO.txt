@@ -1,0 +1,50 @@
+student
+{	
+	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu ✅
+ 	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd
+	kaskadno brisanje
+}
+
+profesor
+{
+	✅ update profila
+	pravljenje ispita
+	ocenjivanje ispita
+	prikaz ispita ✅
+	prikaz predmeta ✅
+	prikaz svojih studenata
+	kaskadno brisanje
+}
+
+admin
+{
+
+	crud:
+		studenta   ✅
+		profesora  ✅
+		departmani ✅ 
+	 	smerovi i predmeti ✅ 
+		notifikacija:
+			slanje✅/editovanje/brisanje✅ notifikacija po roleu/smeru/departmanu/korisniku✅
+			bug: kada korisnik klikne mark as read posalje se i uradi se update ali front jos uvek pokazuje kao da ima neprocitana notifikacija ✅
+		poslovi
+		poslodavci
+		
+		
+}
+
+auth{
+		✅ registrovanje na oba servisa: cant find password for auth service
+		update func
+		update na drugim da se odnosi i na auth entitete
+		
+	}
+
+notifikacije{
+	kada se notifikacija da se vidi crveni broj notifikacija ✅
+	pojavi se notifikacija kada:
+		 se oceni ispit
+
+
+
+}

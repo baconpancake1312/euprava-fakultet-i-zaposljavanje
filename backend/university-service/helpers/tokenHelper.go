@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 	data "university-service/database"
@@ -29,6 +30,9 @@ func InitializeTokenHelper(client *mongo.Client) {
 
 // ValidateToken validates the jwt token
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
+	if SECRET_KEY == "" {
+		log.Fatal("SECRET_KEY not set in environment")
+	}
 	token, err := jwt.ParseWithClaims(
 		signedToken,
 		&SignedDetails{},

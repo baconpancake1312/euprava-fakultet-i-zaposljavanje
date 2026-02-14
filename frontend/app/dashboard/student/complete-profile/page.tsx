@@ -1,23 +1,25 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import type { Major } from "@/lib/types"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
+
 
 export default function CompleteStudentProfile() {
   const router = useRouter()
   const { user, token } = useAuth()
+
+  const [majors, setMajors] = useState<Major[]>([])
   const [formData, setFormData] = useState({
     major: "",
     year: "",
@@ -29,6 +31,24 @@ export default function CompleteStudentProfile() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [loadingMajors, setLoadingMajors] = useState(true)
+
+  useEffect(() => {
+    const fetchMajors = async () => {
+      try {
+        const res = await fetch("http://localhost:8088/majors")
+        if (!res.ok) throw new Error("Failed to fetch majors")
+        const data = await res.json()
+        setMajors(Array.isArray(data) ? data : [])
+      } catch (err) {
+        console.error(err)
+        setError("Could not load majors list")
+      } finally {
+        setLoadingMajors(false)
+      }
+    }
+    fetchMajors()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,14 +59,10 @@ export default function CompleteStudentProfile() {
       if (!token || !user?.id) throw new Error("Not authenticated")
 
       const data = {
-        ...user,
-        major: formData.major,
+        major_id: formData.major,
         year: Number.parseInt(formData.year),
-        assigned_dorm: formData.assigned_dorm || undefined,
         scholarship: formData.scholarship,
         highschool_gpa: Number.parseFloat(formData.highschool_gpa),
-        gpa: Number.parseFloat(formData.gpa),
-        espb: Number.parseInt(formData.espb),
       }
 
       await apiClient.updateStudent(user.id, data, token)
@@ -67,7 +83,9 @@ export default function CompleteStudentProfile() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h2 className="text-2xl font-bold">Complete Your Student Profile</h2>
-          <p className="text-muted-foreground">Add your academic information to access all university services</p>
+          <p className="text-muted-foreground">
+            Add your academic information to access all university services
+          </p>
         </div>
 
         <Card>
@@ -83,17 +101,37 @@ export default function CompleteStudentProfile() {
                 </Alert>
               )}
 
+              {/* Major Dropdown */}
               <div className="space-y-2">
                 <Label htmlFor="major">Major / Program *</Label>
-                <Input
-                  id="major"
-                  placeholder="Computer Science"
-                  value={formData.major}
-                  onChange={(e) => updateField("major", e.target.value)}
-                  required
-                  disabled={loading}
-                />
+                {loadingMajors ? (
+                  <div className="flex items-center space-x-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading majors...</span>
+                  </div>
+                ) : majors && majors.length > 0 ? (
+                  <select
+                    id="major"
+                    className="w-full border border-input bg-background rounded-md p-2"
+                    value={formData.major}
+                    onChange={(e) => updateField("major", e.target.value)}
+                    required
+                    disabled={loading}
+                  >
+                    <option value="">Select a major</option>
+                    {majors.map((major) => (
+                      <option key={major.id} value={major.id}>
+                        {major.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    No majors available. Please contact your administrator.
+                  </div>
+                )}
               </div>
+
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -106,20 +144,6 @@ export default function CompleteStudentProfile() {
                     placeholder="1"
                     value={formData.year}
                     onChange={(e) => updateField("year", e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="espb">ESPB Credits *</Label>
-                  <Input
-                    id="espb"
-                    type="number"
-                    min="0"
-                    placeholder="60"
-                    value={formData.espb}
-                    onChange={(e) => updateField("espb", e.target.value)}
                     required
                     disabled={loading}
                   />
@@ -142,45 +166,6 @@ export default function CompleteStudentProfile() {
                     disabled={loading}
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gpa">Current GPA *</Label>
-                  <Input
-                    id="gpa"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    placeholder="8.5"
-                    value={formData.gpa}
-                    onChange={(e) => updateField("gpa", e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="assigned_dorm">Assigned Dorm (Optional)</Label>
-                <Input
-                  id="assigned_dorm"
-                  placeholder="Dorm A"
-                  value={formData.assigned_dorm}
-                  onChange={(e) => updateField("assigned_dorm", e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="scholarship"
-                  checked={formData.scholarship}
-                  onCheckedChange={(checked) => updateField("scholarship", checked as boolean)}
-                  disabled={loading}
-                />
-                <Label htmlFor="scholarship" className="cursor-pointer">
-                  I have a scholarship
-                </Label>
               </div>
 
               <div className="flex gap-3 pt-4">

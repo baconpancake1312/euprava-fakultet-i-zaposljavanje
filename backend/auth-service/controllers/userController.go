@@ -150,18 +150,25 @@ func Register() gin.HandlerFunc {
 			return
 		}
 
+		isRegisteredInOthers := false
 		// Register in appropriate services based on user type
 		go func() {
-			if err := RegisterInAppropriateServices(&user); err != nil {
+			err := RegisterInAppropriateServices(&user)
+			if err != nil {
+				isRegisteredInOthers = false
 				l.Printf("Error registering user in services: %v", err)
+			} else {
+				isRegisteredInOthers = true
 			}
+
 		}()
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":   "User registered successfully",
-			"user_id":   user.User_id,
-			"user_type": user.User_type,
-			"result":    resultInsertionNumber,
+			"message":                        "User registered successfully",
+			"user_id":                        user.User_id,
+			"user_type":                      user.User_type,
+			"result":                         resultInsertionNumber,
+			"registered for other services:": isRegisteredInOthers,
 		})
 	}
 }
@@ -476,6 +483,9 @@ func UpdateUser() gin.HandlerFunc {
 		if userUpdate.Phone != nil {
 			update["phone"] = userUpdate.Phone
 		}
+		if userUpdate.Date_of_birth != nil {
+			update["date_of_birth"] = userUpdate.Date_of_birth
+		}
 		if userUpdate.Password != nil && *userUpdate.Password != "" {
 			hashedPassword := HashPassword(*userUpdate.Password)
 			update["password"] = hashedPassword
@@ -499,6 +509,18 @@ func UpdateUser() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+		// If not found by user_id, try by _id (client may send MongoDB ObjectID hex)
+		if result.MatchedCount == 0 {
+			objectID, err := primitive.ObjectIDFromHex(userID)
+			if err == nil {
+				filter = bson.M{"_id": objectID}
+				result, err = userCollection.UpdateOne(ctx, filter, bson.M{"$set": update})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+			}
 		}
 		if result.MatchedCount == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
@@ -671,7 +693,7 @@ func CreateServiceAccount() gin.HandlerFunc {
 // getServiceToken retrieves a token for service-to-service communication
 func getServiceToken(serviceName string) (string, error) {
 	// Get service credentials from environment variables
-	servicePassword := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(serviceName)))
+	servicePassword := os.Getenv("_PASSWORD")
 	if servicePassword == "" {
 		return "", fmt.Errorf("service password not found for %s", serviceName)
 	}
