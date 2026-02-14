@@ -26,9 +26,10 @@ admin
 	 	smerovi i predmeti ✅ 
 		notifikacija:
 			slanje✅/editovanje/brisanje✅ notifikacija po roleu/smeru/departmanu/korisniku✅
-			kada korisnik klikne mark as read posalje se i uradi se update ali front jos uvek pokazuje kao da ima neprocitana notifikacija
+			bug: kada korisnik klikne mark as read posalje se i uradi se update ali front jos uvek pokazuje kao da ima neprocitana notifikacija ✅
 		poslovi
 		poslodavci
+		
 		
 }
 
@@ -40,6 +41,10 @@ auth{
 	}
 
 notifikacije{
-	kada se notifikacija da se vidi crveni broj notifikacija
+	kada se notifikacija da se vidi crveni broj notifikacija ✅
+	pojavi se notifikacija kada:
+		 se oceni ispit
+
+
 
 }

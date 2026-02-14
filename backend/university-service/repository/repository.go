@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"slices"
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -580,6 +579,7 @@ func (r *Repository) GetUsersByDepartmentID(departmentID primitive.ObjectID) ([]
 
 	// Add staff IDs (professors, assistants, administrators)
 	userIDs = append(userIDs, department.StaffIDs...)
+	userIDs = append(userIDs, department.Head)
 
 	// Get all students whose major belongs to this department
 	majors, err := r.GetAllMajors()
@@ -865,8 +865,9 @@ func (r *Repository) GetNotificationByDescription(facultyName string, fieldOfStu
 }
 func (r *Repository) GetNotificationsByUserID(userID primitive.ObjectID) ([]Notification, error) {
 	collection := r.getCollection("notifications")
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
 	filter := bson.M{"recipient_id": userID}
-	cursor, err := collection.Find(context.TODO(), filter)
+	cursor, err := collection.Find(context.TODO(), filter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -890,28 +891,14 @@ func (r *Repository) UpdateNotification(notification *Notification) error {
 		return err
 	}
 
-	currentContent := currentNotification.Content
+	newContent := notification.Content
+	newTitle := notification.Title
 
-	descriptionIndex := strings.Index(currentContent, "Description:")
-	if descriptionIndex != -1 {
-
-		descriptionEndIndex := strings.Index(currentContent[descriptionIndex:], ",")
-		if descriptionEndIndex != -1 {
-			newContent := currentContent[:descriptionIndex] + "Description: Otkazano"
-			update := bson.M{
-				"$set": bson.M{
-					"content": newContent,
-				},
-			}
-			_, err = collection.UpdateOne(context.TODO(), filter, update)
-			return err
-		}
-	}
-
-	newContent := currentContent + ", Description: Otkazano"
 	update := bson.M{
 		"$set": bson.M{
 			"content": newContent,
+			"title":   newTitle,
+			"seen":    notification.Seen,
 		},
 	}
 
@@ -937,7 +924,8 @@ func (r *Repository) GetNotificationByID(id string) (*Notification, error) {
 func (r *Repository) GetAllNotifications() (Notifications, error) {
 	collection := r.getCollection("notifications")
 
-	cur, err := collection.Find(context.Background(), bson.D{})
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}})
+	cur, err := collection.Find(context.Background(), bson.D{}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -1396,6 +1384,23 @@ func (r *Repository) GetMajorByID(id primitive.ObjectID) (*Major, error) {
 	}
 	return &major, nil
 }
+
+func (r *Repository) GetProfessorsByMajorId(majorId primitive.ObjectID) ([]Professor, error) {
+	professors := []Professor{}
+	subjects, err := r.GetSubjectsFromMajor(majorId)
+	if err != nil {
+		return nil, err
+	}
+	for _, subject := range subjects {
+		professor, err := r.GetProfessorByID(subject.ProfessorID.Hex())
+		if err != nil {
+			return nil, err
+		}
+		professors = append(professors, *professor)
+	}
+	return professors, nil
+}
+
 func (r *Repository) RegisterStudentForMajor(id primitive.ObjectID, major_id primitive.ObjectID) error {
 	//collection := r.getCollection("majors")
 	return nil
