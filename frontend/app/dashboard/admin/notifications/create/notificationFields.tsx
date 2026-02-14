@@ -19,7 +19,7 @@ interface DepartmentRef {
 type Props = {
   title: string
   content: string
-  recipientType: "id" | "role" | "department" | "major"
+  recipientType: "id" | "role" | "department" | "major" | "major_students" | "major_professors"| "department_students" | "department_professors"
   recipientValue: string
   onChange: (field: string, value: string) => void
   departments: DepartmentRef[]
@@ -38,7 +38,6 @@ const ROLES = [
   { value: "ADMIN", label: "Admin" },
   { value: "EMPLOYER", label: "Employer" },
   { value: "CANDIDATE", label: "Candidate" },
-  { value: "STUDENTSKA_SLUZBA", label: "Studentska Služba" },
 ]
 
 export function NotificationFields({
@@ -59,11 +58,15 @@ export function NotificationFields({
   const getRecipientOptions = () => {
     switch (recipientType) {
       case "department":
+      case "department_students":
+      case "department_professors":
         return departments.map((dept) => ({
           value: dept.id,
           label: dept.name,
         }))
       case "major":
+      case "major_students":
+      case "major_professors":
         return majors.map((major) => ({
           value: major.id,
           label: major.name,
@@ -114,7 +117,7 @@ export function NotificationFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="recipient_type">Recipient Type</Label>
+        <Label htmlFor="recipient_type">Who should receive this notification?</Label>
         <Select
           value={recipientType}
           onValueChange={(value) => onChange("recipient_type", value)}
@@ -123,8 +126,12 @@ export function NotificationFields({
             <SelectValue placeholder="Select recipient type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="department">Department</SelectItem>
-            <SelectItem value="major">Major</SelectItem>
+            <SelectItem value="department">Whole Department</SelectItem>
+            <SelectItem value="department_students">Only Students of Department</SelectItem>
+            <SelectItem value="department_professors">Only Professors of Department</SelectItem>
+            <SelectItem value="major">Whole Major</SelectItem>
+            <SelectItem value="major_students">Only Students of Major</SelectItem>
+            <SelectItem value="major_professors">Only Professors of Major</SelectItem>
             <SelectItem value="role">Role</SelectItem>
             <SelectItem value="id">Specific User</SelectItem>
           </SelectContent>
@@ -140,6 +147,14 @@ export function NotificationFields({
               ? "Major"
               : recipientType === "role"
               ? "Role"
+              : recipientType === "major_students"
+              ? "Only Students of Major"
+              : recipientType === "major_professors"
+              ? "Only Professors of Major"
+              : recipientType === "department_students"
+              ? "Only Students of Department"
+              : recipientType === "department_professors"
+              ? "Only Professors of Department"
               : "User"}
           </Label>
           <Select
@@ -151,7 +166,7 @@ export function NotificationFields({
             </SelectTrigger>
             <SelectContent>
               {recipientOptions.length === 0 ? (
-                <SelectItem value="" disabled>
+                <SelectItem value="__no_options__" disabled>
                   No options available
                 </SelectItem>
               ) : (

@@ -13,7 +13,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { Loader2, Bell, Pencil, Trash2, Building2, ChevronDown, ChevronRight, GraduationCap, Users, UserCircle, Plus } from "lucide-react"
+import { Loader2, Bell, Pencil, Trash2, Building2, ChevronDown, ChevronRight, GraduationCap, Users, UserCircle, Plus, Eye, Receipt } from "lucide-react"
 import type { Notification, Major, Student, Professor } from "@/lib/types"
 
 interface DepartmentRef {
@@ -149,6 +149,23 @@ export default function AdminNotificationsPage() {
     return `User ${id}`
   }
 
+  const formatRole = (value: string) =>
+    value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+
+  const getRecipientLabel = (notification: Notification): string => {
+    
+        const student = students.find((s) => s.id === notification.recipient_id)
+        const professor = professors.find((p) => p.id === notification.recipient_id)
+        if (student !== undefined){
+          return `Student ${student.first_name} ${student.last_name}`
+        }else if (professor !== undefined){
+          return `Professor ${professor.first_name} ${professor.last_name}` 
+        }else{
+          return formatRole(notification.recipient_id ?? "")
+        }
+        
+    }
+
   const toggleMajor = (majorId: string) => {
     setExpandedMajorIds((prev) => {
       const next = new Set(prev)
@@ -177,6 +194,10 @@ export default function AdminNotificationsPage() {
 
   const handleEdit = (id: string) => {
     router.push(`/dashboard/admin/notifications/edit/${id}`)
+  }
+
+  const handleView = (id: string) => {
+    router.push(`/dashboard/admin/notifications/${id}`)
   }
 
   // Get all unique user IDs that have notifications
@@ -265,9 +286,20 @@ export default function AdminNotificationsPage() {
                                       <CardDescription>
                                         <Badge variant="outline" className="mr-2">Department</Badge>
                                         {dept.name}
+                                        <span className="block mt-1 text-muted-foreground">
+                                          Recipient: {getRecipientLabel(notification)}
+                                        </span>
                                       </CardDescription>
                                     </div>
                                     <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => handleView(notification.id)}
+                                        title="View"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
                                       <Button
                                         variant="outline"
                                         size="icon"
@@ -340,9 +372,20 @@ export default function AdminNotificationsPage() {
                                                     <CardDescription>
                                                       <Badge variant="outline" className="mr-2">Major</Badge>
                                                       {major.name}
+                                                      <span className="block mt-1 text-muted-foreground">
+                                                        Recipient: {getRecipientLabel(notification)}
+                                                      </span>
                                                     </CardDescription>
                                                   </div>
                                                   <div className="flex items-center gap-1">
+                                                    <Button
+                                                      variant="outline"
+                                                      size="icon"
+                                                      onClick={() => handleView(notification.id)}
+                                                      title="View"
+                                                    >
+                                                      <Eye className="h-4 w-4" />
+                                                    </Button>
                                                     <Button
                                                       variant="outline"
                                                       size="icon"
@@ -436,9 +479,20 @@ export default function AdminNotificationsPage() {
                                           <CardDescription>
                                             <Badge variant="outline" className="mr-2">Role</Badge>
                                             {role}
+                                            <span className="block mt-1 text-muted-foreground">
+                                              Recipient: {getRecipientLabel(notification)}
+                                            </span>
                                           </CardDescription>
                                         </div>
                                         <div className="flex items-center gap-1">
+                                          <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handleView(notification.id)}
+                                            title="View"
+                                          >
+                                            <Eye className="h-4 w-4" />
+                                          </Button>
                                           <Button
                                             variant="outline"
                                             size="icon"
@@ -526,9 +580,20 @@ export default function AdminNotificationsPage() {
                                           <CardDescription>
                                             <Badge variant="outline" className="mr-2">User</Badge>
                                             {userName}
+                                            <span className="block mt-1 text-muted-foreground">
+                                              Recipient: {getRecipientLabel(notification)}
+                                            </span>
                                           </CardDescription>
                                         </div>
                                         <div className="flex items-center gap-1">
+                                          <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handleView(notification.id)}
+                                            title="View"
+                                          >
+                                            <Eye className="h-4 w-4" />
+                                          </Button>
                                           <Button
                                             variant="outline"
                                             size="icon"

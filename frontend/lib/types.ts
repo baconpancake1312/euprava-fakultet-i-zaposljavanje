@@ -279,5 +279,7 @@ export interface Notification {
   content: string
   recipient_type: "id" | "role" | "department" | "major"
   recipient_value: string
+  recipient_id?: string
   seen: boolean
+  created_at?: string
 }

@@ -20,7 +20,7 @@ export default function CreateNotificationPage() {
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    recipient_type: "department" as "id" | "role" | "department" | "major",
+    recipient_type: "department" as "id" | "role" | "department" | "major" | "major_students" | "major_professors"| "department_students" | "department_professors",
     recipient_value: "",
   })
   const [departments, setDepartments] = useState<DepartmentRef[]>([])

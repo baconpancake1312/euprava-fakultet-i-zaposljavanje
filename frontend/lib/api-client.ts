@@ -681,7 +681,9 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to update notification")
-    return response.json()
+    const text = await response.text()
+    if (!text) return
+    return JSON.parse(text)
   }
 
   async getUserNotifications(userId: string, token: string) {
@@ -709,7 +711,9 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to mark notification as seen")
-    return response.json()
+    const text = await response.text()
+    if (!text) return
+    return JSON.parse(text)
   }
 
   async deleteNotification(id: string, token: string) {

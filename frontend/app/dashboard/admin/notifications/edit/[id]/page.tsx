@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { EntityFormPage } from "@/components/entity/entityFormPage"
-import { NotificationFields } from "../create/notificationFields"
+import { NotificationFields } from "../../create/notificationFields"
 import type { Notification, Major, Student, Professor } from "@/lib/types"
 
 interface DepartmentRef {

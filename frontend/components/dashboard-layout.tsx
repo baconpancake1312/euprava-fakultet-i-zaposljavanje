@@ -22,7 +22,7 @@ import {
   CheckCheck,
   Trash2,
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,46 +51,58 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationsLoading, setNotificationsLoading] = useState(false)
 
+  const loadNotifications = useCallback(async () => {
+    if (!token || !user?.id) return
+    try {
+      setNotificationsLoading(true)
+      const data = await apiClient.getUserNotifications(user.id, token)
+      const list = Array.isArray(data) ? data : []
+      setNotifications(
+        list.map((n: Notification) => ({
+          ...n,
+          seen: n.seen !== false,
+        }))
+      )
+    } catch (error) {
+      console.error("Failed to load notifications:", error)
+      setNotifications([])
+    } finally {
+      setNotificationsLoading(false)
+    }
+  }, [token, user?.id])
+
   useEffect(() => {
     if (!token || !user) return
-
-    const loadNotifications = async () => {
-      if (!token) return
-      try {
-        setNotificationsLoading(true)
-        const data = await apiClient.getUserNotifications(user.id as string, token)
-
-        setNotifications(Array.isArray(data) ? data : [])
-      } catch (error) {
-        console.error("Failed to load notifications:", error)
-        setNotifications([])
-      } finally {
-        setNotificationsLoading(false)
-      }
-    }
-
     loadNotifications()
-    // Refresh notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000)
     return () => clearInterval(interval)
-  }, [token, user])
+  }, [token, user, loadNotifications])
 
   const handleMarkAsSeen = async (notificationId: string) => {
     if (!token) return
     try {
       await apiClient.markNotificationAsSeen(notificationId, token)
+      const id = String(notificationId)
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, seen: true } : n))
+        prev.map((n) => (String(n.id) === id ? { ...n, seen: true } : n))
       )
     } catch (error) {
       console.error("Failed to mark notification as seen:", error)
     }
   }
 
-  const handleNotificationClick = async (notification: Notification) => {
+  const handleView = (id: string) => {
+    router.push(`/dashboard/user/notifications/${String(id)}`)
+  }
+
+  const handleNotificationClick = (e: React.MouseEvent, notification: Notification) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const id = String(notification.id)
     if (!notification.seen) {
-      await handleMarkAsSeen(notification.id)
+      void handleMarkAsSeen(id)
     }
+    handleView(id)
   }
 
   const handleDeleteNotification = async (e: React.MouseEvent | React.PointerEvent, notificationId: string) => {
@@ -99,7 +111,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     if (!token) return
     try {
       await apiClient.deleteNotification(notificationId, token)
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
+      const id = String(notificationId)
+      setNotifications((prev) => prev.filter((n) => String(n.id) !== id))
     } catch (error) {
       console.error("Failed to delete notification:", error)
     }
@@ -111,7 +124,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     await handleMarkAsSeen(notificationId)
   }
 
-  const unseenCount = notifications.filter((n) => !n.seen).length
+  const unseenCount = notifications.filter((n) => n.seen === false).length
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -260,7 +273,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                       )}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <div className="max-h-[400px] overflow-y-auto">
+                    <div className="max-h-[280px] overflow-y-auto overscroll-contain">
                       {notificationsLoading ? (
                         <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                           Loading notifications...
@@ -271,7 +284,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                         </div>
                       ) : (
                         <div className="py-1">
-                          {notifications.map((notification) => (
+                          {[...notifications].map((notification) => (
                             <div
                               key={notification.id}
                               className={cn(
@@ -281,7 +294,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                             >
                               <div
                                 className="flex-1 min-w-0 cursor-pointer"
-                                onClick={() => handleNotificationClick(notification)}
+                                onClick={(e) => handleNotificationClick(e, notification)}
                               >
                                 <div className="flex items-center gap-2 mb-1">
                                   <p
