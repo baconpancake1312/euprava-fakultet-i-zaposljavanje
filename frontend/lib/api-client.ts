@@ -408,10 +408,22 @@ class ApiClient {
   }
 
   async updateExamSession(id: string, data: any, token: string) {
+    // Ensure we only send the exact fields - create a clean copy
+    const cleanData = {
+      subject_id: String(data.subject_id || ""),
+      exam_date: String(data.exam_date || ""),
+      location: String(data.location || ""),
+      max_students: typeof data.max_students === "number" ? data.max_students : parseInt(String(data.max_students || 1), 10)
+    }
+    
+    const requestBody = JSON.stringify(cleanData)
+    console.log("API Client - Request body being sent:", requestBody)
+    console.log("API Client - Clean data object:", cleanData)
+    
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
-      body: JSON.stringify(data),
+      body: requestBody,
     })
 
     if (!response.ok) throw new Error("Failed to update exam session")

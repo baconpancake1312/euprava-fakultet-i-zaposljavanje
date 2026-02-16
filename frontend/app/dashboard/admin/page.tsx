@@ -69,7 +69,7 @@ export default function AdminDashboard() {
 
           <Card
             className="hover:border-primary/50 transition-colors cursor-pointer"
-            onClick={() => router.push("/dashboard/admin/departments")}
+            onClick={() => router.push("/dashboard/admin/subjects")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
