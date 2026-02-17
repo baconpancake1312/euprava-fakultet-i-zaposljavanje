@@ -56,8 +56,11 @@ export default function EditExamSessionPage() {
             const dateString = examDate.toISOString().split('T')[0]
             const timeString = examDate.toTimeString().split(' ')[0].substring(0, 5) // HH:MM format
 
+            // Extract subject_id - handle both cases: if backend returns subject object or subject_id string
+            const subjectId = sessionData.subject_id || (sessionData.subject?.id as string) || ""
+            
             setFormData({
-                subject_id: sessionData.subject_id,
+                subject_id: subjectId,
                 exam_date: dateString,
                 exam_time: timeString,
                 location: sessionData.location,
@@ -84,14 +87,35 @@ export default function EditExamSessionPage() {
             const examDateTime = new Date(`${formData.exam_date}T${formData.exam_time}`)
             const examDateISO = examDateTime.toISOString()
 
+            // Extract subject_id - ensure it's a string, not an object
+            let subjectId = formData.subject_id
+            if (typeof subjectId !== "string") {
+                // If somehow it's an object, try to extract the id
+                subjectId = (subjectId as any)?.id || ""
+            }
+            subjectId = String(subjectId).trim()
+
+            // Only send the fields that should be updated - create a completely fresh object
+            // with only the exact fields we want, ensuring no extra properties
             const submitData = {
-                subject_id: formData.subject_id,
+                subject_id: subjectId,
                 exam_date: examDateISO,
-                location: formData.location,
-                max_students: formData.max_students ? parseInt(formData.max_students) : 1
+                location: String(formData.location || "").trim(),
+                max_students: formData.max_students ? parseInt(String(formData.max_students), 10) : 1
             }
 
-            await apiClient.updateExamSession(sessionId, submitData, token)
+            // Verify the object only contains the expected fields
+            const allowedKeys = ["subject_id", "exam_date", "location", "max_students"]
+            const cleanedData = Object.fromEntries(
+                Object.entries(submitData).filter(([key]) => allowedKeys.includes(key))
+            ) as typeof submitData
+
+            // Log to verify what we're sending (remove in production)
+            console.log("Sending update request with data:", JSON.stringify(cleanedData, null, 2))
+            console.log("Cleaned data keys:", Object.keys(cleanedData))
+            console.log("Cleaned data values:", Object.values(cleanedData))
+
+            await apiClient.updateExamSession(sessionId, cleanedData, token)
             router.push(`/dashboard/professor/exam-sessions/${sessionId}`)
         } catch (error) {
             console.error("Error updating exam session:", error)
@@ -163,24 +187,6 @@ export default function EditExamSessionPage() {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <div>
-                                        <Label htmlFor="subject_id">Course *</Label>
-                                        <Select
-                                            value={formData.subject_id}
-                                            onValueChange={(value) => handleInputChange("subject_id", value)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a course" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {courses.map((course) => (
-                                                    <SelectItem key={course.id} value={course.id}>
-                                                        {course.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -276,7 +282,7 @@ export default function EditExamSessionPage() {
                                     <Button
                                         type="submit"
                                         className="w-full"
-                                        disabled={!formData.subject_id || !formData.exam_date || !formData.exam_time || !formData.location || !formData.max_students || submitting}
+                                        disabled={!formData.exam_date || !formData.exam_time || !formData.location || !formData.max_students || submitting}
                                     >
                                         {submitting ? (
                                             <>

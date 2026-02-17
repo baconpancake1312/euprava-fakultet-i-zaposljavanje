@@ -29,6 +29,66 @@ export default function AdminDashboard() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card
             className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/admin/students")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <GraduationCap className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Students</CardTitle>
+                  <CardDescription>Manage students</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Create, update, and manage student records</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/admin/professors")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Professors</CardTitle>
+                  <CardDescription>Manage faculty</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Manage professor accounts and assignments</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/admin/subjects")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Building className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Departments</CardTitle>
+                  <CardDescription>Manage departments</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Create and manage university departments</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
             onClick={() => router.push("/dashboard/admin/employers")}
           >
             <CardHeader>

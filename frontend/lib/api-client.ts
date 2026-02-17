@@ -74,9 +74,148 @@ class ApiClient {
     return response.json()
   }
 
-  async markMessagesAsRead(senderId: string, receiverId: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/${senderId}/${receiverId}/read`, {
+  async createExamSession(data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/create`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to create exam session")
+    return response.json()
+  }
+
+  async updateExamSession(id: string, data: any, token: string) {
+    // Ensure we only send the exact fields - create a clean copy
+    const cleanData = {
+      subject_id: String(data.subject_id || ""),
+      exam_date: String(data.exam_date || ""),
+      location: String(data.location || ""),
+      max_students: typeof data.max_students === "number" ? data.max_students : parseInt(String(data.max_students || 1), 10)
+    }
+    
+    const requestBody = JSON.stringify(cleanData)
+    console.log("API Client - Request body being sent:", requestBody)
+    console.log("API Client - Clean data object:", cleanData)
+    
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: requestBody,
+    })
+
+    if (!response.ok) throw new Error("Failed to update exam session")
+    return response.json()
+  }
+
+  async deleteExamSession(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to delete exam session")
+  }
+
+  async registerForExamSession(data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/register`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "Failed to register for exam session" }))
+      throw new Error(errorData.error || "Failed to register for exam session")
+    }
+    return response.json()
+  }
+
+  async deregisterFromExamSession(studentId: string, courseId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/deregister/${studentId}/${courseId}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to deregister from exam session")
+  }
+
+  async getStudentExamRegistrations(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch student exam registrations")
+    return response.json()
+  }
+
+  async getPassedCorusesForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subjects/passed/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch courses")
+    return response.json()
+  }
+
+  async getAllExamGradesForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch courses")
+    return response.json()
+  }
+  // Legacy exam methods for backward compatibility (deprecated)
+  async getAllExams(token: string) {
+    return this.getAllExamSessions(token)
+  }
+
+  async getExamById(id: string, token: string) {
+    return this.getExamSessionById(id, token)
+  }
+
+  async registerExam(data: any, token: string) {
+    return this.registerForExamSession(data, token)
+  }
+
+  async deregisterExam(studentId: string, courseId: string, token: string) {
+    return this.deregisterFromExamSession(studentId, courseId, token)
+  }
+
+  async getExamCalendar(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exams/calendar`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch exam calendar")
+    return response.json()
+  }
+
+  async manageExams(data: any, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/manage-exams`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) throw new Error("Failed to manage exams")
+    return response.json()
+  }
+
+  async cancelExam(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/cancel-exam/${id}`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to cancel exam")
+    return response.json()
+  }
+
+  // University Service APIs - Administrators
+  async getAllAdministrators(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/administrators`, {
       headers: this.getAuthHeaders(token),
     })
     if (!response.ok) throw new Error("Failed to mark messages as read")
