@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"employment-service/data"
@@ -179,7 +180,7 @@ func (ec *EmploymentController) GetSavedJobs() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate ID"})
 			return
 		}
-		jobs, err := ec.repo.GetSavedJobs(candObjId)
+		jobs, err := ec.repo.GetSavedJobsWithDetails(candObjId)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -866,7 +867,7 @@ func (ec *EmploymentController) GetSimilarJobs() gin.HandlerFunc {
 
 func (ec *EmploymentController) GetJobRecommendations() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, exists := c.Get("user_id")
+		userId, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 			return
@@ -878,6 +879,21 @@ func (ec *EmploymentController) GetJobRecommendations() gin.HandlerFunc {
 			limit = parsedLimit
 		}
 
+		// Try to get recommendations with match scores
+		candidate, err := ec.repo.GetCandidateByUserID(userId.(string))
+		if err == nil && candidate != nil {
+			// Get personalized recommendations
+			recommendations, err := ec.repo.GetJobRecommendationsForCandidate(candidate.ID.Hex(), limit)
+			if err == nil {
+				c.JSON(http.StatusOK, gin.H{
+					"recommendations": recommendations,
+					"total":           len(recommendations),
+				})
+				return
+			}
+		}
+
+		// Fallback to general active jobs
 		jobs, err := ec.repo.GetActiveJobs(limit)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1216,6 +1232,43 @@ func (ec *EmploymentController) GetApplicationsByCandidate() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, applications)
+	}
+}
+
+func (ec *EmploymentController) GetCandidateApplicationStats() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("id")
+		applications, err := ec.repo.GetApplicationsByCandidateId(candidateId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		stats := map[string]interface{}{
+			"total":              len(applications),
+			"pending":            0,
+			"accepted":          0,
+			"rejected":          0,
+			"recent_applications": 0,
+		}
+
+		sevenDaysAgo := time.Now().AddDate(0, 0, -7)
+		for _, app := range applications {
+			switch strings.ToLower(app.Status) {
+			case "pending":
+				stats["pending"] = stats["pending"].(int) + 1
+			case "accepted":
+				stats["accepted"] = stats["accepted"].(int) + 1
+			case "rejected":
+				stats["rejected"] = stats["rejected"].(int) + 1
+			}
+
+			if app.SubmittedAt.After(sevenDaysAgo) {
+				stats["recent_applications"] = stats["recent_applications"].(int) + 1
+			}
+		}
+
+		c.JSON(http.StatusOK, stats)
 	}
 }
 

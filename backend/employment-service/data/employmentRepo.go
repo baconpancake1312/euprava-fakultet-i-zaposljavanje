@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"employment-service/models"
@@ -246,6 +248,130 @@ func (er *EmploymentRepo) GetSavedJobs(candidateId primitive.ObjectID) ([]models
 		return nil, err
 	}
 	return savedJobs, nil
+}
+
+// GetSavedJobsWithDetails returns saved jobs with full job listing details
+func (er *EmploymentRepo) GetSavedJobsWithDetails(candidateId primitive.ObjectID) ([]*models.JobListing, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	savedJobsCollection := OpenCollection(er.cli, "saved_jobs")
+	listingsCollection := OpenCollection(er.cli, "listings")
+
+	// Get all saved job IDs
+	cursor, err := savedJobsCollection.Find(ctx, bson.M{"candidate_id": candidateId})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var savedJobs []models.SavedJob
+	if err := cursor.All(ctx, &savedJobs); err != nil {
+		return nil, err
+	}
+
+	if len(savedJobs) == 0 {
+		return []*models.JobListing{}, nil
+	}
+
+	// Extract job IDs
+	jobIds := make([]primitive.ObjectID, len(savedJobs))
+	for i, savedJob := range savedJobs {
+		jobIds[i] = savedJob.JobId
+	}
+
+	// Get full job listings
+	listingsCursor, err := listingsCollection.Find(ctx, bson.M{"_id": bson.M{"$in": jobIds}})
+	if err != nil {
+		return nil, err
+	}
+	defer listingsCursor.Close(ctx)
+
+	var listings []*models.JobListing
+	if err := listingsCursor.All(ctx, &listings); err != nil {
+		return nil, err
+	}
+
+	return listings, nil
+}
+
+// CalculateJobMatchScore calculates how well a job matches a candidate's skills
+// Returns a score from 0-100
+func (er *EmploymentRepo) CalculateJobMatchScore(candidate *models.Candidate, job *models.JobListing) int {
+	if candidate == nil || job == nil {
+		return 0
+	}
+
+	score := 0
+	candidateSkills := make(map[string]bool)
+	for _, skill := range candidate.Skills {
+		candidateSkills[strings.ToLower(strings.TrimSpace(skill))] = true
+	}
+
+	// Extract keywords from job description and position
+	jobText := strings.ToLower(job.Description + " " + job.Position)
+
+	// Count matching skills
+	matchedSkills := 0
+	for skill := range candidateSkills {
+		if strings.Contains(jobText, skill) {
+			matchedSkills++
+		}
+	}
+
+	// Calculate score based on matched skills
+	if len(candidate.Skills) > 0 {
+		score = (matchedSkills * 100) / len(candidate.Skills)
+	}
+
+	// Bonus points for internship match
+	if job.IsInternship && candidate.Year > 0 {
+		score += 10
+	}
+
+	// Cap at 100
+	if score > 100 {
+		score = 100
+	}
+
+	return score
+}
+
+// GetJobRecommendationsForCandidate returns job recommendations with match scores
+func (er *EmploymentRepo) GetJobRecommendationsForCandidate(candidateId string, limit int) ([]map[string]interface{}, error) {
+	// Get candidate
+	candidate, err := er.GetCandidate(candidateId)
+	if err != nil {
+		return nil, fmt.Errorf("candidate not found: %v", err)
+	}
+
+	// Get active approved jobs
+	jobs, err := er.GetActiveJobs(limit * 2) // Get more to filter
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate match scores and create recommendations
+	recommendations := make([]map[string]interface{}, 0)
+	for _, job := range jobs {
+		matchScore := er.CalculateJobMatchScore(candidate, job)
+		recommendations = append(recommendations, map[string]interface{}{
+			"job":        job,
+			"match_score": matchScore,
+		})
+	}
+
+	// Sort by match score (descending)
+	sort.Slice(recommendations, func(i, j int) bool {
+		return recommendations[i]["match_score"].(int) > recommendations[j]["match_score"].(int)
+	})
+
+	// Limit results
+	if len(recommendations) > limit {
+		recommendations = recommendations[:limit]
+	}
+
+	return recommendations, nil
 }
 
 // JobListing CRUD operations

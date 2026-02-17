@@ -286,6 +286,22 @@ class ApiClient {
     return response.json();
   }
 
+  async getJobRecommendations(token: string, limit: number = 10) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/recommendations?limit=${limit}`, {
+      headers: this.getAuthHeaders(token),
+    });
+    if (!response.ok) throw new Error("Failed to fetch job recommendations");
+    return response.json();
+  }
+
+  async getCandidateApplicationStats(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}/stats`, {
+      headers: this.getAuthHeaders(token),
+    });
+    if (!response.ok) throw new Error("Failed to fetch application statistics");
+    return response.json();
+  }
+
   // Employment Service APIs - Internships
   async getInternships(token?: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/internships`, {

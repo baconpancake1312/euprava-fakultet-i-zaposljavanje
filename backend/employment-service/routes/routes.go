@@ -67,6 +67,7 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.CreateApplication())
 		protected.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetAllApplications())
 		protected.GET("/applications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetApplicationsByCandidate())
+		protected.GET("/applications/candidate/:id/stats", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetCandidateApplicationStats())
 		protected.GET("/applications/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetApplicationsByEmployer())
 		protected.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER", "STUDENT", "CANDIDATE"}), ec.GetApplication())
 		protected.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateApplication())
@@ -119,6 +120,9 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 
 		protected.GET("/internships", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternships())
 		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternshipsForStudent())
+
+		// Job recommendations (protected)
+		protected.GET("/search/jobs/recommendations", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetJobRecommendations())
 
 	}
 }

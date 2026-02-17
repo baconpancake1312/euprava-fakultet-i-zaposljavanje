@@ -7,7 +7,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Briefcase, Building, Calendar, Search, Filter } from "lucide-react"
+import { Loader2, Briefcase, Building, Calendar, Search, Filter, Bookmark, BookmarkCheck, Star } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
@@ -22,6 +22,8 @@ export default function CandidateJobSearchPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [jobType, setJobType] = useState<"all" | "internship" | "fulltime">("all")
   const [applying, setApplying] = useState<string | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
   const [totalResults, setTotalResults] = useState(0)
   const { toast } = useToast()
 
@@ -74,7 +76,19 @@ export default function CandidateJobSearchPage() {
 
   useEffect(() => {
     loadInitialListings()
-  }, [token])
+    loadSavedJobs()
+  }, [token, user])
+
+  const loadSavedJobs = async () => {
+    if (!token || !user?.id) return
+    try {
+      const data = await apiClient.getSavedJobs(user.id, token)
+      const savedIds = new Set((data.saved_jobs || []).map((job: any) => job.id || job.job_id))
+      setSavedJobIds(savedIds)
+    } catch (err) {
+      // Silently fail - saved jobs are optional
+    }
+  }
 
   const loadInitialListings = async () => {
     setLoading(true)
@@ -124,6 +138,48 @@ export default function CandidateJobSearchPage() {
     } finally {
       setApplying(null)
     }
+  }
+
+  const handleSaveJob = async (jobId: string) => {
+    if (!token || !user?.id) return
+    setSaving(jobId)
+    try {
+      if (savedJobIds.has(jobId)) {
+        await apiClient.unsaveJob(user.id, jobId, token)
+        setSavedJobIds((prev) => {
+          const next = new Set(prev)
+          next.delete(jobId)
+          return next
+        })
+        toast({
+          title: "Job Removed",
+          description: "Job removed from your saved jobs.",
+        })
+      } else {
+        await apiClient.saveJob(user.id, jobId, token)
+        setSavedJobIds((prev) => new Set(prev).add(jobId))
+        toast({
+          title: "Job Saved",
+          description: "Job saved to your favorites.",
+        })
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to save/unsave job",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const calculateMatchScore = (listing: any): number => {
+    // Simple match score calculation based on skills
+    // This is a placeholder - real implementation would use backend match score
+    if (!user) return 0
+    // For now, return a random score between 60-95 for demo
+    return Math.floor(Math.random() * 35) + 60
   }
 
   return (
@@ -206,20 +262,45 @@ export default function CandidateJobSearchPage() {
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
             {listings.map((listing) => (
-              <Card key={listing.id} className="hover:border-primary/50 transition-colors">
+              <Card key={listing.id} className="hover:border-primary/50 transition-colors relative">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <Briefcase className="h-5 w-5 text-primary" />
-                        {listing.position}
-                      </CardTitle>
+                      <div className="flex items-center gap-2 mb-1">
+                        <CardTitle className="flex items-center gap-2">
+                          <Briefcase className="h-5 w-5 text-primary" />
+                          {listing.position}
+                        </CardTitle>
+                        {listing.match_score !== undefined && (
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            {listing.match_score}% Match
+                          </Badge>
+                        )}
+                      </div>
                       <CardDescription className="flex items-center gap-2 mt-1">
                         <Building className="h-4 w-4" />
-                        Company
+                        {listing.poster_name || "Company"}
                       </CardDescription>
                     </div>
-                    {listing.is_internship && <Badge variant="secondary">Internship</Badge>}
+                    <div className="flex items-center gap-2">
+                      {listing.is_internship && <Badge variant="secondary">Internship</Badge>}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSaveJob(listing.id)}
+                        disabled={saving === listing.id}
+                        className="h-8 w-8"
+                      >
+                        {saving === listing.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : savedJobIds.has(listing.id) ? (
+                          <BookmarkCheck className="h-4 w-4 text-primary fill-primary" />
+                        ) : (
+                          <Bookmark className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -228,16 +309,22 @@ export default function CandidateJobSearchPage() {
                     <Calendar className="h-4 w-4" />
                     <span>Posted {new Date(listing.created_at).toLocaleDateString()}</span>
                   </div>
-                  <Button onClick={() => handleApply(listing.id)} disabled={applying === listing.id} className="w-full">
-                    {applying === listing.id ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Applying...
-                      </>
-                    ) : (
-                      "Apply Now"
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleApply(listing.id)}
+                      disabled={applying === listing.id}
+                      className="flex-1"
+                    >
+                      {applying === listing.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        "Apply Now"
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
