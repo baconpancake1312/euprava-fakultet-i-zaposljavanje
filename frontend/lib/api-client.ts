@@ -398,6 +398,62 @@ class ApiClient {
     return data
   }
 
+  async searchJobsByText(query: string, page: number = 1, limit: number = 20) {
+    const response = await fetch(
+      `${EMPLOYMENT_API_URL}/search/jobs/text?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
+      {
+        headers: this.getAuthHeaders(),
+      }
+    )
+
+    if (!response.ok) throw new Error("Failed to search jobs")
+    const data = await response.json()
+    return {
+      jobs: data.jobs || [],
+      total: data.total || 0,
+      page: data.page || page,
+      limit: data.limit || limit,
+    }
+  }
+
+  async searchJobsByInternship(isInternship: boolean, page: number = 1, limit: number = 20) {
+    const response = await fetch(
+      `${EMPLOYMENT_API_URL}/search/jobs/internship?internship=${isInternship}&page=${page}&limit=${limit}`,
+      {
+        headers: this.getAuthHeaders(),
+      }
+    )
+
+    if (!response.ok) throw new Error("Failed to search jobs by internship")
+    const data = await response.json()
+    return {
+      jobs: data.jobs || [],
+      total: data.total || 0,
+      page: data.page || page,
+      limit: data.limit || limit,
+    }
+  }
+
+  async getActiveJobs(limit: number = 20) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/active?limit=${limit}`, {
+      headers: this.getAuthHeaders(),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch active jobs")
+    const data = await response.json()
+    return data.active_jobs || []
+  }
+
+  async getTrendingJobs(limit: number = 10) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/trending?limit=${limit}`, {
+      headers: this.getAuthHeaders(),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch trending jobs")
+    const data = await response.json()
+    return data.trending_jobs || []
+  }
+
   async getJobListingById(id: string, token?: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}`, {
       headers: this.getAuthHeaders(token),

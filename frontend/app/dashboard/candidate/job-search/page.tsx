@@ -1,59 +1,107 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Briefcase, Building, Calendar, Search } from "lucide-react"
+import { Loader2, Briefcase, Building, Calendar, Search, Filter } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function CandidateJobSearchPage() {
   const { token, user } = useAuth()
   const [listings, setListings] = useState<any[]>([])
-  const [filteredListings, setFilteredListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [jobType, setJobType] = useState<"all" | "internship" | "fulltime">("all")
   const [applying, setApplying] = useState<string | null>(null)
+  const [totalResults, setTotalResults] = useState(0)
   const { toast } = useToast()
 
-  useEffect(() => {
-    loadListings()
-  }, [])
+  const performSearch = useCallback(async () => {
+    if (!token) return
 
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = listings.filter(
-        (listing) =>
-          listing.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          listing.description.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-      setFilteredListings(filtered)
-    } else {
-      setFilteredListings(listings)
+    setSearching(true)
+    setError("")
+
+    try {
+      let results: any[] = []
+      let total = 0
+
+      if (searchTerm.trim()) {
+        // Use text search if there's a search term
+        const searchResult = await apiClient.searchJobsByText(searchTerm.trim(), 1, 50)
+        results = searchResult.jobs || []
+        total = searchResult.total || 0
+
+        // Apply job type filter if specified
+        if (jobType !== "all") {
+          const isInternship = jobType === "internship"
+          results = results.filter((listing: any) => listing.is_internship === isInternship)
+          total = results.length
+        }
+      } else if (jobType !== "all") {
+        // Use internship filter if job type is specified (no text search)
+        const isInternship = jobType === "internship"
+        const searchResult = await apiClient.searchJobsByInternship(isInternship, 1, 50)
+        results = searchResult.jobs || []
+        total = searchResult.total || 0
+      } else {
+        // Load all approved jobs (no filters)
+        const data = await apiClient.getJobListings(token)
+        results = data.filter((listing: any) => listing.approval_status?.toLowerCase() === "approved")
+        total = results.length
+      }
+
+      setListings(results)
+      setTotalResults(total)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to search job listings")
+      setListings([])
+      setTotalResults(0)
+    } finally {
+      setSearching(false)
+      setLoading(false)
     }
-  }, [searchTerm, listings])
+  }, [searchTerm, jobType, token])
 
-  const loadListings = async () => {
+  useEffect(() => {
+    loadInitialListings()
+  }, [token])
+
+  const loadInitialListings = async () => {
+    setLoading(true)
     try {
       if (!token) throw new Error("Not authenticated")
       const data = await apiClient.getJobListings(token)
-      console.log("[v0] Total listings fetched:", data.length)
       const approved = data.filter((listing: any) => listing.approval_status?.toLowerCase() === "approved")
-      console.log("[v0] Approved listings:", approved.length)
       setListings(approved)
-      setFilteredListings(approved)
+      setTotalResults(approved.length)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load job listings")
     } finally {
       setLoading(false)
     }
   }
+
+  const handleSearch = () => {
+    performSearch()
+  }
+
+  // Auto-search when job type filter changes
+  useEffect(() => {
+    if (!loading && token) {
+      performSearch()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobType])
 
   const handleApply = async (listingId: string) => {
     setApplying(listingId)
@@ -93,10 +141,47 @@ export default function CandidateJobSearchPage() {
               placeholder="Search jobs by title or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch()
+                }
+              }}
               className="pl-9"
             />
           </div>
+          <Select value={jobType} onValueChange={(value: "all" | "internship" | "fulltime") => setJobType(value)}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="Job Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Jobs</SelectItem>
+              <SelectItem value="internship">Internships</SelectItem>
+              <SelectItem value="fulltime">Full-time</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleSearch} disabled={searching}>
+            {searching ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Search
+              </>
+            )}
+          </Button>
         </div>
+
+        {totalResults > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Found {totalResults} {totalResults === 1 ? "job" : "jobs"}
+            {searchTerm && ` matching "${searchTerm}"`}
+            {jobType !== "all" && ` (${jobType === "internship" ? "Internships" : "Full-time"})`}
+          </p>
+        )}
 
         {error && (
           <Alert variant="destructive">
@@ -104,11 +189,11 @@ export default function CandidateJobSearchPage() {
           </Alert>
         )}
 
-        {loading ? (
+        {loading || searching ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : filteredListings.length === 0 ? (
+        ) : listings.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Briefcase className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -120,7 +205,7 @@ export default function CandidateJobSearchPage() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {filteredListings.map((listing) => (
+            {listings.map((listing) => (
               <Card key={listing.id} className="hover:border-primary/50 transition-colors">
                 <CardHeader>
                   <div className="flex items-start justify-between">

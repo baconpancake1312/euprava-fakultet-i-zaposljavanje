@@ -1041,9 +1041,14 @@ func (er *EmploymentRepo) SearchJobsByText(query string, page, limit int) ([]*mo
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"$or": []bson.M{
-			{"position": bson.M{"$regex": query, "$options": "i"}},
-			{"description": bson.M{"$regex": query, "$options": "i"}},
+		"$and": []bson.M{
+			{
+				"$or": []bson.M{
+					{"position": bson.M{"$regex": query, "$options": "i"}},
+					{"description": bson.M{"$regex": query, "$options": "i"}},
+				},
+			},
+			{"approval_status": bson.M{"$regex": "^approved$", "$options": "i"}},
 		},
 	}
 
@@ -1083,7 +1088,12 @@ func (er *EmploymentRepo) SearchJobsByInternship(isInternship bool, page, limit 
 
 	collection := OpenCollection(er.cli, "listings")
 
-	filter := bson.M{"is_internship": isInternship}
+	filter := bson.M{
+		"$and": []bson.M{
+			{"is_internship": isInternship},
+			{"approval_status": bson.M{"$regex": "^approved$", "$options": "i"}},
+		},
+	}
 
 	total, err := collection.CountDocuments(ctx, filter)
 	if err != nil {
@@ -1293,7 +1303,10 @@ func (er *EmploymentRepo) GetRecentJobs(limit int) ([]*models.JobListing, error)
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"created_at": bson.M{"$gte": time.Now().AddDate(0, 0, -7)},
+		"$and": []bson.M{
+			{"created_at": bson.M{"$gte": time.Now().AddDate(0, 0, -7)}},
+			{"approval_status": bson.M{"$regex": "^approved$", "$options": "i"}},
+		},
 	}
 
 	if limit <= 0 {
@@ -1324,7 +1337,10 @@ func (er *EmploymentRepo) GetActiveJobs(limit int) ([]*models.JobListing, error)
 	collection := OpenCollection(er.cli, "listings")
 
 	filter := bson.M{
-		"expire_at": bson.M{"$gt": time.Now()},
+		"$and": []bson.M{
+			{"expire_at": bson.M{"$gt": time.Now()}},
+			{"approval_status": bson.M{"$regex": "^approved$", "$options": "i"}},
+		},
 	}
 
 	if limit <= 0 {
