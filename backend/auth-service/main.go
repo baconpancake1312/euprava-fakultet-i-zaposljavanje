@@ -21,7 +21,7 @@ func main() {
 	router.Use(gin.Logger())
 
 	router.Use(cors.Middleware(cors.Config{
-		Origins:         "http://localhost:4321, http://localhost:3000, http://localhost:4200",
+		Origins:         "http://localhost:4321, http://localhost:3000, http://localhost:3001, http://localhost:3002, http://localhost:3003, http://localhost:4200",
 		Methods:         "GET, PUT, POST, DELETE, OPTIONS, PATCH",
 		RequestHeaders:  "Origin, Authorization, Content-Type, Accept, X-Requested-With",
 		ExposedHeaders:  "",

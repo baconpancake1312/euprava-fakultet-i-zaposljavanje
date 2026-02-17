@@ -1,9 +1,7 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,40 +11,180 @@ import (
 	"employment-service/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// EmploymentController is the main controller for employment-service endpoints
 type EmploymentController struct {
-	logger *log.Logger
 	repo   *data.EmploymentRepo
+	logger *log.Logger
 }
 
-var validate = validator.New()
-
-func NewEmploymentController(l *log.Logger, r *data.EmploymentRepo) *EmploymentController {
-	return &EmploymentController{l, r}
+// NewEmploymentController creates a new instance of EmploymentController
+func NewEmploymentController(logger *log.Logger, repo *data.EmploymentRepo) *EmploymentController {
+	return &EmploymentController{
+		repo:   repo,
+		logger: logger,
+	}
 }
 
-func (ec EmploymentController) GetUserByID(userId string) (*models.User, error) {
-	uniUrl := fmt.Sprintf("http://auth-service:8080/users/%v", userId)
-	uniResponse, err := http.Get(uniUrl)
-	if err != nil {
-		ec.logger.Printf("Error making GET request for user: %v", err)
-		return nil, fmt.Errorf("error making GET request for user: %v", err)
+// Messaging endpoints
+func (ec *EmploymentController) SendMessage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var message models.Message
+		if err := c.BindJSON(&message); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+		id, err := ec.repo.SendMessage(&message)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		message.ID = id
+		c.JSON(http.StatusOK, gin.H{"message": "Message sent", "data": message})
 	}
-	defer uniResponse.Body.Close()
+}
 
-	if uniResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(uniResponse.Body)
-		ec.logger.Println("error: ", string(body))
-		return nil, fmt.Errorf("uni service returned error: %s", string(body))
+func (ec *EmploymentController) GetMessagesBetweenUsers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userAId := c.Param("userAId")
+		userBId := c.Param("userBId")
+		messages, err := ec.repo.GetMessagesBetweenUsers(userAId, userBId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, messages)
 	}
-	var returnedUser *models.User
-	if err := json.NewDecoder(uniResponse.Body).Decode(&returnedUser); err != nil {
-		ec.logger.Printf("error parsing auth response body: %v\n", err)
-		return nil, fmt.Errorf("error parsing uni response body")
+}
+
+func (ec *EmploymentController) MarkMessagesAsRead() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		senderId := c.Param("senderId")
+		receiverId := c.Param("receiverId")
+		err := ec.repo.MarkMessagesAsRead(senderId, receiverId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Messages marked as read"})
 	}
-	return returnedUser, nil
+}
+// Interview scheduling endpoints
+func (ec *EmploymentController) CreateInterview() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var interview models.Interview
+		if err := c.BindJSON(&interview); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+		id, err := ec.repo.CreateInterview(&interview)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		interview.ID = id
+		c.JSON(http.StatusOK, gin.H{"message": "Interview scheduled", "interview": interview})
+	}
+}
+
+func (ec *EmploymentController) GetInterviewsByCandidate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("id")
+		interviews, err := ec.repo.GetInterviewsByCandidate(candidateId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, interviews)
+	}
+}
+
+func (ec *EmploymentController) GetInterviewsByEmployer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		employerId := c.Param("id")
+		interviews, err := ec.repo.GetInterviewsByEmployer(employerId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, interviews)
+	}
+}
+
+func (ec *EmploymentController) UpdateInterviewStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		interviewId := c.Param("id")
+		var req struct {
+			Status string `json:"status"`
+		}
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+		err := ec.repo.UpdateInterview(interviewId, map[string]interface{}{ "status": req.Status })
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Interview status updated"})
+	}
+}
+// Candidate Saved Jobs
+func (ec *EmploymentController) SaveJob() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("candidateId")
+		jobId := c.Param("jobId")
+		candObjId, err := primitive.ObjectIDFromHex(candidateId)
+		jobObjId, err2 := primitive.ObjectIDFromHex(jobId)
+		if err != nil || err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate or job ID"})
+			return
+		}
+		err = ec.repo.SaveJob(candObjId, jobObjId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Job saved"})
+	}
+}
+
+func (ec *EmploymentController) UnsaveJob() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("candidateId")
+		jobId := c.Param("jobId")
+		candObjId, err := primitive.ObjectIDFromHex(candidateId)
+		jobObjId, err2 := primitive.ObjectIDFromHex(jobId)
+		if err != nil || err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate or job ID"})
+			return
+		}
+		err = ec.repo.UnsaveJob(candObjId, jobObjId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Job unsaved"})
+	}
+}
+
+func (ec *EmploymentController) GetSavedJobs() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidateId := c.Param("candidateId")
+		candObjId, err := primitive.ObjectIDFromHex(candidateId)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate ID"})
+			return
+		}
+		jobs, err := ec.repo.GetSavedJobs(candObjId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"saved_jobs": jobs})
+	}
 }
 
 func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
