@@ -2,12 +2,46 @@ import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employ
 
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost:8080"
 const EMPLOYMENT_API_URL = process.env.NEXT_PUBLIC_EMPLOYMENT_API_URL || "http://localhost:8089"
+const UNIVERSITY_API_URL = process.env.NEXT_PUBLIC_UNIVERSITY_API_URL || "http://localhost:8088"
 
 class ApiClient {
-  // TEMP: Stub for notifications to prevent crash
+  // Get user notifications from university service
   async getUserNotifications(userId: string, token?: string) {
-    // Return empty array or mock notifications
-    return [];
+    try {
+      const response = await fetch(`${UNIVERSITY_API_URL}/notifications/user/${userId}`, {
+        headers: this.getAuthHeaders(token),
+      })
+      
+      if (!response.ok) {
+        console.error("Failed to fetch notifications:", response.statusText)
+        return []
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error("Error fetching notifications:", error)
+      return []
+    }
+  }
+
+  async markNotificationAsSeen(notificationId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/notifications/${notificationId}/seen`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    
+    if (!response.ok) throw new Error("Failed to mark notification as seen")
+    return response.json()
+  }
+
+  async deleteNotification(notificationId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/notifications/${notificationId}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    
+    if (!response.ok) throw new Error("Failed to delete notification")
+    return response.ok
   }
   private getAuthHeaders(token?: string) {
     const headers: HeadersInit = {
@@ -558,6 +592,24 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to fetch pending employers")
+    return response.json()
+  }
+
+  async getEmployerStats(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/stats`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch employer stats")
+    return response.json()
+  }
+
+  async getApplicationsForJob(jobId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${jobId}/applications`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch applications for job")
     return response.json()
   }
 }

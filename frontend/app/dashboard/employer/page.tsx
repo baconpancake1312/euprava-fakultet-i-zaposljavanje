@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileCompletionPrompt } from "@/components/profile-completion-prompt"
@@ -11,28 +11,54 @@ import { apiClient } from "@/lib/api-client"
 
 export default function EmployerDashboard() {
   const router = useRouter()
-  const { user, token, isAuthenticated } = useAuth()
+  const pathname = usePathname()
+  const { user, token, isAuthenticated, isLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [employerData, setEmployerData] = useState<any>(null)
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
+  const [isApproved, setIsApproved] = useState(false)
+  const [hasRedirected, setHasRedirected] = useState(false)
 
   useEffect(() => {
+    // Wait for auth to load before checking
+    if (isLoading) return
+
     if (!isAuthenticated || user?.user_type !== "EMPLOYER") {
       router.push("/login")
       return
     }
 
-    checkEmployerProfile()
-  }, [isAuthenticated, user, router])
+    // Only check profile if we haven't redirected yet
+    if (!hasRedirected) {
+      checkEmployerProfile()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading, user, router, pathname, hasRedirected])
 
   const checkEmployerProfile = async () => {
     try {
-      if (!token || !user?.id) return
+      if (!token || !user?.id) {
+        setLoading(false)
+        return
+      }
 
       const data = await apiClient.getEmployerById(user.id, token)
       setEmployerData(data)
 
-      // Check if profile needs completion
+      // Check approval status (handle both "approved" and "Approved")
+      const approvalStatus = data.approval_status?.toLowerCase()
+      const approved = approvalStatus === "approved"
+      setIsApproved(approved)
+
+      // If approved and we're on the dashboard page, redirect to company profile page
+      // Only redirect if we're actually on the dashboard route and haven't redirected yet
+      if (approved && pathname === "/dashboard/employer" && !hasRedirected) {
+        setHasRedirected(true)
+        router.replace("/dashboard/employer/company")
+        return
+      }
+
+      // Check if profile needs completion (only if not approved)
       const missingFields = []
       if (!data.firm_name) missingFields.push("firm_name")
       if (!data.pib) missingFields.push("pib")
@@ -40,14 +66,27 @@ export default function EmployerDashboard() {
 
       setNeedsProfileCompletion(missingFields.length > 0)
     } catch (error) {
-      // Employer profile doesn't exist yet
+      // Employer profile doesn't exist yet - show dashboard to complete profile
+      setIsApproved(false)
       setNeedsProfileCompletion(true)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
+  // Show loading while auth is loading or while checking employer profile
+  if (isLoading || loading) {
+    return (
+      <DashboardLayout title="Employer Dashboard">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // If approved and redirecting, show loading
+  if (isApproved && hasRedirected) {
     return (
       <DashboardLayout title="Employer Dashboard">
         <div className="flex items-center justify-center py-12">
@@ -65,7 +104,8 @@ export default function EmployerDashboard() {
           <p className="text-muted-foreground">Manage your job listings and find the best candidates</p>
         </div>
 
-        {needsProfileCompletion && (
+        {/* Only show profile completion prompt if profile is NOT approved */}
+        {needsProfileCompletion && !isApproved && (
           <ProfileCompletionPrompt
             title="Complete Your Employer Profile"
             description="To post job listings and access employment services, please complete your company profile."

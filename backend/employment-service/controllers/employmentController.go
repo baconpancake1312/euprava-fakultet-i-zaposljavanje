@@ -9,6 +9,7 @@ import (
 
 	"employment-service/data"
 	"employment-service/models"
+	helper "employment-service/helpers"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -203,6 +204,36 @@ func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 		}
 
 		application.ID = applicationId
+
+		// Send notifications in background
+		go func() {
+			// Get job listing to find employer
+			jobListing, err := ec.repo.GetJobListing(application.ListingId.Hex())
+			if err == nil && jobListing != nil {
+				// Notify employer about new application
+				employerID := jobListing.PosterId.Hex()
+				if err := helper.CreateNotification(
+					employerID,
+					"New Job Application",
+					fmt.Sprintf("You have received a new application for the position: %s", jobListing.Position),
+					ec.logger,
+				); err != nil {
+					ec.logger.Printf("Failed to send notification to employer %s: %v", employerID, err)
+				}
+			}
+
+			// Notify candidate that application was submitted
+			candidateID := application.ApplicantId.Hex()
+			if err := helper.CreateNotification(
+				candidateID,
+				"Application Submitted",
+				"Your job application has been successfully submitted. The employer will review it and get back to you.",
+				ec.logger,
+			); err != nil {
+				ec.logger.Printf("Failed to send notification to candidate %s: %v", candidateID, err)
+			}
+		}()
+
 		c.JSON(http.StatusOK, gin.H{"message": "Application created successfully", "application": application})
 	}
 }
@@ -1093,6 +1124,23 @@ func (ec *EmploymentController) ApproveEmployer() gin.HandlerFunc {
 			return
 		}
 
+		// Send notification to employer
+		employer, err := ec.repo.GetEmployer(employerId)
+		if err == nil && employer != nil {
+			// Employer embeds User, so use the User's ID
+			userID := employer.User.ID.Hex()
+			go func() {
+				if err := helper.CreateNotification(
+					userID,
+					"Employer Profile Approved",
+					"Your employer profile has been approved by an administrator. You can now post job listings and access all employer features.",
+					ec.logger,
+				); err != nil {
+					ec.logger.Printf("Failed to send approval notification to employer %s: %v", userID, err)
+				}
+			}()
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Employer approved successfully"})
 	}
 }
@@ -1196,6 +1244,9 @@ func (ec *EmploymentController) AcceptApplication() gin.HandlerFunc {
 			return
 		}
 
+		// Get application details before updating
+		application, _ := ec.repo.GetApplication(applicationId)
+
 		// Allow admins to accept any application, employers to accept their own
 		if userType == "ADMIN" {
 			err := ec.repo.UpdateApplicationStatusByAdmin(applicationId, "accepted")
@@ -1209,6 +1260,26 @@ func (ec *EmploymentController) AcceptApplication() gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+		}
+
+		// Send notification to candidate
+		if application != nil {
+			go func() {
+				candidateID := application.ApplicantId.Hex()
+				jobListing, err := ec.repo.GetJobListing(application.ListingId.Hex())
+				jobTitle := "the position"
+				if err == nil && jobListing != nil {
+					jobTitle = jobListing.Position
+				}
+				if err := helper.CreateNotification(
+					candidateID,
+					"Application Accepted",
+					fmt.Sprintf("Congratulations! Your application for %s has been accepted. The employer will contact you soon.", jobTitle),
+					ec.logger,
+				); err != nil {
+					ec.logger.Printf("Failed to send acceptance notification to candidate %s: %v", candidateID, err)
+				}
+			}()
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Application accepted successfully"})
@@ -1226,6 +1297,9 @@ func (ec *EmploymentController) RejectApplication() gin.HandlerFunc {
 			return
 		}
 
+		// Get application details before updating
+		application, _ := ec.repo.GetApplication(applicationId)
+
 		// Allow admins to reject any application, employers to reject their own
 		if userType == "ADMIN" {
 			err := ec.repo.UpdateApplicationStatusByAdmin(applicationId, "rejected")
@@ -1239,6 +1313,26 @@ func (ec *EmploymentController) RejectApplication() gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+		}
+
+		// Send notification to candidate
+		if application != nil {
+			go func() {
+				candidateID := application.ApplicantId.Hex()
+				jobListing, err := ec.repo.GetJobListing(application.ListingId.Hex())
+				jobTitle := "the position"
+				if err == nil && jobListing != nil {
+					jobTitle = jobListing.Position
+				}
+				if err := helper.CreateNotification(
+					candidateID,
+					"Application Update",
+					fmt.Sprintf("Your application for %s has been reviewed. Unfortunately, it was not selected at this time. Keep applying!", jobTitle),
+					ec.logger,
+				); err != nil {
+					ec.logger.Printf("Failed to send rejection notification to candidate %s: %v", candidateID, err)
+				}
+			}()
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Application rejected successfully"})
@@ -1288,10 +1382,28 @@ func (ec *EmploymentController) ApproveJobListing() gin.HandlerFunc {
 			return
 		}
 
+		// Get job listing before approving to get employer ID
+		jobListing, _ := ec.repo.GetJobListing(jobId)
+
 		err := ec.repo.ApproveJobListing(jobId, adminId.(string))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+
+		// Send notification to employer
+		if jobListing != nil {
+			go func() {
+				employerID := jobListing.PosterId.Hex()
+				if err := helper.CreateNotification(
+					employerID,
+					"Job Listing Approved",
+					fmt.Sprintf("Your job listing for '%s' has been approved and is now visible to candidates.", jobListing.Position),
+					ec.logger,
+				); err != nil {
+					ec.logger.Printf("Failed to send approval notification to employer %s: %v", employerID, err)
+				}
+			}()
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing approved successfully"})
@@ -1307,10 +1419,28 @@ func (ec *EmploymentController) RejectJobListing() gin.HandlerFunc {
 			return
 		}
 
+		// Get job listing before rejecting to get employer ID
+		jobListing, _ := ec.repo.GetJobListing(jobId)
+
 		err := ec.repo.RejectJobListing(jobId, adminId.(string))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+
+		// Send notification to employer
+		if jobListing != nil {
+			go func() {
+				employerID := jobListing.PosterId.Hex()
+				if err := helper.CreateNotification(
+					employerID,
+					"Job Listing Rejected",
+					fmt.Sprintf("Your job listing for '%s' has been rejected. Please review the listing requirements and submit a new one if needed.", jobListing.Position),
+					ec.logger,
+				); err != nil {
+					ec.logger.Printf("Failed to send rejection notification to employer %s: %v", employerID, err)
+				}
+			}()
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing rejected successfully"})

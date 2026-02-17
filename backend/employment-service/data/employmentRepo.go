@@ -393,7 +393,7 @@ func (er *EmploymentRepo) GetApplicationsForJob(client *mongo.Client, listingID 
 		return nil, fmt.Errorf("invalid listing ID: %v", err)
 	}
 
-	appCollection := OpenCollection(er.cli, "applications")
+	appCollection := OpenCollection(client, "applications")
 
 	filter := bson.M{"listing_id": listingObjID}
 
@@ -504,7 +504,15 @@ func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.O
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	employerCollection := OpenCollection(er.cli, "employers")
-	employer.ID = primitive.NewObjectID()
+	
+	// If User already has an ID (from embedded User struct), use it as the employer's _id
+	// Otherwise, generate a new ID
+	if employer.User.ID.IsZero() {
+		employer.ID = primitive.NewObjectID()
+		employer.User.ID = employer.ID // Set User's ID to match employer's ID
+	} else {
+		employer.ID = employer.User.ID // Use User's ID as employer's ID
+	}
 
 	// Set default approval status if not provided
 	if employer.ApprovalStatus == "" {
@@ -664,7 +672,15 @@ func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitiv
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	candidateCollection := OpenCollection(er.cli, "candidates")
-	candidate.ID = primitive.NewObjectID()
+	
+	// If User already has an ID (from embedded User struct), use it as the candidate's _id
+	// Otherwise, generate a new ID
+	if candidate.User.ID.IsZero() {
+		candidate.ID = primitive.NewObjectID()
+		candidate.User.ID = candidate.ID // Set User's ID to match candidate's ID
+	} else {
+		candidate.ID = candidate.User.ID // Use User's ID as candidate's ID
+	}
 
 	// Set default values for new fields if not provided
 	if candidate.Major == "" {
@@ -714,10 +730,22 @@ func (er *EmploymentRepo) GetCandidateByUserID(userID string) (*models.Candidate
 
 	candidateCollection := OpenCollection(er.cli, "candidates")
 
-	var candidate models.Candidate
-	err := candidateCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&candidate)
+	// Convert userID to ObjectID
+	objectId, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return nil, fmt.Errorf("no candidate found for user id: %s", userID)
+		return nil, fmt.Errorf("invalid user ID: %v", err)
+	}
+
+	var candidate models.Candidate
+	// Since Candidate embeds User, and User has _id, search by _id directly
+	// Also try searching by user_id field in case it exists
+	err = candidateCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&candidate)
+	if err != nil {
+		// Fallback: try searching by user_id field if _id doesn't match
+		err2 := candidateCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&candidate)
+		if err2 != nil {
+			return nil, fmt.Errorf("no candidate found for user id: %s", userID)
+		}
 	}
 
 	return &candidate, nil
@@ -1338,8 +1366,8 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 		},
 	}
 
-	// Try to find the employer by the user ID instead of the employer ID
-	result, err := collection.UpdateOne(ctx, bson.M{"user._id": objectId}, updateData)
+	// Find the employer by the ID (User is embedded, so _id is at top level)
+	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
 	if err != nil {
 		return fmt.Errorf("error approving employer: %v", err)
 	}
@@ -1377,8 +1405,8 @@ func (er *EmploymentRepo) RejectEmployer(employerId, adminId string) error {
 		},
 	}
 
-	// Try to find the employer by the user ID instead of the employer ID
-	result, err := collection.UpdateOne(ctx, bson.M{"user._id": objectId}, updateData)
+	// Find the employer by the ID (User is embedded, so _id is at top level)
+	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
 	if err != nil {
 		return fmt.Errorf("error rejecting employer: %v", err)
 	}
@@ -1769,7 +1797,7 @@ func (er *EmploymentRepo) CreateCompanyProfile(employerId, adminId string) error
 	}
 
 	var employer models.Employer
-	err = employerCollection.FindOne(ctx, bson.M{"user._id": objectId}).Decode(&employer)
+	err = employerCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&employer)
 	if err != nil {
 		return fmt.Errorf("employer not found: %v", err)
 	}

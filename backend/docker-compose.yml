@@ -73,6 +73,7 @@ services:
       - MONGO_DB_URI=mongodb://root:pass@employment_data_base:27017/employmentDB?authSource=admin
       - EMPLOYMENT_DB_HOST=employmentDB
       - SECRET_KEY=your-secret-key-here
+      - UNIVERSITY_SERVICE_URL=http://university-service:8088
     depends_on:
       employment_data_base:
         condition: service_healthy
