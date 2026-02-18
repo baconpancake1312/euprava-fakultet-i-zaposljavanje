@@ -167,8 +167,12 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         ]
       case "professor":
         return [
-          { href: "/dashboard/professor", label: "Dashboard", icon: Home },
-          { href: "/dashboard/profile", label: "Profile", icon: User },
+          { href: "/dashboard/professor", label: "Dashboard", icon: Home },,
+          
+          { href: "/dashboard/professor/courses", label: "Courses", icon: BookOpen },
+          { href: "/dashboard/professor/exam-sessions", label: "Exams", icon: Calendar },
+          { href: "/dashboard/professor/students", label: "Students", icon: Users },
+          { href: "/dashboard/profile", label: "Profile", icon: User }
         ]
       case "admin":
         return [
