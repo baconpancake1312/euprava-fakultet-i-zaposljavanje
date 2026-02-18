@@ -174,12 +174,44 @@ export default function CandidateJobSearchPage() {
     }
   }
 
-  const calculateMatchScore = (listing: any): number => {
-    // Simple match score calculation based on skills
-    // This is a placeholder - real implementation would use backend match score
-    if (!user) return 0
-    // For now, return a random score between 60-95 for demo
-    return Math.floor(Math.random() * 35) + 60
+  useEffect(() => {
+    // Load match scores for displayed listings if user is a candidate
+    if (!loading && !searching && listings.length > 0 && token && user?.user_type === "CANDIDATE") {
+      loadMatchScores()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listings, loading, searching])
+
+  const loadMatchScores = async () => {
+    if (!token || !user?.id) return
+    try {
+      // Get recommendations which include match scores
+      const recommendations = await apiClient.getJobRecommendations(token, 50)
+      const recommendationsMap = new Map()
+      
+      // Handle both formats: { recommendations: [...] } or just array
+      const recs = Array.isArray(recommendations) 
+        ? recommendations 
+        : (recommendations.recommendations || [])
+      
+      recs.forEach((rec: any) => {
+        // Recommendations can be in format { job: {...}, match_score: ... } or just job objects
+        const job = rec.job || rec
+        const score = rec.match_score || rec.matchScore
+        if (job.id) {
+          recommendationsMap.set(job.id, score)
+        }
+      })
+      
+      // Update listings with match scores
+      setListings(prev => prev.map(listing => ({
+        ...listing,
+        match_score: recommendationsMap.get(listing.id) || listing.match_score
+      })))
+    } catch (err) {
+      // Silently fail - match scores are optional
+      console.error("Failed to load match scores:", err)
+    }
   }
 
   return (

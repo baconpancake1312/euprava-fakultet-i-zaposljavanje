@@ -44,6 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(authToken)
     localStorage.setItem("user", JSON.stringify(userData))
     localStorage.setItem("token", authToken)
+    // Also set cookies for middleware
+    if (typeof document !== "undefined") {
+      document.cookie = `user=${JSON.stringify(userData)}; path=/; max-age=86400` // 24 hours
+      document.cookie = `token=${authToken}; path=/; max-age=86400` // 24 hours
+    }
   }
 
   const logout = () => {
@@ -51,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     localStorage.removeItem("user")
     localStorage.removeItem("token")
+    // Clear cookies
+    if (typeof document !== "undefined") {
+      document.cookie = "user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+    }
   }
 
   const updateUser = (userData: Partial<User> & { id: string }) => {

@@ -1,4 +1,52 @@
 services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: keycloak
+    hostname: "keycloak"
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_HTTP_ENABLED=true
+      - KC_HEALTH_ENABLED=true
+    command: start-dev
+    ports:
+      - "8090:8080"
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: keycloak-db
+    hostname: "keycloak-db"
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=keycloak
+    volumes:
+      - keycloak_db:/var/lib/postgresql/data
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   auth-service:
     build:
       context: ./auth-service
@@ -13,9 +61,17 @@ services:
       - PORT=8080
       - MONGO_DB_URI=mongodb://admin:admin@user_data_base:27017/userDB?authSource=admin
       - SECRET_KEY=your-secret-key-here
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=euprava
+      - KEYCLOAK_CLIENT_ID=euprava-client
+      - KEYCLOAK_CLIENT_SECRET=olp0SqcHvKGvUnonpemuc3nTigYyHqLQ
+      - KEYCLOAK_ADMIN_USER=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
     depends_on:
       user_data_base:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     networks:
       - network
 
@@ -74,6 +130,8 @@ services:
       - EMPLOYMENT_DB_HOST=employmentDB
       - SECRET_KEY=your-secret-key-here
       - UNIVERSITY_SERVICE_URL=http://university-service:8088
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=euprava
     depends_on:
       employment_data_base:
         condition: service_healthy
@@ -122,17 +180,12 @@ services:
     networks:
       - network
 
-  # healthcare_db:
-  #   image: mongo
-  #   container_name: healthcare_db
-  #   restart: on-failure
-  #   networks:
-  #     - network
 
 volumes:
   user_data_base:
   university_data_base:
   employment_data_base:
+  keycloak_db:
 
 networks:
   network:

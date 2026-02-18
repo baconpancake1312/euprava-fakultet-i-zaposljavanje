@@ -8,11 +8,11 @@ import (
 	"os/signal"
 	"time"
 
-	controllers "employment-service/controllers"
-
 	"employment-service/data"
 	helper "employment-service/helpers"
-	routes "employment-service/routes"
+	"employment-service/internal/handlers"
+	"employment-service/internal/routes"
+	"employment-service/internal/services"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
@@ -29,7 +29,7 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.Use(cors.Middleware(cors.Config{
-		Origins:         "http://localhost:4321, http://localhost:3000, http://localhost:4200",
+		Origins:         "http://localhost:3000",
 		Methods:         "GET, PUT, POST, DELETE, OPTIONS, PATCH",
 		RequestHeaders:  "Origin, Authorization, Content-Type, Accept, X-Requested-With",
 		ExposedHeaders:  "",
@@ -38,6 +38,7 @@ func main() {
 		ValidateHeaders: false,
 	}))
 	timeoutContext, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
 
 	logger := log.New(os.Stdout, "[employment-api] ", log.LstdFlags)
 	storeLogger := log.New(os.Stdout, "[employment-store] ", log.LstdFlags)
@@ -50,9 +51,11 @@ func main() {
 
 	helper.InitializeTokenHelper(store.GetClient())
 
-	employmentController := controllers.NewEmploymentController(logger, store)
+	services := services.NewServices(store, logger)
 
-	routes.MainRoutes(router, *employmentController)
+	handlers := handlers.NewHandlers(services, logger)
+
+	routes.SetupRoutes(router, handlers)
 
 	server := &http.Server{
 		Addr:    ":" + port,

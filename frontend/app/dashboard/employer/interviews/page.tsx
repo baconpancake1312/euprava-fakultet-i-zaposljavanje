@@ -26,7 +26,27 @@ export default function EmployerInterviewsPage() {
       }
       try {
         const data = await apiClient.getInterviewsByEmployer(user.id, token)
-        setInterviews(data)
+        // Fetch job listing and candidate details for each interview
+        const interviewsWithDetails = await Promise.all(
+          data.map(async (interview: any) => {
+            const details: any = { ...interview }
+            try {
+              if (interview.listing_id || interview.job_listing_id) {
+                const jobId = interview.listing_id || interview.job_listing_id
+                const jobListing = await apiClient.getJobListingById(jobId, token)
+                details.jobListing = jobListing
+              }
+            } catch {}
+            try {
+              if (interview.candidate_id) {
+                const candidate = await apiClient.getCandidateById(interview.candidate_id, token)
+                details.candidate = candidate
+              }
+            } catch {}
+            return details
+          })
+        )
+        setInterviews(interviewsWithDetails)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load interviews")
       } finally {
@@ -87,11 +107,13 @@ export default function EmployerInterviewsPage() {
                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
                         <User className="h-5 w-5 text-primary" />
-                        Candidate: {interview.candidate_id}
+                        {interview.candidate?.first_name && interview.candidate?.last_name
+                          ? `${interview.candidate.first_name} ${interview.candidate.last_name}`
+                          : interview.candidate?.email || `Candidate`}
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2">
                         <Briefcase className="h-4 w-4" />
-                        Job: {interview.job_listing_id}
+                        {interview.jobListing?.position || interview.job_listing?.position || "Job Position"}
                       </CardDescription>
                     </div>
                     {getStatusBadge(interview.status)}
@@ -100,8 +122,17 @@ export default function EmployerInterviewsPage() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Scheduled: {format(new Date(interview.scheduled_time), "PPPp")}</span>
+                    <span>
+                      Scheduled:{" "}
+                      {format(
+                        new Date(interview.scheduled_at || interview.scheduled_time || interview.created_at),
+                        "PPPp"
+                      )}
+                    </span>
                   </div>
+                  {interview.candidate?.email && (
+                    <div className="text-sm text-muted-foreground">Email: {interview.candidate.email}</div>
+                  )}
                   {interview.notes && (
                     <div className="text-sm text-muted-foreground">Notes: {interview.notes}</div>
                   )}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Building, Briefcase, FileCheck, Bell } from "lucide-react"
+import { Users, Building, Briefcase, FileCheck, Bell, GraduationCap } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()

@@ -259,31 +259,62 @@ class ApiClient {
     return response.json()
   }
 
-  // Candidate Saved Jobs
+  // Candidate Saved Jobs - Updated to match Postman collection
   async saveJob(candidateId: string, jobId: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`, {
+    // Try new endpoint first, fallback to legacy
+    const response = await fetch(`${EMPLOYMENT_API_URL}/saved-jobs`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
+      body: JSON.stringify({
+        candidate_id: candidateId,
+        job_id: jobId,
+      }),
     });
-    if (!response.ok) throw new Error("Failed to save job");
+    if (!response.ok) {
+      // Fallback to legacy endpoint
+      const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`, {
+        method: "POST",
+        headers: this.getAuthHeaders(token),
+      });
+      if (!legacyResponse.ok) throw new Error("Failed to save job");
+      return legacyResponse.json();
+    }
     return response.json();
   }
 
   async unsaveJob(candidateId: string, jobId: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`, {
+    // Try new endpoint first, fallback to legacy
+    const response = await fetch(`${EMPLOYMENT_API_URL}/saved-jobs/candidate/${candidateId}/job/${jobId}`, {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     });
-    if (!response.ok) throw new Error("Failed to unsave job");
+    if (!response.ok) {
+      // Fallback to legacy endpoint
+      const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`, {
+        method: "DELETE",
+        headers: this.getAuthHeaders(token),
+      });
+      if (!legacyResponse.ok) throw new Error("Failed to unsave job");
+      return legacyResponse.json();
+    }
     return response.json();
   }
 
   async getSavedJobs(candidateId: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/saved-jobs`, {
+    // Try new endpoint first, fallback to legacy
+    const response = await fetch(`${EMPLOYMENT_API_URL}/saved-jobs/candidate/${candidateId}`, {
       headers: this.getAuthHeaders(token),
     });
-    if (!response.ok) throw new Error("Failed to fetch saved jobs");
-    return response.json();
+    if (!response.ok) {
+      // Fallback to legacy endpoint
+      const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/saved-jobs`, {
+        headers: this.getAuthHeaders(token),
+      });
+      if (!legacyResponse.ok) throw new Error("Failed to fetch saved jobs");
+      return legacyResponse.json();
+    }
+    const data = await response.json();
+    return data.saved_jobs || data;
   }
 
   async getJobRecommendations(token: string, limit: number = 10) {
@@ -620,6 +651,15 @@ class ApiClient {
 
   async getEmployerById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to fetch employer")
+    return response.json()
+  }
+
+  async getEmployerByUserId(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/employers/user/${userId}`, {
       headers: this.getAuthHeaders(token),
     })
 

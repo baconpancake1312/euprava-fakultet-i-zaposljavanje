@@ -17,21 +17,19 @@ var universityServiceURL string
 func init() {
 	universityServiceURL = os.Getenv("UNIVERSITY_SERVICE_URL")
 	if universityServiceURL == "" {
-		universityServiceURL = "http://university-service:8088" // Default Docker service name
+		universityServiceURL = "http://university-service:8088"
 	}
 }
 
-// NotificationRequest represents the notification payload for university service
 type NotificationRequest struct {
 	Title          string `json:"title" binding:"required"`
 	Content        string `json:"content"`
-	RecipientType  string `json:"recipient_type" binding:"required"` // "id"
-	RecipientValue string `json:"recipient_value" binding:"required"` // User ID as string
+	RecipientType  string `json:"recipient_type" binding:"required"` 
+	RecipientValue string `json:"recipient_value" binding:"required"` 
 }
 
-// CreateNotification sends a notification to the university service
 func CreateNotification(userID string, title string, content string, logger *log.Logger) error {
-	// Convert userID to ObjectID to validate it
+
 	_, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %v", err)
@@ -49,7 +47,6 @@ func CreateNotification(userID string, title string, content string, logger *log
 		return fmt.Errorf("failed to marshal notification: %v", err)
 	}
 
-	// Create HTTP request to internal endpoint (no auth required)
 	url := fmt.Sprintf("%s/internal/notifications", universityServiceURL)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {

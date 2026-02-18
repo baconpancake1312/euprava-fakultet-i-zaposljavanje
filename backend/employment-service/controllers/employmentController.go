@@ -15,178 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-// EmploymentController is the main controller for employment-service endpoints
-type EmploymentController struct {
-	repo   *data.EmploymentRepo
-	logger *log.Logger
-}
-
-// NewEmploymentController creates a new instance of EmploymentController
-func NewEmploymentController(logger *log.Logger, repo *data.EmploymentRepo) *EmploymentController {
-	return &EmploymentController{
-		repo:   repo,
-		logger: logger,
-	}
-}
-
-// Messaging endpoints
-func (ec *EmploymentController) SendMessage() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var message models.Message
-		if err := c.BindJSON(&message); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-		id, err := ec.repo.SendMessage(&message)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		message.ID = id
-		c.JSON(http.StatusOK, gin.H{"message": "Message sent", "data": message})
-	}
-}
-
-func (ec *EmploymentController) GetMessagesBetweenUsers() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userAId := c.Param("userAId")
-		userBId := c.Param("userBId")
-		messages, err := ec.repo.GetMessagesBetweenUsers(userAId, userBId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, messages)
-	}
-}
-
-func (ec *EmploymentController) MarkMessagesAsRead() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		senderId := c.Param("senderId")
-		receiverId := c.Param("receiverId")
-		err := ec.repo.MarkMessagesAsRead(senderId, receiverId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Messages marked as read"})
-	}
-}
-// Interview scheduling endpoints
-func (ec *EmploymentController) CreateInterview() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var interview models.Interview
-		if err := c.BindJSON(&interview); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-		id, err := ec.repo.CreateInterview(&interview)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		interview.ID = id
-		c.JSON(http.StatusOK, gin.H{"message": "Interview scheduled", "interview": interview})
-	}
-}
-
-func (ec *EmploymentController) GetInterviewsByCandidate() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		candidateId := c.Param("id")
-		interviews, err := ec.repo.GetInterviewsByCandidate(candidateId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, interviews)
-	}
-}
-
-func (ec *EmploymentController) GetInterviewsByEmployer() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		employerId := c.Param("id")
-		interviews, err := ec.repo.GetInterviewsByEmployer(employerId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, interviews)
-	}
-}
-
-func (ec *EmploymentController) UpdateInterviewStatus() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		interviewId := c.Param("id")
-		var req struct {
-			Status string `json:"status"`
-		}
-		if err := c.BindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-		err := ec.repo.UpdateInterview(interviewId, map[string]interface{}{ "status": req.Status })
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Interview status updated"})
-	}
-}
-// Candidate Saved Jobs
-func (ec *EmploymentController) SaveJob() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		candidateId := c.Param("candidateId")
-		jobId := c.Param("jobId")
-		candObjId, err := primitive.ObjectIDFromHex(candidateId)
-		jobObjId, err2 := primitive.ObjectIDFromHex(jobId)
-		if err != nil || err2 != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate or job ID"})
-			return
-		}
-		err = ec.repo.SaveJob(candObjId, jobObjId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Job saved"})
-	}
-}
-
-func (ec *EmploymentController) UnsaveJob() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		candidateId := c.Param("candidateId")
-		jobId := c.Param("jobId")
-		candObjId, err := primitive.ObjectIDFromHex(candidateId)
-		jobObjId, err2 := primitive.ObjectIDFromHex(jobId)
-		if err != nil || err2 != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate or job ID"})
-			return
-		}
-		err = ec.repo.UnsaveJob(candObjId, jobObjId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Job unsaved"})
-	}
-}
-
-func (ec *EmploymentController) GetSavedJobs() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		candidateId := c.Param("candidateId")
-		candObjId, err := primitive.ObjectIDFromHex(candidateId)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate ID"})
-			return
-		}
-		jobs, err := ec.repo.GetSavedJobsWithDetails(candObjId)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"saved_jobs": jobs})
-	}
 }
 
 func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
@@ -206,12 +34,11 @@ func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 
 		application.ID = applicationId
 
-		// Send notifications in background
 		go func() {
-			// Get job listing to find employer
+
 			jobListing, err := ec.repo.GetJobListing(application.ListingId.Hex())
 			if err == nil && jobListing != nil {
-				// Notify employer about new application
+
 				employerID := jobListing.PosterId.Hex()
 				if err := helper.CreateNotification(
 					employerID,
@@ -223,7 +50,6 @@ func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 				}
 			}
 
-			// Notify candidate that application was submitted
 			candidateID := application.ApplicantId.Hex()
 			if err := helper.CreateNotification(
 				candidateID,
@@ -322,7 +148,6 @@ func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 			return
 		}
 
-		// Get employer name from poster_id
 		if !listing.PosterId.IsZero() {
 			fmt.Printf("CreateJobListing: Looking up employer with ID: %s\n", listing.PosterId.Hex())
 			employer, err := ec.repo.GetEmployer(listing.PosterId.Hex())
@@ -330,7 +155,7 @@ func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 				fmt.Printf("CreateJobListing: Error getting employer: %v\n", err)
 			} else if employer != nil {
 				fmt.Printf("CreateJobListing: Found employer: %+v\n", employer)
-				// Use firm name if available, otherwise use first and last name
+
 				if employer.FirmName != "" {
 					listing.PosterName = employer.FirmName
 					fmt.Printf("CreateJobListing: Set poster name to firm name: %s\n", employer.FirmName)
@@ -345,7 +170,6 @@ func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 			fmt.Printf("CreateJobListing: PosterId is zero\n")
 		}
 
-		// Set default values only if not provided
 		if listing.ApprovalStatus == "" {
 			listing.ApprovalStatus = "pending"
 		}
@@ -353,7 +177,7 @@ func (ec *EmploymentController) CreateJobListing() gin.HandlerFunc {
 			listing.CreatedAt = time.Now()
 		}
 		if listing.ExpireAt.IsZero() {
-			// Default to 1 month from creation if not specified
+
 			listing.ExpireAt = time.Now().AddDate(0, 1, 0)
 		}
 
@@ -428,7 +252,6 @@ func (ec *EmploymentController) DeleteJobListing() gin.HandlerFunc {
 	}
 }
 
-// Employer CRUD operations
 
 func (ec *EmploymentController) CreateEmployer() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -457,6 +280,20 @@ func (ec *EmploymentController) GetEmployer() gin.HandlerFunc {
 		employer, err := ec.repo.GetEmployer(employerId)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, employer)
+	}
+}
+
+func (ec *EmploymentController) GetEmployerByUserID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("user_id")
+
+		employer, err := ec.repo.GetEmployerByUserID(userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Employer not found"})
 			return
 		}
 
@@ -510,7 +347,6 @@ func (ec *EmploymentController) DeleteEmployer() gin.HandlerFunc {
 	}
 }
 
-// Candidate CRUD operations
 
 func (ec *EmploymentController) CreateCandidate() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -606,7 +442,6 @@ func (ec *EmploymentController) DeleteCandidate() gin.HandlerFunc {
 	}
 }
 
-// User Controller Functions
 func (ec *EmploymentController) CreateUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var user models.User
@@ -686,7 +521,6 @@ func (ec *EmploymentController) DeleteUser() gin.HandlerFunc {
 	}
 }
 
-// Document Controller Functions
 func (ec *EmploymentController) CreateDocument() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var document models.Document
@@ -766,7 +600,6 @@ func (ec *EmploymentController) DeleteDocument() gin.HandlerFunc {
 	}
 }
 
-// UnemployedRecord Controller Functions
 func (ec *EmploymentController) CreateUnemployedRecord() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var record models.UnemployedRecord
@@ -879,10 +712,9 @@ func (ec *EmploymentController) GetJobRecommendations() gin.HandlerFunc {
 			limit = parsedLimit
 		}
 
-		// Try to get recommendations with match scores
 		candidate, err := ec.repo.GetCandidateByUserID(userId.(string))
 		if err == nil && candidate != nil {
-			// Get personalized recommendations
+
 			recommendations, err := ec.repo.GetJobRecommendationsForCandidate(candidate.ID.Hex(), limit)
 			if err == nil {
 				c.JSON(http.StatusOK, gin.H{
@@ -893,7 +725,6 @@ func (ec *EmploymentController) GetJobRecommendations() gin.HandlerFunc {
 			}
 		}
 
-		// Fallback to general active jobs
 		jobs, err := ec.repo.GetActiveJobs(limit)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1140,10 +971,9 @@ func (ec *EmploymentController) ApproveEmployer() gin.HandlerFunc {
 			return
 		}
 
-		// Send notification to employer
 		employer, err := ec.repo.GetEmployer(employerId)
 		if err == nil && employer != nil {
-			// Employer embeds User, so use the User's ID
+
 			userID := employer.User.ID.Hex()
 			go func() {
 				if err := helper.CreateNotification(
@@ -1297,10 +1127,8 @@ func (ec *EmploymentController) AcceptApplication() gin.HandlerFunc {
 			return
 		}
 
-		// Get application details before updating
 		application, _ := ec.repo.GetApplication(applicationId)
 
-		// Allow admins to accept any application, employers to accept their own
 		if userType == "ADMIN" {
 			err := ec.repo.UpdateApplicationStatusByAdmin(applicationId, "accepted")
 			if err != nil {
@@ -1315,7 +1143,6 @@ func (ec *EmploymentController) AcceptApplication() gin.HandlerFunc {
 			}
 		}
 
-		// Send notification to candidate
 		if application != nil {
 			go func() {
 				candidateID := application.ApplicantId.Hex()
@@ -1350,10 +1177,8 @@ func (ec *EmploymentController) RejectApplication() gin.HandlerFunc {
 			return
 		}
 
-		// Get application details before updating
 		application, _ := ec.repo.GetApplication(applicationId)
 
-		// Allow admins to reject any application, employers to reject their own
 		if userType == "ADMIN" {
 			err := ec.repo.UpdateApplicationStatusByAdmin(applicationId, "rejected")
 			if err != nil {
@@ -1368,7 +1193,6 @@ func (ec *EmploymentController) RejectApplication() gin.HandlerFunc {
 			}
 		}
 
-		// Send notification to candidate
 		if application != nil {
 			go func() {
 				candidateID := application.ApplicantId.Hex()
@@ -1435,7 +1259,6 @@ func (ec *EmploymentController) ApproveJobListing() gin.HandlerFunc {
 			return
 		}
 
-		// Get job listing before approving to get employer ID
 		jobListing, _ := ec.repo.GetJobListing(jobId)
 
 		err := ec.repo.ApproveJobListing(jobId, adminId.(string))
@@ -1444,7 +1267,6 @@ func (ec *EmploymentController) ApproveJobListing() gin.HandlerFunc {
 			return
 		}
 
-		// Send notification to employer
 		if jobListing != nil {
 			go func() {
 				employerID := jobListing.PosterId.Hex()
@@ -1472,7 +1294,6 @@ func (ec *EmploymentController) RejectJobListing() gin.HandlerFunc {
 			return
 		}
 
-		// Get job listing before rejecting to get employer ID
 		jobListing, _ := ec.repo.GetJobListing(jobId)
 
 		err := ec.repo.RejectJobListing(jobId, adminId.(string))
@@ -1481,7 +1302,6 @@ func (ec *EmploymentController) RejectJobListing() gin.HandlerFunc {
 			return
 		}
 
-		// Send notification to employer
 		if jobListing != nil {
 			go func() {
 				employerID := jobListing.PosterId.Hex()

@@ -20,8 +20,10 @@ export default function EmployerJobListingsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadListings()
-  }, [])
+    if (token && user?.id) {
+      loadListings()
+    }
+  }, [token, user])
 
   const loadListings = async () => {
     try {

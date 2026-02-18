@@ -108,7 +108,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.GET("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByIDHandler)
 		protected.PUT("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.UpdateNotificationHandler)
 		protected.PUT("/notifications/:id/seen", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.UpdateNotificationSeen)
-		protected.GET("/notifications/user/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByUserIDHandler)
+		protected.GET("/notifications/user/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA", "CANDIDATE", "EMPLOYER", "ADMIN"}), ctrl.GetNotificationByUserIDHandler)
 		protected.GET("/notifications", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetAllNotificationsHandler)
 		protected.DELETE("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.DeleteNotificationHandler)
 

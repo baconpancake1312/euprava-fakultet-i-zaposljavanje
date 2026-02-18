@@ -11,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// SignedDetails
 type SignedDetails struct {
 	Email      string
 	First_name string
@@ -28,7 +27,6 @@ func InitializeTokenHelper(client *mongo.Client) {
 	userCollection = data.OpenCollection(client, "user")
 }
 
-// ValidateToken validates the jwt token
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 	if SECRET_KEY == "" {
 		log.Fatal("SECRET_KEY not set in environment")

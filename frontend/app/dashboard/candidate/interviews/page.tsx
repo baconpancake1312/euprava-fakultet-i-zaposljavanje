@@ -26,7 +26,22 @@ export default function CandidateInterviewsPage() {
       }
       try {
         const data = await apiClient.getInterviewsByCandidate(user.id, token)
-        setInterviews(data)
+        // Fetch job listing details for each interview
+        const interviewsWithDetails = await Promise.all(
+          data.map(async (interview: any) => {
+            try {
+              if (interview.listing_id || interview.job_listing_id) {
+                const jobId = interview.listing_id || interview.job_listing_id
+                const jobListing = await apiClient.getJobListingById(jobId, token)
+                return { ...interview, jobListing }
+              }
+              return interview
+            } catch {
+              return interview
+            }
+          })
+        )
+        setInterviews(interviewsWithDetails)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load interviews")
       } finally {
@@ -87,11 +102,11 @@ export default function CandidateInterviewsPage() {
                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
                         <Briefcase className="h-5 w-5 text-primary" />
-                        {interview.job_listing_id || "Job Listing"}
+                        {interview.jobListing?.position || interview.job_listing?.position || "Job Interview"}
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2">
                         <User className="h-4 w-4" />
-                        Employer: {interview.employer_id}
+                        {interview.jobListing?.poster_name || interview.job_listing?.poster_name || "Company"}
                       </CardDescription>
                     </div>
                     {getStatusBadge(interview.status)}
@@ -100,7 +115,13 @@ export default function CandidateInterviewsPage() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Scheduled: {format(new Date(interview.scheduled_time), "PPPp")}</span>
+                    <span>
+                      Scheduled:{" "}
+                      {format(
+                        new Date(interview.scheduled_at || interview.scheduled_time || interview.created_at),
+                        "PPPp"
+                      )}
+                    </span>
                   </div>
                   {interview.notes && (
                     <div className="text-sm text-muted-foreground">Notes: {interview.notes}</div>

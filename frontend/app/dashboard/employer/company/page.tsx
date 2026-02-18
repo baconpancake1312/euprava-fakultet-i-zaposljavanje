@@ -72,7 +72,7 @@ export default function CompanyProfilePage() {
           // If company doesn't exist, load from employer data
           console.log("Company not found, loading employer data:", companyErr)
           try {
-            const employer = await apiClient.getEmployerById(user.id, token)
+            const employer = await apiClient.getEmployerByUserId(user.id, token)
             setFormData({
               name: employer.firm_name || "",
               description: employer.delatnost || "",

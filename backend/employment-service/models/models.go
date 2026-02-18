@@ -26,7 +26,6 @@ const (
 	EmployerType      UserType = "EMPLOYER"
 	CandidateType     UserType = "CANDIDATE"
 
-	// Service account types
 	AuthServiceType       UserType = "AUTH_SERVICE"
 	UniversityServiceType UserType = "UNIVERSITY_SERVICE"
 	EmploymentServiceType UserType = "EMPLOYMENT_SERVICE"
