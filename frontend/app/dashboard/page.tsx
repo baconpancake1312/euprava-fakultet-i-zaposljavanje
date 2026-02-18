@@ -20,6 +20,12 @@ export default function DashboardPage() {
     // Redirect based on user type
     if (user) {
       switch (user.user_type) {
+        case "STUDENT":
+          router.push("/dashboard/student")
+          break
+        case "PROFESSOR":
+          router.push("/dashboard/professor")
+          break
         case "EMPLOYER":
           router.push("/dashboard/employer")
           break
@@ -31,7 +37,7 @@ export default function DashboardPage() {
           router.push("/dashboard/admin")
           break
         default:
-          router.push("/dashboard/candidate")
+          router.push("/dashboard/student")
       }
     }
   }, [isAuthenticated, isLoading, user, router])

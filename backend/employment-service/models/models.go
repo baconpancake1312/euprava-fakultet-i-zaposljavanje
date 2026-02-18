@@ -8,13 +8,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type SavedJob struct {
-	ID          primitive.ObjectID `bson:"_id" json:"id"`
-	CandidateId primitive.ObjectID `bson:"candidate_id" json:"candidate_id"`
-	JobId       primitive.ObjectID `bson:"job_id" json:"job_id"`
-	SavedAt     time.Time          `bson:"saved_at" json:"saved_at"`
-}
-
 type ApprovalStatus string
 
 type UserType string
@@ -132,30 +125,6 @@ type Document struct {
 	Name      string             `bson:"name" json:"name"`
 	FilePath  string             `bson:"file_path" json:"file_path"`
 	Uploaded  time.Time          `bson:"uploaded" json:"uploaded"`
-
-}
-
-
-type Message struct {
-	ID             primitive.ObjectID `bson:"_id" json:"id"`
-	SenderId       primitive.ObjectID `bson:"sender_id" json:"sender_id"`
-	ReceiverId     primitive.ObjectID `bson:"receiver_id" json:"receiver_id"`
-	JobListingId   primitive.ObjectID `bson:"job_listing_id" json:"job_listing_id"`
-	Content        string             `bson:"content" json:"content"`
-	SentAt         time.Time          `bson:"sent_at" json:"sent_at"`
-	Read           bool               `bson:"read" json:"read"`
-}
-
-type Interview struct {
-	ID          primitive.ObjectID `bson:"_id" json:"id"`
-	CandidateId primitive.ObjectID `bson:"candidate_id" json:"candidate_id"`
-	EmployerId  primitive.ObjectID `bson:"employer_id" json:"employer_id"`
-	ListingId   primitive.ObjectID `bson:"listing_id,omitempty" json:"listing_id,omitempty"`
-	ScheduledAt time.Time          `bson:"scheduled_at" json:"scheduled_at"`
-	Status      string             `bson:"status" json:"status"`
-	Notes       string             `bson:"notes,omitempty" json:"notes,omitempty"`
-	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
 }
 
 type Applications []*Application

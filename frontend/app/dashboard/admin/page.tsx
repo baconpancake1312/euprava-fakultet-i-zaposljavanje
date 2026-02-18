@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Building, Briefcase, FileCheck, Bell } from "lucide-react"
+import { Users, Building, Briefcase, GraduationCap, FileCheck, Bell } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -23,7 +23,7 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
-          <p className="text-muted-foreground">Manage employment services</p>
+          <p className="text-muted-foreground">Manage university and employment services</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

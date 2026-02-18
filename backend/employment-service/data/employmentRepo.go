@@ -2,13 +2,12 @@ package data
 
 import (
 	"context"
+	"employment-service/models"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
-
-	"employment-service/models"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -94,158 +93,6 @@ func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collecti
 	}
 	var collection *mongo.Collection = client.Database(dbName).Collection(collectionName)
 	return collection
-}
-
-// Messaging CRUD operations
-func (er *EmploymentRepo) SendMessage(message *models.Message) (primitive.ObjectID, error) {
-	collection := OpenCollection(er.cli, "messages")
-	message.ID = primitive.NewObjectID()
-	message.SentAt = time.Now()
-	message.Read = false
-	res, err := collection.InsertOne(context.Background(), message)
-	if err != nil {
-		return primitive.NilObjectID, err
-	}
-	oid, ok := res.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return primitive.NilObjectID, fmt.Errorf("failed to get inserted message ID")
-	}
-	return oid, nil
-}
-
-func (er *EmploymentRepo) GetMessagesBetweenUsers(userAId, userBId string) ([]*models.Message, error) {
-	collection := OpenCollection(er.cli, "messages")
-	oidA, err := primitive.ObjectIDFromHex(userAId)
-	if err != nil {
-		return nil, err
-	}
-	oidB, err := primitive.ObjectIDFromHex(userBId)
-	if err != nil {
-		return nil, err
-	}
-	filter := bson.M{
-		"$or": []bson.M{
-			{"sender_id": oidA, "receiver_id": oidB},
-			{"sender_id": oidB, "receiver_id": oidA},
-		},
-	}
-	cursor, err := collection.Find(context.Background(), filter)
-	if err != nil {
-		return nil, err
-	}
-	var messages []*models.Message
-	if err := cursor.All(context.Background(), &messages); err != nil {
-		return nil, err
-	}
-	return messages, nil
-}
-
-func (er *EmploymentRepo) MarkMessagesAsRead(senderId, receiverId string) error {
-	collection := OpenCollection(er.cli, "messages")
-	oidSender, err := primitive.ObjectIDFromHex(senderId)
-	if err != nil {
-		return err
-	}
-	oidReceiver, err := primitive.ObjectIDFromHex(receiverId)
-	if err != nil {
-		return err
-	}
-	filter := bson.M{"sender_id": oidSender, "receiver_id": oidReceiver, "read": false}
-	_, err = collection.UpdateMany(context.Background(), filter, bson.M{"$set": bson.M{"read": true}})
-	return err
-}
-// SavedJob CRUD operations
-
-// Interview CRUD operations
-func (er *EmploymentRepo) CreateInterview(interview *models.Interview) (primitive.ObjectID, error) {
-	collection := OpenCollection(er.cli, "interviews")
-	interview.ID = primitive.NewObjectID()
-	interview.CreatedAt = time.Now()
-	interview.UpdatedAt = time.Now()
-	res, err := collection.InsertOne(context.Background(), interview)
-	if err != nil {
-		return primitive.NilObjectID, err
-	}
-	oid, ok := res.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return primitive.NilObjectID, fmt.Errorf("failed to get inserted interview ID")
-	}
-	return oid, nil
-}
-
-func (er *EmploymentRepo) UpdateInterview(interviewId string, update bson.M) error {
-	collection := OpenCollection(er.cli, "interviews")
-	oid, err := primitive.ObjectIDFromHex(interviewId)
-	if err != nil {
-		return err
-	}
-	update["updated_at"] = time.Now()
-	_, err = collection.UpdateOne(context.Background(), bson.M{"_id": oid}, bson.M{"$set": update})
-	return err
-}
-
-func (er *EmploymentRepo) GetInterviewsByCandidate(candidateId string) ([]*models.Interview, error) {
-	collection := OpenCollection(er.cli, "interviews")
-	oid, err := primitive.ObjectIDFromHex(candidateId)
-	if err != nil {
-		return nil, err
-	}
-	cursor, err := collection.Find(context.Background(), bson.M{"candidate_id": oid})
-	if err != nil {
-		return nil, err
-	}
-	var interviews []*models.Interview
-	if err := cursor.All(context.Background(), &interviews); err != nil {
-		return nil, err
-	}
-	return interviews, nil
-}
-
-func (er *EmploymentRepo) GetInterviewsByEmployer(employerId string) ([]*models.Interview, error) {
-	collection := OpenCollection(er.cli, "interviews")
-	oid, err := primitive.ObjectIDFromHex(employerId)
-	if err != nil {
-		return nil, err
-	}
-	cursor, err := collection.Find(context.Background(), bson.M{"employer_id": oid})
-	if err != nil {
-		return nil, err
-	}
-	var interviews []*models.Interview
-	if err := cursor.All(context.Background(), &interviews); err != nil {
-		return nil, err
-	}
-	return interviews, nil
-}
-func (er *EmploymentRepo) SaveJob(candidateId, jobId primitive.ObjectID) error {
-	collection := OpenCollection(er.cli, "saved_jobs")
-	savedJob := models.SavedJob{
-		ID: primitive.NewObjectID(),
-		CandidateId: candidateId,
-		JobId: jobId,
-		SavedAt: time.Now(),
-	}
-	_, err := collection.InsertOne(context.Background(), savedJob)
-	return err
-}
-
-func (er *EmploymentRepo) UnsaveJob(candidateId, jobId primitive.ObjectID) error {
-	collection := OpenCollection(er.cli, "saved_jobs")
-	_, err := collection.DeleteOne(context.Background(), bson.M{"candidate_id": candidateId, "job_id": jobId})
-	return err
-}
-
-func (er *EmploymentRepo) GetSavedJobs(candidateId primitive.ObjectID) ([]models.SavedJob, error) {
-	collection := OpenCollection(er.cli, "saved_jobs")
-	cursor, err := collection.Find(context.Background(), bson.M{"candidate_id": candidateId})
-	if err != nil {
-		return nil, err
-	}
-	var savedJobs []models.SavedJob
-	if err := cursor.All(context.Background(), &savedJobs); err != nil {
-		return nil, err
-	}
-	return savedJobs, nil
 }
 
 // JobListing CRUD operations
@@ -393,7 +240,7 @@ func (er *EmploymentRepo) GetApplicationsForJob(client *mongo.Client, listingID 
 		return nil, fmt.Errorf("invalid listing ID: %v", err)
 	}
 
-	appCollection := OpenCollection(client, "applications")
+	appCollection := OpenCollection(er.cli, "applications")
 
 	filter := bson.M{"listing_id": listingObjID}
 
@@ -504,15 +351,7 @@ func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.O
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	employerCollection := OpenCollection(er.cli, "employers")
-	
-	// If User already has an ID (from embedded User struct), use it as the employer's _id
-	// Otherwise, generate a new ID
-	if employer.User.ID.IsZero() {
-		employer.ID = primitive.NewObjectID()
-		employer.User.ID = employer.ID // Set User's ID to match employer's ID
-	} else {
-		employer.ID = employer.User.ID // Use User's ID as employer's ID
-	}
+	employer.ID = primitive.NewObjectID()
 
 	// Set default approval status if not provided
 	if employer.ApprovalStatus == "" {
@@ -672,15 +511,7 @@ func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitiv
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	candidateCollection := OpenCollection(er.cli, "candidates")
-	
-	// If User already has an ID (from embedded User struct), use it as the candidate's _id
-	// Otherwise, generate a new ID
-	if candidate.User.ID.IsZero() {
-		candidate.ID = primitive.NewObjectID()
-		candidate.User.ID = candidate.ID // Set User's ID to match candidate's ID
-	} else {
-		candidate.ID = candidate.User.ID // Use User's ID as candidate's ID
-	}
+	candidate.ID = primitive.NewObjectID()
 
 	// Set default values for new fields if not provided
 	if candidate.Major == "" {
@@ -730,22 +561,10 @@ func (er *EmploymentRepo) GetCandidateByUserID(userID string) (*models.Candidate
 
 	candidateCollection := OpenCollection(er.cli, "candidates")
 
-	// Convert userID to ObjectID
-	objectId, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid user ID: %v", err)
-	}
-
 	var candidate models.Candidate
-	// Since Candidate embeds User, and User has _id, search by _id directly
-	// Also try searching by user_id field in case it exists
-	err = candidateCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&candidate)
+	err := candidateCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&candidate)
 	if err != nil {
-		// Fallback: try searching by user_id field if _id doesn't match
-		err2 := candidateCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&candidate)
-		if err2 != nil {
-			return nil, fmt.Errorf("no candidate found for user id: %s", userID)
-		}
+		return nil, fmt.Errorf("no candidate found for user id: %s", userID)
 	}
 
 	return &candidate, nil
@@ -1366,8 +1185,8 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 		},
 	}
 
-	// Find the employer by the ID (User is embedded, so _id is at top level)
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	// Try to find the employer by the user ID instead of the employer ID
+	result, err := collection.UpdateOne(ctx, bson.M{"user._id": objectId}, updateData)
 	if err != nil {
 		return fmt.Errorf("error approving employer: %v", err)
 	}
@@ -1405,8 +1224,8 @@ func (er *EmploymentRepo) RejectEmployer(employerId, adminId string) error {
 		},
 	}
 
-	// Find the employer by the ID (User is embedded, so _id is at top level)
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	// Try to find the employer by the user ID instead of the employer ID
+	result, err := collection.UpdateOne(ctx, bson.M{"user._id": objectId}, updateData)
 	if err != nil {
 		return fmt.Errorf("error rejecting employer: %v", err)
 	}
@@ -1797,7 +1616,7 @@ func (er *EmploymentRepo) CreateCompanyProfile(employerId, adminId string) error
 	}
 
 	var employer models.Employer
-	err = employerCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&employer)
+	err = employerCollection.FindOne(ctx, bson.M{"user._id": objectId}).Decode(&employer)
 	if err != nil {
 		return fmt.Errorf("employer not found: %v", err)
 	}

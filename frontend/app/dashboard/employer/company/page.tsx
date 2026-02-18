@@ -33,7 +33,6 @@ export default function CompanyProfilePage() {
     maticni_broj: "",
   })
   const [loading, setLoading] = useState(false)
-  const [dataLoading, setDataLoading] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
@@ -44,59 +43,46 @@ export default function CompanyProfilePage() {
     }
 
     const loadCompanyData = async () => {
-      if (!token || !user?.id) {
-        setDataLoading(false)
-        return
-      }
+      if (!token || !user?.id) return
 
-      setDataLoading(true)
       try {
-        // First try to load company profile
-        try {
-          const company = await apiClient.getCompanyByEmployer(user.id, token)
-          setFormData({
-            name: company.name || "",
-            description: company.description || "",
-            website: company.website || "",
-            industry: company.industry || "",
-            size: company.size || "",
-            founded: company.founded?.toString() || "",
-            logo: company.logo || "",
-            address: company.address || "",
-            phone: company.phone || "",
-            email: company.email || "",
-            pib: company.pib || "",
-            maticni_broj: company.maticni_broj || "",
-          })
-        } catch (companyErr) {
-          // If company doesn't exist, load from employer data
-          console.log("Company not found, loading employer data:", companyErr)
-          try {
-            const employer = await apiClient.getEmployerById(user.id, token)
-            setFormData({
-              name: employer.firm_name || "",
-              description: employer.delatnost || "",
-              website: "",
-              industry: "",
-              size: "",
-              founded: "",
-              logo: "",
-              address: employer.firm_address || "",
-              phone: employer.firm_phone || "",
-              email: employer.email || user?.email || "",
-              pib: employer.pib || "",
-              maticni_broj: employer.maticni_broj || "",
-            })
-          } catch (employerErr) {
-            console.error("Failed to load employer data:", employerErr)
-            // Don't set error here, just leave fields empty
-          }
-        }
+        const company = await apiClient.getCompanyByEmployer(user.id, token)
+        setFormData({
+          name: company.name || "",
+          description: company.description || "",
+          website: company.website || "",
+          industry: company.industry || "",
+          size: company.size || "",
+          founded: company.founded?.toString() || "",
+          logo: company.logo || "",
+          address: company.address || "",
+          phone: company.phone || "",
+          email: company.email || "",
+          pib: company.pib || "",
+          maticni_broj: company.maticni_broj || "",
+        })
       } catch (err) {
-        console.error("Failed to load company/employer data:", err)
-        setError("Failed to load company data. Please refresh the page.")
-      } finally {
-        setDataLoading(false)
+        console.error("Failed to load company data:", err)
+        // If company doesn't exist, try to load from employer data
+        try {
+          const employer = await apiClient.getEmployerById(user.id, token)
+          setFormData({
+            name: employer.firm_name || "",
+            description: employer.delatnost || "",
+            website: "",
+            industry: "",
+            size: "",
+            founded: "",
+            logo: "",
+            address: employer.firm_address || "",
+            phone: employer.firm_phone || "",
+            email: "",
+            pib: employer.pib || "",
+            maticni_broj: employer.maticni_broj || "",
+          })
+        } catch (employerErr) {
+          console.error("Failed to load employer data:", employerErr)
+        }
       }
     }
 
@@ -135,7 +121,7 @@ export default function CompanyProfilePage() {
     }
   }
 
-  if (isLoading || dataLoading) {
+  if (isLoading) {
     return (
       <DashboardLayout title="Company Profile">
         <div className="flex items-center justify-center min-h-[400px]">
