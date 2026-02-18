@@ -6,9 +6,14 @@ import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { SubjectFields } from "../../create/subjectFields"
 import { EntityFormPage } from "@/components/entity/entityFormPage"
-import type { Major } from "@/lib/types"
+import type { Major, Professor } from "@/lib/types"
 
 interface MajorOption {
+  id: string
+  name: string
+}
+
+interface ProfessorOption {
   id: string
   name: string
 }
@@ -23,6 +28,8 @@ export default function EditSubjectPage() {
   const [majorId, setMajorId] = useState("")
   const [year, setYear] = useState("")
   const [majors, setMajors] = useState<MajorOption[]>([])
+  const [professorIds, setProfessorIds] = useState<string[]>([])
+  const [professors, setProfessors] = useState<ProfessorOption[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -31,10 +38,12 @@ export default function EditSubjectPage() {
 
     let cancelled = false
     async function fetchData() {
+      if (!token) return
       try {
-        const [subject, majorsData] = await Promise.all([
+        const [subject, majorsData, professorsData] = await Promise.all([
           apiClient.getCourseById(subjectId, token),
           apiClient.getAllMajors(token),
+          apiClient.getAllProfessors(token),
         ])
         if (cancelled) return
 
@@ -47,8 +56,21 @@ export default function EditSubjectPage() {
             name: m.name,
           }))
         )
+        setProfessors(
+          (Array.isArray(professorsData) ? professorsData : []).map((p: Professor) => ({
+            id: p.id,
+            name: `${p.first_name} ${p.last_name}`,
+          }))
+        )
+
+        // Extract professor IDs from subject (handle both new array format and old single ID format)
+        const professorIdsArray = subject.professor_ids || subject.professorids || 
+          (subject.professor_id ? [subject.professor_id] : [])
+        if (Array.isArray(professorIdsArray) && professorIdsArray.length > 0) {
+          setProfessorIds(professorIdsArray)
+        }
       } catch (e) {
-        console.error("Failed to load subject/majors:", e)
+        console.error("Failed to load subject/majors/professors:", e)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -69,16 +91,20 @@ export default function EditSubjectPage() {
     try {
       const subject = await apiClient.getCourseById(subjectId, token)
       const yearNum = parseInt(year, 10)
-      await apiClient.updateCourse(
-        subjectId,
-        {
-          ...subject,
-          name: name.trim(),
-          major_id: majorId.trim(),
-          year: Number.isNaN(yearNum) ? subject.year : yearNum,
-        },
-        token
-      )
+      const payload: {
+        name: string
+        major_id: string
+        year?: number
+        professor_ids?: string[]
+      } = {
+        ...subject,
+        name: name.trim(),
+        major_id: majorId.trim(),
+      }
+      if (!Number.isNaN(yearNum)) payload.year = yearNum
+      if (professorIds.length > 0) payload.professor_ids = professorIds
+
+      await apiClient.updateCourse(subjectId, payload, token)
       router.push("/dashboard/admin/subjects")
     } catch (err) {
       console.error("Failed to update subject:", err)
@@ -86,7 +112,6 @@ export default function EditSubjectPage() {
       setIsSubmitting(false)
     }
   }
-
   if (loading) {
     return (
       <EntityFormPage
@@ -117,6 +142,7 @@ export default function EditSubjectPage() {
         { title: "Subject name", text: "Enter the full name of the course." },
         { title: "Major", text: "Choose the major this subject belongs to." },
         { title: "Year", text: "Optional. The year of study (1–6)." },
+        { title: "Professors", text: "Optional. Select one or more professors who teach this subject." },
       ]}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -128,6 +154,9 @@ export default function EditSubjectPage() {
           majors={majors}
           year={year}
           onYearChange={setYear}
+          professorIds={professorIds}
+          onProfessorIdsChange={setProfessorIds}
+          professors={professors}
           submitLabel="Save Subject"
           submitDisabled={!isValid || isSubmitting}
           isSubmitting={isSubmitting}

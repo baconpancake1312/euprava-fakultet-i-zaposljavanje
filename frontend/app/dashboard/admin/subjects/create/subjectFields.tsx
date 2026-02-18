@@ -8,8 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type MajorOption = { id: string; name: string }
+type ProfessorOption = { id: string; name: string }
 
 type Props = {
   name: string
@@ -19,6 +22,9 @@ type Props = {
   majors: MajorOption[]
   year: string
   onYearChange: (v: string) => void
+  professorIds: string[]
+  onProfessorIdsChange: (ids: string[]) => void
+  professors: ProfessorOption[]
   submitLabel: string
   submitDisabled?: boolean
   isSubmitting?: boolean
@@ -33,11 +39,22 @@ export function SubjectFields({
   majors,
   year,
   onYearChange,
+  professorIds,
+  onProfessorIdsChange,
+  professors,
   submitLabel,
   submitDisabled = false,
   isSubmitting = false,
   onCancel,
 }: Props) {
+  function toggleProfessor(id: string) {
+    if (professorIds.includes(id)) {
+      onProfessorIdsChange(professorIds.filter((p) => p !== id))
+    } else {
+      onProfessorIdsChange([...professorIds, id])
+    }
+  }
+
   return (
     <>
       <div className="space-y-2">
@@ -78,6 +95,32 @@ export function SubjectFields({
           onChange={(e) => onYearChange(e.target.value)}
           placeholder="e.g. 1"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Professors</Label>
+        <ScrollArea className="h-[180px] rounded-md border p-3">
+          <div className="space-y-2">
+            {professors.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No professors available.
+              </p>
+            ) : (
+              professors.map((p) => (
+                <label
+                  key={p.id}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={professorIds.includes(p.id)}
+                    onCheckedChange={() => toggleProfessor(p.id)}
+                  />
+                  <span className="text-sm">{p.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
       <div className="flex gap-2">

@@ -6,9 +6,14 @@ import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { SubjectFields } from "./subjectFields"
 import { EntityFormPage } from "@/components/entity/entityFormPage"
-import type { Major } from "@/lib/types"
+import type { Major, Professor } from "@/lib/types"
 
 interface MajorOption {
+  id: string
+  name: string
+}
+
+interface ProfessorOption {
   id: string
   name: string
 }
@@ -22,7 +27,9 @@ export default function CreateSubjectPage() {
   const [name, setName] = useState("")
   const [majorId, setMajorId] = useState(presetMajorId)
   const [year, setYear] = useState("")
+  const [professorIds, setProfessorIds] = useState<string[]>([])
   const [majors, setMajors] = useState<MajorOption[]>([])
+  const [professors, setProfessors] = useState<ProfessorOption[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -33,17 +40,28 @@ export default function CreateSubjectPage() {
     }
     let cancelled = false
     async function fetchData() {
+      if (!token) return
       try {
-        const majorsData = await apiClient.getAllMajors(token)
-        const list = Array.isArray(majorsData) ? majorsData : []
+        const [majorsData, professorsData] = await Promise.all([
+          apiClient.getAllMajors(token),
+          apiClient.getAllProfessors(token),
+        ])
+        const majorsList = Array.isArray(majorsData) ? majorsData : []
+        const professorsList = Array.isArray(professorsData) ? professorsData : []
         if (!cancelled) {
-          setMajors(list.map((m: Major) => ({ id: m.id, name: m.name })))
-          if (presetMajorId && list.some((m: Major) => m.id === presetMajorId)) {
+          setMajors(majorsList.map((m: Major) => ({ id: m.id, name: m.name })))
+          setProfessors(
+            professorsList.map((p: Professor) => ({
+              id: p.id,
+              name: `${p.first_name} ${p.last_name}`,
+            }))
+          )
+          if (presetMajorId && majorsList.some((m: Major) => m.id === presetMajorId)) {
             setMajorId(presetMajorId)
           }
         }
       } catch (e) {
-        console.error("Failed to load majors:", e)
+        console.error("Failed to load data:", e)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -62,12 +80,18 @@ export default function CreateSubjectPage() {
 
     setIsSubmitting(true)
     try {
-      const payload: { name: string; major_id: string; year?: number; professor_id?: string } = {
+      const payload: {
+        name: string
+        major_id: string
+        year?: number
+        professor_ids?: string[]
+      } = {
         name: name.trim(),
         major_id: majorId.trim(),
       }
       const yearNum = parseInt(year, 10)
       if (!Number.isNaN(yearNum)) payload.year = yearNum
+      if (professorIds.length > 0) payload.professor_ids = professorIds
 
       await apiClient.createCourse(payload, token)
       router.push("/dashboard/admin/subjects")
@@ -108,6 +132,7 @@ export default function CreateSubjectPage() {
         { title: "Subject name", text: "Enter the full name of the course (e.g. Introduction to Programming)." },
         { title: "Major", text: "Choose the major this subject belongs to." },
         { title: "Year", text: "Optional. The year of study (1–6) when this subject is typically taken." },
+        { title: "Professors", text: "Optional. Select one or more professors who teach this subject." },
       ]}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -119,6 +144,9 @@ export default function CreateSubjectPage() {
           majors={majors}
           year={year}
           onYearChange={setYear}
+          professorIds={professorIds}
+          onProfessorIdsChange={setProfessorIds}
+          professors={professors}
           submitLabel="Create Subject"
           submitDisabled={!isValid || isSubmitting}
           isSubmitting={isSubmitting}

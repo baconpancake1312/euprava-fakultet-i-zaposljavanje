@@ -96,30 +96,43 @@ export default function StudentCoursesPage() {
       // Fetch professor data for each course
       const coursesWithProfessors = await Promise.all(
         data.map(async (course: any) => {
-          console.log("Processing course:", course.Name || course.name, "professor_id:", course.professor_id)
+          // Check for professor_ids array (new format) or professor_id (old format for backward compatibility)
+          const professorIds = course.professor_ids || course.professorids || 
+            (course.professor_id ? [course.professor_id] : [])
+          
+          console.log("Processing course:", course.Name || course.name, "professor_ids:", professorIds)
 
-          if (course.professor_id) {
-            // Check if we already have this professor in cache
-            if (professorCache.has(course.professor_id)) {
-              console.log("Using cached professor for:", course.professor_id)
-              return { ...course, professor: professorCache.get(course.professor_id) }
-            }
+          if (professorIds && Array.isArray(professorIds) && professorIds.length > 0) {
+            // Fetch all professors for this course
+            const professors = await Promise.all(
+              professorIds.map(async (profId: string) => {
+                // Check if we already have this professor in cache
+                if (professorCache.has(profId)) {
+                  console.log("Using cached professor for:", profId)
+                  return professorCache.get(profId)
+                }
 
-            try {
-              console.log("Fetching professor for ID:", course.professor_id)
-              const professor = await apiClient.getProfessorById(course.professor_id, token)
-              console.log("Fetched professor:", professor)
-              // Cache the professor data
-              professorCache.set(course.professor_id, professor)
-              return { ...course, professor }
-            } catch (profError) {
-              console.error(`Failed to fetch professor for course ${course.id}:`, profError)
-              return course
-            }
+                try {
+                  console.log("Fetching professor for ID:", profId)
+                  const professor = await apiClient.getProfessorById(profId, token)
+                  console.log("Fetched professor:", professor)
+                  // Cache the professor data
+                  professorCache.set(profId, professor)
+                  return professor
+                } catch (profError) {
+                  console.error(`Failed to fetch professor ${profId} for course ${course.id}:`, profError)
+                  return null
+                }
+              })
+            )
+
+            // Filter out any null values (failed fetches)
+            const validProfessors = professors.filter((p: any) => p !== null)
+            return { ...course, professors: validProfessors }
           } else {
-            console.log("No ProfesorId found for course:", course.Name || course.name)
+            console.log("No professor IDs found for course:", course.Name || course.name)
           }
-          return course
+          return { ...course, professors: [] }
         })
       )
 
@@ -232,15 +245,23 @@ export default function StudentCoursesPage() {
                   <CardDescription>{"Passed: " + (isCoursePassed(course.id) ? "✅" : "❌")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {course.professor && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        Prof. {course.professor.first_name} {course.professor.last_name}
-                      </span>
+                  {course.professors && Array.isArray(course.professors) && course.professors.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        <span>Professors:</span>
+                      </div>
+                      {course.professors.map((professor: any, idx: number) => (
+                        <div key={professor.id || idx} className="flex items-center gap-2 text-sm ml-6">
+                          <span>
+                            Prof. {professor.first_name} {professor.last_name}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  {course.professor_id && !course.professor && (
+                  {((course.professor_ids || course.professorids) && 
+                    (!course.professors || course.professors.length === 0)) && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <User className="h-4 w-4" />
                       <span>Professor information unavailable</span>
