@@ -12,66 +12,89 @@ import { useToast } from "@/hooks/use-toast"
 
 export default function CandidateApplicationsPage() {
   const { token, user } = useAuth()
+  const [candidateId, setCandidateId] = useState<string | null>(null)
   const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
-    const loadApplications = async () => {
+    const loadCandidateAndApplications = async () => {
       if (!token || !user?.id) {
         setLoading(false)
         return
       }
 
       try {
-        // Try to get applications by candidate ID first
-        const data = await apiClient.getApplicationsByCandidate(user.id, token)
+        // First, get the candidate ID from the user ID
+        const candidate = await apiClient.getCandidateByUserId(user.id, token) as any
         
-        // Ensure data is an array before processing
-        const applicationsData = Array.isArray(data) ? data : []
-        
-        setApplications(prev => {
-          // Check for status changes and show toast notifications
-          if (applicationsData.length > 0) {
-            applicationsData.forEach(newApp => {
-              const oldApp = prev.find(app => app.id === newApp.id)
-              if (oldApp && oldApp.status !== newApp.status) {
-                if (newApp.status === "accepted") {
-                  toast({
-                    title: "Application Accepted! 🎉",
-                    description: `Your application for ${newApp.job_listing?.position || "the position"} has been accepted!`,
-                  })
-                } else if (newApp.status === "rejected") {
-                  toast({
-                    title: "Application Update",
-                    description: `Your application for ${newApp.job_listing?.position || "the position"} was not selected this time.`,
-                    variant: "destructive",
-                  })
+        if (candidate && candidate.id) {
+          setCandidateId(candidate.id)
+          
+          // Now fetch applications using the candidate ID
+          const data = await apiClient.getApplicationsByCandidate(candidate.id, token)
+          
+          // Ensure data is an array before processing
+          const applicationsData = Array.isArray(data) ? data : []
+          
+          // Fetch job listing details for each application
+          const applicationsWithDetails = await Promise.all(
+            applicationsData.map(async (app) => {
+              try {
+                if (app.listing_id) {
+                  const jobListing = await apiClient.getJobListingById(app.listing_id, token)
+                  return {
+                    ...app,
+                    job_listing: jobListing
+                  }
                 }
+                return app
+              } catch (err) {
+                console.error("Failed to fetch job listing:", err)
+                return app
               }
             })
-          }
-          return applicationsData
-        })
-      } catch (err) {
-        // Fallback to general applications endpoint
-        try {
-          const data = await apiClient.getApplications(token)
-          const fallbackData = Array.isArray(data) ? data : []
-          setApplications(fallbackData)
-        } catch (fallbackErr) {
-          setError(err instanceof Error ? err.message : "Failed to load applications")
-          setApplications([]) // Set empty array on error
+          )
+          
+          setApplications(prev => {
+            // Check for status changes and show toast notifications
+            if (applicationsWithDetails.length > 0) {
+              applicationsWithDetails.forEach(newApp => {
+                const oldApp = prev.find(app => app.id === newApp.id)
+                if (oldApp && oldApp.status !== newApp.status) {
+                  if (newApp.status === "accepted") {
+                    toast({
+                      title: "Application Accepted! 🎉",
+                      description: `Your application for ${newApp.job_listing?.position || "the position"} has been accepted!`,
+                    })
+                  } else if (newApp.status === "rejected") {
+                    toast({
+                      title: "Application Update",
+                      description: `Your application for ${newApp.job_listing?.position || "the position"} was not selected this time.`,
+                      variant: "destructive",
+                    })
+                  }
+                }
+              })
+            }
+            return applicationsWithDetails
+          })
+        } else {
+          setError("Candidate profile not found. Please complete your profile first.")
         }
+      } catch (err) {
+        console.error("Error loading applications:", err)
+        setError(err instanceof Error ? err.message : "Failed to load applications")
+        setApplications([])
       } finally {
         setLoading(false)
       }
     }
 
-    loadApplications()
+    loadCandidateAndApplications()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, user?.id]) // Removed toast from dependencies to prevent re-renders
+  }, [token, user?.id])
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -130,24 +153,41 @@ export default function CandidateApplicationsPage() {
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
             {applications.map((application) => (
-              <Card key={application.id} className="hover:border-primary/50 transition-colors">
+              <Card key={application.id} className="hover:border-primary/50 transition-colors border-2 shadow-lg">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-xl">
                         <Briefcase className="h-5 w-5 text-primary" />
-                        {application.job_listing?.position || application.position || "Position"}
+                        {application.job_listing?.position || "Position"}
                       </CardTitle>
-                      <CardDescription>{application.job_listing?.company_name || application.company_name || "Company Name"}</CardDescription>
+                      <CardDescription className="mt-1">
+                        {application.job_listing?.poster_name || "Company"}
+                      </CardDescription>
                     </div>
-                    {getStatusBadge(application.status)}
+                    <div className="flex flex-col gap-2 items-end">
+                      {getStatusBadge(application.status)}
+                      {application.job_listing?.is_internship && (
+                        <Badge variant="secondary" className="text-xs">Internship</Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
+                  {application.job_listing?.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {application.job_listing.description}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Applied {new Date(application.created_at || application.submitted_at).toLocaleDateString()}</span>
+                    <span>Applied {new Date(application.submitted_at || application.created_at).toLocaleDateString()}</span>
                   </div>
+                  {application.status === "pending" && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Your application is being reviewed by the employer
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}

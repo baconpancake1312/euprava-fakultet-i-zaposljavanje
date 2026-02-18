@@ -13,12 +13,27 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, FileText, X } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { 
+  Loader2, 
+  FileText, 
+  X, 
+  User, 
+  GraduationCap, 
+  Briefcase, 
+  Plus,
+  Edit,
+  Save,
+  CheckCircle2
+} from "lucide-react"
 
 export default function CandidateProfilePage() {
   const router = useRouter()
   const { isAuthenticated, isLoading, user, token } = useAuth()
   const [candidateId, setCandidateId] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     major: "",
     year: 1,
@@ -31,8 +46,10 @@ export default function CandidateProfilePage() {
     skillInput: "",
   })
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [activeTab, setActiveTab] = useState("academic")
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -41,14 +58,24 @@ export default function CandidateProfilePage() {
     }
 
     const loadCandidateData = async () => {
-      if (!token || !user?.id) return
+      if (!token || !user?.id) {
+        console.log("No token or user ID:", { token: !!token, userId: user?.id })
+        setLoadingData(false)
+        return
+      }
 
+      setLoadingData(true)
       try {
+        console.log("Fetching candidate for user ID:", user.id)
         // First get the candidate by user ID to get the candidate ID
         const candidate = await apiClient.getCandidateByUserId(user.id, token) as any
+        console.log("Candidate response:", candidate)
         
         if (candidate && candidate.id) {
+          console.log("Found candidate with ID:", candidate.id)
           setCandidateId(candidate.id)
+          setIsCreating(false)
+          setIsEditing(false) // Start in view mode if profile exists
           setFormData({
             major: candidate.major || "",
             year: candidate.year || 1,
@@ -60,10 +87,18 @@ export default function CandidateProfilePage() {
             skills: Array.isArray(candidate.skills) ? candidate.skills : [],
             skillInput: "",
           })
+        } else {
+          console.log("Candidate response exists but no ID, setting create mode")
+          setIsCreating(true)
+          setIsEditing(true) // Start in edit mode if creating
         }
       } catch (err) {
         console.error("Failed to load candidate data:", err)
-        setError("Failed to load profile data. You may need to complete your profile setup.")
+        // If 404, candidate doesn't exist yet - allow creation
+        setIsCreating(true)
+        setIsEditing(true)
+      } finally {
+        setLoadingData(false)
       }
     }
 
@@ -73,6 +108,11 @@ export default function CandidateProfilePage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size must be less than 5MB")
+        return
+      }
       const reader = new FileReader()
       reader.onloadend = () => {
         const base64 = reader.result as string
@@ -106,8 +146,7 @@ export default function CandidateProfilePage() {
     setLoading(true)
 
     try {
-      if (!token) throw new Error("Not authenticated")
-      if (!candidateId) throw new Error("Candidate profile not found. Please contact support.")
+      if (!token || !user?.id) throw new Error("Not authenticated")
 
       const updateData = {
         major: formData.major,
@@ -120,23 +159,41 @@ export default function CandidateProfilePage() {
         skills: formData.skills,
       }
 
-      console.log("Updating candidate:", candidateId, updateData)
-      await apiClient.updateCandidate(candidateId, updateData, token)
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
+      if (isCreating || !candidateId) {
+        // Create new candidate profile
+        console.log("Creating candidate profile:", updateData)
+        const newCandidate = await apiClient.createCandidate(
+          {
+            user_id: user.id,
+            ...updateData,
+          },
+          token
+        ) as any
+        setCandidateId(newCandidate?.id || newCandidate?._id || null)
+        setIsCreating(false)
+        setSuccess(true)
+      } else {
+        // Update existing profile
+        console.log("Updating candidate:", candidateId, updateData)
+        await apiClient.updateCandidate(candidateId, updateData, token)
+        setSuccess(true)
+        setIsEditing(false) // Switch back to view mode after successful save
+      }
+      
+      setTimeout(() => setSuccess(false), 5000)
     } catch (err) {
-      console.error("Update error:", err)
-      setError(err instanceof Error ? err.message : "Failed to update profile")
+      console.error("Save error:", err)
+      setError(err instanceof Error ? err.message : "Failed to save profile")
     } finally {
       setLoading(false)
     }
   }
 
-  if (isLoading) {
+  if (isLoading || loadingData) {
     return (
       <DashboardLayout title="Profile">
         <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
     )
@@ -144,232 +201,443 @@ export default function CandidateProfilePage() {
 
   return (
     <DashboardLayout title="Profile">
-      <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
-        <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Candidate Profile
-          </h2>
-          <p className="text-muted-foreground mt-1">Manage your professional information</p>
+      <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+        {/* Debug Info - Shows current state */}
+        <Card className="border-blue-500 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-sm">Debug Info</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs space-y-1">
+            <p><strong>User ID (Auth):</strong> {user?.id}</p>
+            <p><strong>Candidate ID (Employment):</strong> {candidateId || "Not loaded yet"}</p>
+            <p><strong>Is Creating:</strong> {isCreating ? "Yes" : "No"}</p>
+            <p><strong>Is Editing:</strong> {isEditing ? "Yes" : "No"}</p>
+            <p><strong>Has Form Data:</strong> {formData.major ? "Yes" : "No"}</p>
+          </CardContent>
+        </Card>
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              My Profile
+            </h2>
+            <p className="text-muted-foreground mt-1">
+              {isCreating 
+                ? "Complete your profile to get started" 
+                : isEditing 
+                  ? "Update your professional information" 
+                  : "View your professional profile"}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {success && (
+              <Badge className="bg-green-500/10 text-green-600 border-green-500/20 flex items-center gap-2 px-3 py-1.5">
+                <CheckCircle2 className="h-4 w-4" />
+                Saved!
+              </Badge>
+            )}
+            {!isCreating && !isEditing && (
+              <Button
+                onClick={() => setIsEditing(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Edit Profile
+              </Button>
+            )}
+          </div>
         </div>
 
-        {!candidateId && !isLoading && (
-          <Alert>
-            <AlertDescription>
-              Your candidate profile is being set up. If this message persists, please contact support.
-            </AlertDescription>
-          </Alert>
+        {/* Personal Information Card (Read-only from Auth Service) */}
+        {user && (
+          <Card className="border-2 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                <CardTitle>Personal Information</CardTitle>
+              </div>
+              <CardDescription>Your basic account information (managed in account settings)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Full Name</Label>
+                  <p className="font-medium mt-1">
+                    {user.first_name} {user.last_name}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Email</Label>
+                  <p className="font-medium mt-1">{user.email}</p>
+                </div>
+                {user.phone && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Phone</Label>
+                    <p className="font-medium mt-1">{user.phone}</p>
+                  </div>
+                )}
+                {user.address && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Address</Label>
+                    <p className="font-medium mt-1">{user.address}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card className="border-2 shadow-lg">
-            <CardHeader>
-              <CardTitle>Academic Information</CardTitle>
-              <CardDescription>Update your academic details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {error && (
-                <Alert variant="destructive" className="border-destructive/50">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+        {/* Main Form/View with Tabs */}
+        {isEditing || isCreating ? (
+          // EDIT MODE
+          <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <Alert variant="destructive" className="border-destructive/50">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-              {success && (
-                <Alert className="border-green-500/50 bg-green-500/10">
-                  <AlertDescription className="text-green-600">Profile updated successfully! ✓</AlertDescription>
-                </Alert>
-              )}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="academic" className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4" />
+                Academic
+              </TabsTrigger>
+              <TabsTrigger value="professional" className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Professional
+              </TabsTrigger>
+            </TabsList>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="major">Major / Field of Study *</Label>
-                  <Input
-                    id="major"
-                    placeholder="e.g., Computer Science"
-                    value={formData.major}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, major: e.target.value }))}
-                    disabled={loading}
-                    required
-                    className="h-11"
-                  />
-                </div>
+            {/* Academic Information Tab */}
+            <TabsContent value="academic" className="space-y-4 mt-6">
+              <Card className="border-2 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Academic Information</CardTitle>
+                  <CardDescription>Your educational background and achievements</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="major">Major / Field of Study *</Label>
+                      <Input
+                        id="major"
+                        placeholder="e.g., Computer Science"
+                        value={formData.major}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, major: e.target.value }))}
+                        disabled={loading}
+                        required
+                        className="h-11"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="year">Academic Year *</Label>
-                  <Input
-                    id="year"
-                    type="number"
-                    min="1"
-                    max="8"
-                    value={formData.year}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, year: parseInt(e.target.value) || 1 }))}
-                    disabled={loading}
-                    required
-                    className="h-11"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gpa">Current GPA *</Label>
-                  <Input
-                    id="gpa"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    placeholder="0.00"
-                    value={formData.gpa}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, gpa: parseFloat(e.target.value) || 0 }))}
-                    disabled={loading}
-                    required
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="highschool_gpa">High School GPA *</Label>
-                  <Input
-                    id="highschool_gpa"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    placeholder="0.00"
-                    value={formData.highschool_gpa}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, highschool_gpa: parseFloat(e.target.value) || 0 }))}
-                    disabled={loading}
-                    required
-                    className="h-11"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="esbp">ESBP Points *</Label>
-                  <Input
-                    id="esbp"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={formData.esbp}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, esbp: parseInt(e.target.value) || 0 }))}
-                    disabled={loading}
-                    required
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="scholarship">Scholarship Status</Label>
-                  <div className="flex items-center space-x-2 h-11">
-                    <input
-                      id="scholarship"
-                      type="checkbox"
-                      checked={formData.scholarship}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, scholarship: e.target.checked }))}
-                      disabled={loading}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label htmlFor="scholarship" className="text-sm font-normal cursor-pointer">
-                      I receive a scholarship
-                    </Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="year">Academic Year *</Label>
+                      <Input
+                        id="year"
+                        type="number"
+                        min="1"
+                        max="8"
+                        value={formData.year}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, year: parseInt(e.target.value) || 1 }))}
+                        disabled={loading}
+                        required
+                        className="h-11"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="border-2 shadow-lg">
-            <CardHeader>
-              <CardTitle>Professional Information</CardTitle>
-              <CardDescription>Update your CV and skills</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="cv">CV / Resume (PDF, DOC, DOCX)</Label>
-                <Input 
-                  id="cv" 
-                  type="file" 
-                  accept=".pdf,.doc,.docx" 
-                  onChange={handleFileChange} 
-                  disabled={loading}
-                  className="h-11 cursor-pointer"
-                />
-                {formData.cv_base64 && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span>CV uploaded and ready</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="gpa">Current GPA *</Label>
+                      <Input
+                        id="gpa"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="10"
+                        placeholder="0.00"
+                        value={formData.gpa || ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, gpa: parseFloat(e.target.value) || 0 }))}
+                        disabled={loading}
+                        required
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="highschool_gpa">High School GPA *</Label>
+                      <Input
+                        id="highschool_gpa"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="10"
+                        placeholder="0.00"
+                        value={formData.highschool_gpa || ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, highschool_gpa: parseFloat(e.target.value) || 0 }))}
+                        disabled={loading}
+                        required
+                        className="h-11"
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="skills">Skills</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="skills"
-                    placeholder="Add a skill (e.g., Python, Communication)"
-                    value={formData.skillInput}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, skillInput: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addSkill()
-                      }
-                    }}
-                    disabled={loading}
-                    className="h-11"
-                  />
-                  <Button type="button" onClick={addSkill} disabled={loading} className="h-11 px-6">
-                    Add
-                  </Button>
-                </div>
-                {formData.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3 p-3 bg-muted/30 rounded-lg">
-                    {formData.skills.map((skill) => (
-                      <Badge key={skill} variant="secondary" className="gap-2 px-3 py-1.5 text-sm">
-                        {skill}
-                        <button
-                          type="button"
-                          onClick={() => removeSkill(skill)}
-                          className="hover:text-destructive transition-colors"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="esbp">ESBP Points *</Label>
+                      <Input
+                        id="esbp"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={formData.esbp || ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, esbp: parseInt(e.target.value) || 0 }))}
+                        disabled={loading}
+                        required
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="scholarship">Scholarship Status</Label>
+                      <div className="flex items-center space-x-2 h-11">
+                        <input
+                          id="scholarship"
+                          type="checkbox"
+                          checked={formData.scholarship}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, scholarship: e.target.checked }))}
                           disabled={loading}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </Badge>
-                    ))}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor="scholarship" className="text-sm font-normal cursor-pointer">
+                          I receive a scholarship
+                        </Label>
+                      </div>
+                    </div>
                   </div>
-                )}
-                {formData.skills.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Add your skills to help employers find you</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <div className="flex gap-3 justify-end">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading} className="h-11 px-6">
+            {/* Professional Information Tab */}
+            <TabsContent value="professional" className="space-y-4 mt-6">
+              <Card className="border-2 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Professional Information</CardTitle>
+                  <CardDescription>Your CV, skills, and professional details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cv">CV / Resume (PDF, DOC, DOCX) - Max 5MB</Label>
+                    <Input 
+                      id="cv" 
+                      type="file" 
+                      accept=".pdf,.doc,.docx" 
+                      onChange={handleFileChange} 
+                      disabled={loading}
+                      className="h-11 cursor-pointer"
+                    />
+                    {formData.cv_base64 && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span>CV uploaded and ready</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Upload your resume to help employers learn more about your experience
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="skills">Skills</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="skills"
+                        placeholder="Add a skill (e.g., Python, Communication, Leadership)"
+                        value={formData.skillInput}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, skillInput: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            addSkill()
+                          }
+                        }}
+                        disabled={loading}
+                        className="h-11"
+                      />
+                      <Button type="button" onClick={addSkill} disabled={loading} className="h-11 px-6">
+                        Add
+                      </Button>
+                    </div>
+                    {formData.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3 p-3 bg-muted/30 rounded-lg">
+                        {formData.skills.map((skill) => (
+                          <Badge key={skill} variant="secondary" className="gap-2 px-3 py-1.5 text-sm">
+                            {skill}
+                            <button
+                              type="button"
+                              onClick={() => removeSkill(skill)}
+                              className="hover:text-destructive transition-colors"
+                              disabled={loading}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {formData.skills.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Add your skills to help employers find you</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 justify-end pt-4 border-t">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                if (isCreating) {
+                  router.back()
+                } else {
+                  setIsEditing(false)
+                  // Reload to discard changes
+                  window.location.reload()
+                }
+              }} 
+              disabled={loading} 
+              className="h-11 px-6"
+            >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !candidateId}
-              className="h-11 px-8 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30"
+              disabled={loading}
+              className="h-11 px-8 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 flex items-center gap-2"
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving Changes...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
                 </>
               ) : (
-                "Save Profile"
+                <>
+                  <Save className="h-4 w-4" />
+                  {isCreating ? "Create Profile" : "Save Changes"}
+                </>
               )}
             </Button>
           </div>
         </form>
+        ) : (
+          // VIEW MODE - Display profile data
+          <div className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="academic" className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Academic
+                </TabsTrigger>
+                <TabsTrigger value="professional" className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Professional
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Academic Information View */}
+              <TabsContent value="academic" className="space-y-4 mt-6">
+                <Card className="border-2 shadow-lg">
+                  <CardHeader>
+                    <CardTitle>Academic Information</CardTitle>
+                    <CardDescription>Your educational background and achievements</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Major / Field of Study</Label>
+                        <p className="font-medium mt-1">{formData.major || "Not specified"}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Academic Year</Label>
+                        <p className="font-medium mt-1">Year {formData.year}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Current GPA</Label>
+                        <p className="font-medium mt-1">{formData.gpa.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">High School GPA</Label>
+                        <p className="font-medium mt-1">{formData.highschool_gpa.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">ESBP Points</Label>
+                        <p className="font-medium mt-1">{formData.esbp}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Scholarship Status</Label>
+                        <p className="font-medium mt-1 flex items-center gap-2">
+                          {formData.scholarship ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <span>Receiving Scholarship</span>
+                            </>
+                          ) : (
+                            "No Scholarship"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Professional Information View */}
+              <TabsContent value="professional" className="space-y-4 mt-6">
+                <Card className="border-2 shadow-lg">
+                  <CardHeader>
+                    <CardTitle>Professional Information</CardTitle>
+                    <CardDescription>Your CV, skills, and professional details</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">CV / Resume</Label>
+                      {formData.cv_base64 ? (
+                        <div className="flex items-center gap-2 text-sm p-3 bg-muted/30 rounded-lg mt-1">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span>CV uploaded and available</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-1">No CV uploaded</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Skills</Label>
+                      {formData.skills.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {formData.skills.map((skill) => (
+                            <Badge key={skill} variant="secondary" className="px-3 py-1.5 text-sm">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-1">No skills added yet</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )
