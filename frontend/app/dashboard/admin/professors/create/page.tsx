@@ -35,14 +35,22 @@ export default function CreateProfessorPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const formatDateToISO = (dateString: string): string => {
+    if (!dateString) return ""
+    const date = new Date(dateString + "T12:00:00.000Z")
+    return date.toISOString()
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!isValid) return
 
     setIsSubmitting(true)
     try {
+      const formattedDateOfBirth = formatDateToISO(formData.date_of_birth)
       const payload = {
         ...formData,
+        date_of_birth: formattedDateOfBirth,
         user_type: "PROFESSOR" as UserType,
       }
       await apiClient.register(payload)
