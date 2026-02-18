@@ -1330,11 +1330,21 @@ class ApiClient {
     return response.json()
   }
 
-  async createMajor(data: { name: string; department_id: string }, token: string) {
+  async createMajor(data: { name: string; department_id: string; duration?: number; description?: string }, token: string) {
+    const payload: any = {
+      name: data.name.trim(),
+      department_id: data.department_id,
+    }
+    if (data.duration !== undefined) {
+      payload.duration = data.duration
+    }
+    if (data.description !== undefined) {
+      payload.description = data.description
+    }
     const response = await fetch(`${UNIVERSITY_API_URL}/majors`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
-      body: JSON.stringify({ name: data.name.trim(), department_id: data.department_id }),
+      body: JSON.stringify(payload),
     })
 
     if (!response.ok) {
@@ -1344,11 +1354,21 @@ class ApiClient {
     return response.json()
   }
 
-  async updateMajor(id: string, data: { name: string; department_id: string }, token: string) {
+  async updateMajor(id: string, data: { name: string; department_id: string; duration?: number; description?: string }, token: string) {
+    const payload: any = {
+      name: data.name.trim(),
+      department_id: data.department_id,
+    }
+    if (data.duration !== undefined) {
+      payload.duration = data.duration
+    }
+    if (data.description !== undefined) {
+      payload.description = data.description
+    }
     const response = await fetch(`${UNIVERSITY_API_URL}/majors/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
-      body: JSON.stringify({ name: data.name.trim(), department_id: data.department_id }),
+      body: JSON.stringify(payload),
     })
 
     if (!response.ok) {
