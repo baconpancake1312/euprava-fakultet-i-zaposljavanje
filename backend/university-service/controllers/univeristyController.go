@@ -424,6 +424,35 @@ func (ctrl *Controllers) UpdateSubject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	oldSubject, err := ctrl.Repo.GetSubjectByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if len(oldSubject.ProfessorIDs) != len(subject.ProfessorIDs) {
+		if len(oldSubject.ProfessorIDs) > len(subject.ProfessorIDs) {
+			for _, professorID := range oldSubject.ProfessorIDs {
+				err = ctrl.Repo.RemoveSubjectFromProfessor(professorID, id)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+			}
+		} else {
+			for _, professorID := range subject.ProfessorIDs {
+				err = ctrl.Repo.AddSubjectToProfessor([]primitive.ObjectID{subject.ID}, professorID.Hex())
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+			}
+		}
+		err = ctrl.Repo.UpdateSubject(&subject)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {

@@ -446,7 +446,87 @@ func (r *Repository) CreateSubject(subject *Subject) error {
 	}
 	return nil
 }
+func (r *Repository) RemoveSubjectFromProfessor(professorID primitive.ObjectID, subjectID string) error {
+	collection := r.getCollection("subjects")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": subjectID}, bson.M{"$pull": bson.M{"professor_ids": professorID}})
+	if err != nil {
+		return err
+	}
+	professor, err := r.GetProfessorByID(professorID.Hex())
+	if err != nil {
+		return err
+	}
+	subjectIDPrimitive, err := primitive.ObjectIDFromHex(subjectID)
+	if err != nil {
+		return err
+	}
+	// Remove subject from professor's Subjects slice by comparing IDs
+	newSubjects := make([]Subject, 0, len(professor.Subjects))
+	for _, s := range professor.Subjects {
+		if s.ID != subjectIDPrimitive {
+			newSubjects = append(newSubjects, s)
+		}
+	}
+	professor.Subjects = newSubjects
+	return r.UpdateProfessor(professor)
+}
+func (r *Repository) AddSubjectToProfessor(subjectIDs []primitive.ObjectID, professorID string) error {
 
+	professor, err := r.GetProfessorByID(professorID)
+	if err != nil {
+		return fmt.Errorf("failed to get professor: %w", err)
+	}
+
+	professorIDPrimitive, err := primitive.ObjectIDFromHex(professorID)
+	if err != nil {
+		return fmt.Errorf("invalid professor ID format: %w", err)
+	}
+
+	for _, subjectID := range subjectIDs {
+		subject, err := r.GetSubjectByID(subjectID.Hex())
+		if err != nil {
+			return fmt.Errorf("failed to get subject %s: %w", subjectID.Hex(), err)
+		}
+		if subject == nil {
+			return fmt.Errorf("subject %s not found", subjectID.Hex())
+		}
+
+		subjectExists := false
+		for _, s := range professor.Subjects {
+			if s.ID == subjectID {
+				subjectExists = true
+				break
+			}
+		}
+
+		if !subjectExists {
+			professor.Subjects = append(professor.Subjects, *subject)
+		}
+
+		professorExists := false
+		for _, pid := range subject.ProfessorIDs {
+			if pid == professorIDPrimitive {
+				professorExists = true
+				break
+			}
+		}
+
+		if !professorExists {
+			subjectCollection := r.getCollection("subjects")
+			_, err = subjectCollection.UpdateOne(
+				context.TODO(),
+				bson.M{"_id": subjectID},
+				bson.M{"$addToSet": bson.M{"professor_ids": professorIDPrimitive}},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update subject %s: %w", subjectID.Hex(), err)
+			}
+		}
+	}
+
+	// Update the professor with the new subjects
+	return r.UpdateProfessor(professor)
+}
 func (r *Repository) GetSubjectByID(subjectID string) (*Subject, error) {
 	collection := r.getCollection("subjects")
 	objectID, err := primitive.ObjectIDFromHex(subjectID)
