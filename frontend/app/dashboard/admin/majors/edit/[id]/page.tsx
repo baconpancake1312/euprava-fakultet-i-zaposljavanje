@@ -23,6 +23,8 @@ export default function EditMajorPage() {
 
     const [name, setName] = useState("")
     const [departmentId, setDepartmentId] = useState("")
+    const [duration, setDuration] = useState("")
+    const [description, setDescription] = useState("")
     const [subjectIds, setSubjectIds] = useState<string[]>([])
     const [departments, setDepartments] = useState<DepartmentOption[]>([])
     const [subjects, setSubjects] = useState<Subject[]>([])
@@ -47,6 +49,8 @@ export default function EditMajorPage() {
 
                 setName(major.name ?? "")
                 setDepartmentId(major.department_id ?? "")
+                setDuration(major.duration != null ? String(major.duration) : "")
+                setDescription((major as any).description ?? "")
 
                 const currentSubjects = major.courses ?? major.subjects ?? []
                 const ids = Array.isArray(currentSubjects)
@@ -85,11 +89,23 @@ export default function EditMajorPage() {
 
         setIsSubmitting(true)
         try {
-            await apiClient.updateMajor(
-                majorId,
-                { name: name.trim(), department_id: departmentId.trim() },
-                token
-            )
+            const payload: {
+                name: string
+                department_id: string
+                duration?: number
+                description?: string
+            } = {
+                name: name.trim(),
+                department_id: departmentId.trim(),
+            }
+            const durationNum = parseInt(duration, 10)
+            if (!Number.isNaN(durationNum) && durationNum > 0) {
+                payload.duration = durationNum
+            }
+            if (description.trim().length > 0) {
+                payload.description = description.trim()
+            }
+            await apiClient.updateMajor(majorId, payload, token)
 
             const currentSubjectIds = new Set(subjectIds)
             const previousIds = initialSubjectIdsRef.current
@@ -157,6 +173,14 @@ export default function EditMajorPage() {
                     text: "Choose the department that offers this major.",
                 },
                 {
+                    title: "Duration",
+                    text: "Enter the duration of the major in years (e.g. 4 for a 4-year program).",
+                },
+                {
+                    title: "Description",
+                    text: "Provide a description of the major program.",
+                },
+                {
                     title: "Subjects",
                     text: "Select the subjects that belong to this major.",
                 },
@@ -168,6 +192,10 @@ export default function EditMajorPage() {
                     onMajorNameChange={setName}
                     departmentId={departmentId}
                     onDepartmentIdChange={setDepartmentId}
+                    duration={duration}
+                    onDurationChange={setDuration}
+                    description={description}
+                    onDescriptionChange={setDescription}
                     departments={departments}
                     subjectIds={subjectIds}
                     onSubjectIdsChange={setSubjectIds}

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
     Select,
     SelectContent,
@@ -19,6 +20,10 @@ type Props = {
     onMajorNameChange: (v: string) => void
     departmentId: string
     onDepartmentIdChange: (v: string) => void
+    duration: string
+    onDurationChange: (v: string) => void
+    description: string
+    onDescriptionChange: (v: string) => void
     departments: DepartmentOption[]
     subjectIds: string[]
     onSubjectIdsChange: (ids: string[]) => void
@@ -34,6 +39,10 @@ export function MajorFields({
     onMajorNameChange,
     departmentId,
     onDepartmentIdChange,
+    duration,
+    onDurationChange,
+    description,
+    onDescriptionChange,
     departments,
     subjectIds,
     onSubjectIdsChange,
@@ -78,6 +87,30 @@ export function MajorFields({
                         ))}
                     </SelectContent>
                 </Select>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="major-duration">Duration (years)</Label>
+                <Input
+                    id="major-duration"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={duration}
+                    onChange={(e) => onDurationChange(e.target.value)}
+                    placeholder="e.g. 4"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="major-description">Description</Label>
+                <Textarea
+                    id="major-description"
+                    value={description}
+                    onChange={(e) => onDescriptionChange(e.target.value)}
+                    placeholder="Enter a description of the major..."
+                    rows={4}
+                />
             </div>
 
             <div className="space-y-2">

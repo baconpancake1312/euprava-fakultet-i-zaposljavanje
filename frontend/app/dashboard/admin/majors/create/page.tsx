@@ -21,6 +21,8 @@ export default function CreateMajorPage() {
 
     const [name, setName] = useState("")
     const [departmentId, setDepartmentId] = useState(presetDepartmentId)
+    const [duration, setDuration] = useState("")
+    const [description, setDescription] = useState("")
     const [subjectIds, setSubjectIds] = useState<string[]>([])
     const [departments, setDepartments] = useState<DepartmentOption[]>([])
     const [subjects, setSubjects] = useState<Subject[]>([])
@@ -75,9 +77,21 @@ export default function CreateMajorPage() {
 
         setIsSubmitting(true)
         try {
-            const payload = {
+            const payload: {
+                name: string
+                department_id: string
+                duration?: number
+                description?: string
+            } = {
                 name: name.trim(),
                 department_id: departmentId.trim(),
+            }
+            const durationNum = parseInt(duration, 10)
+            if (!Number.isNaN(durationNum) && durationNum > 0) {
+                payload.duration = durationNum
+            }
+            if (description.trim().length > 0) {
+                payload.description = description.trim()
             }
             const created = await apiClient.createMajor(payload, token)
             const newMajorId = created?.id ?? created?._id
@@ -135,6 +149,14 @@ export default function CreateMajorPage() {
                     text: "Choose the department that offers this major.",
                 },
                 {
+                    title: "Duration",
+                    text: "Enter the duration of the major in years (e.g. 4 for a 4-year program).",
+                },
+                {
+                    title: "Description",
+                    text: "Provide a description of the major program.",
+                },
+                {
                     title: "Subjects",
                     text: "Select the subjects that belong to this major.",
                 },
@@ -146,6 +168,10 @@ export default function CreateMajorPage() {
                     onMajorNameChange={setName}
                     departmentId={departmentId}
                     onDepartmentIdChange={setDepartmentId}
+                    duration={duration}
+                    onDurationChange={setDuration}
+                    description={description}
+                    onDescriptionChange={setDescription}
                     departments={departments}
                     subjectIds={subjectIds}
                     onSubjectIdsChange={setSubjectIds}
