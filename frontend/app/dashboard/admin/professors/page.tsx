@@ -161,7 +161,7 @@ export default function AdminProfessorsPage() {
                             <div className="col-span-2">
                               <p className="font-medium mb-1 flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                                Departments
+                                Head of departments:
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {professorDepartments.map((dept) => (

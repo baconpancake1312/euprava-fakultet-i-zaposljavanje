@@ -95,10 +95,16 @@ export default function EditProfessorPage() {
             : []
         setDepartmentIds(initialDeptIds)
 
+        // Extract subjects where this professor is assigned
+        // Handle both new array format (professor_ids) and old single ID format (professor_id)
         const initialSubjectIds =
           prof && allSubjects.length
             ? allSubjects
-                .filter((s) => s.professor_id === prof.id)
+                .filter((s: any) => {
+                  const professorIds = s.professor_ids || s.professorids || 
+                    (s.professor_id ? [s.professor_id] : [])
+                  return Array.isArray(professorIds) && professorIds.includes(prof.id)
+                })
                 .map((s) => s.id)
             : []
         setSubjectIds(initialSubjectIds)
@@ -221,13 +227,34 @@ export default function EditProfessorPage() {
       // Update subjects professor assignments
       const selectedSubjectIds = new Set(subjectIds)
       for (const subject of subjects) {
-        const previouslyAssigned = subject.professor_id === professor.id
-        const nowSelected = selectedSubjectIds.has(subject.id)
-        if (previouslyAssigned === nowSelected) continue
+        // Get current professor IDs array (handle both formats)
+        const currentProfessorIds = (subject as any).professor_ids || 
+          (subject as any).professorids || 
+          ((subject as any).professor_id ? [(subject as any).professor_id] : [])
+        const professorIdsArray = Array.isArray(currentProfessorIds) 
+          ? [...currentProfessorIds] 
+          : []
+        
+        const wasAssigned = professorIdsArray.includes(professor.id)
+        const shouldBeAssigned = selectedSubjectIds.has(subject.id)
+        
+        if (wasAssigned === shouldBeAssigned) continue
+
+        // Update the professor_ids array
+        let updatedProfessorIds: string[]
+        if (shouldBeAssigned && !wasAssigned) {
+          // Add professor to the array
+          updatedProfessorIds = [...professorIdsArray, professor.id]
+        } else if (!shouldBeAssigned && wasAssigned) {
+          // Remove professor from the array
+          updatedProfessorIds = professorIdsArray.filter((id: string) => id !== professor.id)
+        } else {
+          continue
+        }
 
         const updated = {
           ...subject,
-          professor_id: nowSelected ? professor.id : "",
+          professor_ids: updatedProfessorIds,
         }
         await apiClient.updateCourse(subject.id, updated, token)
       }
