@@ -23,10 +23,11 @@ export default function CreateSubjectPage() {
   const searchParams = useSearchParams()
   const { token } = useAuth()
   const presetMajorId = searchParams.get("major_id") ?? ""
+  const presetYear = searchParams.get("year") ?? ""
 
   const [name, setName] = useState("")
   const [majorId, setMajorId] = useState(presetMajorId)
-  const [year, setYear] = useState("")
+  const [year, setYear] = useState(presetYear)
   const [professorIds, setProfessorIds] = useState<string[]>([])
   const [majors, setMajors] = useState<MajorOption[]>([])
   const [professors, setProfessors] = useState<ProfessorOption[]>([])

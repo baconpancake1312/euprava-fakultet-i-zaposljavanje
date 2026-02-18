@@ -31,6 +31,7 @@ export default function AdminSubjectsPage() {
   const [professorsById, setProfessorsById] = useState<Record<string, Professor>>({})
   const [loading, setLoading] = useState(true)
   const [expandedDeptId, setExpandedDeptId] = useState<string | null>(null)
+  const [expandedYearByMajor, setExpandedYearByMajor] = useState<Record<string, number | null>>({})
 
   useEffect(() => {
     if (!token) return
@@ -100,6 +101,19 @@ export default function AdminSubjectsPage() {
       if (!mid) continue
       if (!map[mid]) map[mid] = []
       map[mid].push(subject)
+    }
+    return map
+  }, [subjects])
+
+  const subjectsByMajorAndYear = useMemo(() => {
+    const map: Record<string, Record<number, Subject[]>> = {}
+    for (const subject of subjects) {
+      const mid = subject.major_id ?? (subject as { major_id?: string }).major_id ?? ""
+      if (!mid) continue
+      const year = subject.year ?? 0
+      if (!map[mid]) map[mid] = {}
+      if (!map[mid][year]) map[mid][year] = []
+      map[mid][year].push(subject)
     }
     return map
   }, [subjects])
@@ -363,48 +377,119 @@ export default function AdminSubjectsPage() {
                                     </div>
                                   </div>
                                   {majorSubjects.length > 0 ? (
-                                    <ul className="space-y-1 pl-6 border-l-2 border-muted">
-                                      {majorSubjects.map((subject) => (
-                                        <li
-                                          key={subject.id}
-                                          className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/50 group"
-                                        >
-                                          <div className="flex items-center gap-2 min-w-0">
-                                            <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                            <span className="text-sm truncate">{subject.name}</span>
-                                            {subject.year != null && (
-                                              <span className="text-xs text-muted-foreground shrink-0">
-                                                Year {subject.year}
-                                              </span>
-                                            )}
+                                    <div className="pl-6 border-l-2 border-muted">
+                                      {(() => {
+                                        const yearGroups = subjectsByMajorAndYear[major.id] ?? {}
+                                        const years = Object.keys(yearGroups)
+                                          .map(Number)
+                                          .sort((a, b) => a - b)
+                                        const expandedYear = expandedYearByMajor[major.id] ?? null
+                                        
+                                        if (years.length === 0) {
+                                          return (
+                                            <p className="text-xs text-muted-foreground py-2">
+                                              No subjects
+                                            </p>
+                                          )
+                                        }
+
+                                        return (
+                                          <div className="space-y-1">
+                                            {years.map((year) => {
+                                              const yearSubjects = yearGroups[year] ?? []
+                                              const isExpanded = expandedYear === year
+                                              
+                                              return (
+                                                <Collapsible
+                                                  key={year}
+                                                  open={isExpanded}
+                                                  onOpenChange={(open) => {
+                                                    setExpandedYearByMajor((prev) => ({
+                                                      ...prev,
+                                                      [major.id]: open ? year : null,
+                                                    }))
+                                                  }}
+                                                >
+                                                  <div className="py-1">
+                                                    <div className="flex items-center gap-1">
+                                                      <CollapsibleTrigger asChild>
+                                                        <button
+                                                          type="button"
+                                                          className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-muted/50 transition-colors rounded px-2 py-1.5 -ml-2"
+                                                        >
+                                                          {isExpanded ? (
+                                                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                          ) : (
+                                                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                          )}
+                                                          <span className="text-sm font-medium">
+                                                            Year {year}
+                                                          </span>
+                                                          <span className="text-xs text-muted-foreground">
+                                                            ({yearSubjects.length} subject{yearSubjects.length !== 1 ? "s" : ""})
+                                                          </span>
+                                                        </button>
+                                                      </CollapsibleTrigger>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 shrink-0"
+                                                        title="Add subject for Year {year}"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation()
+                                                          router.push(`/dashboard/admin/subjects/create/?major_id=${major.id}&year=${year}`)
+                                                        }}
+                                                      >
+                                                        <Plus className="h-3.5 w-3.5" />
+                                                      </Button>
+                                                    </div>
+                                                    <CollapsibleContent>
+                                                      <ul className="space-y-1 pl-6 pt-1">
+                                                        {yearSubjects.map((subject) => (
+                                                          <li
+                                                            key={subject.id}
+                                                            className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/50 group"
+                                                          >
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                              <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                              <span className="text-sm truncate">{subject.name}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7"
+                                                                onClick={(e) => {
+                                                                  e.preventDefault()
+                                                                  router.push(`/dashboard/admin/subjects/edit/${subject.id}`)
+                                                                }}
+                                                              >
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                              </Button>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                                                onClick={(e) => {
+                                                                  e.preventDefault()
+                                                                  handleDeleteSubject(subject)
+                                                                }}
+                                                              >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                              </Button>
+                                                            </div>
+                                                          </li>
+                                                        ))}
+                                                      </ul>
+                                                    </CollapsibleContent>
+                                                  </div>
+                                                </Collapsible>
+                                              )
+                                            })}
                                           </div>
-                                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-7 w-7"
-                                              onClick={(e) => {
-                                                e.preventDefault()
-                                                router.push(`/dashboard/admin/subjects/edit/${subject.id}`)
-                                              }}
-                                            >
-                                              <Pencil className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-7 w-7 text-destructive hover:text-destructive"
-                                              onClick={(e) => {
-                                                e.preventDefault()
-                                                handleDeleteSubject(subject)
-                                              }}
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                          </div>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                        )
+                                      })()}
+                                    </div>
                                   ) : (
                                     <p className="text-xs text-muted-foreground pl-6">
                                       No subjects
