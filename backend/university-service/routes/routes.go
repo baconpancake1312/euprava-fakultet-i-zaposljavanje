@@ -21,6 +21,8 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		public.GET("/assistants", ctrl.GetAllAssistants)
 		public.GET("/majors", ctrl.GetAllMajors)
 
+		// Internal service endpoint for notifications (no auth required for inter-service communication)
+		public.POST("/internal/notifications", ctrl.CreateNotificationByRecipientHandler)
 	}
 
 	protected := router.Group("/")

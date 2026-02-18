@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileCompletionPrompt } from "@/components/profile-completion-prompt"
@@ -11,42 +11,81 @@ import { apiClient } from "@/lib/api-client"
 
 export default function CandidateDashboard() {
   const router = useRouter()
-  const { user, token, isAuthenticated } = useAuth()
+  const pathname = usePathname()
+  const { user, token, isAuthenticated, isLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [candidateData, setCandidateData] = useState<any>(null)
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
+  const [isApproved, setIsApproved] = useState(false)
+  const [hasRedirected, setHasRedirected] = useState(false)
 
   useEffect(() => {
+    // Wait for auth to load before checking
+    if (isLoading) return
+
     if (!isAuthenticated || user?.user_type !== "CANDIDATE") {
       router.push("/login")
       return
     }
 
-    checkCandidateProfile()
-  }, [isAuthenticated, user, router])
+    // Only check profile if we haven't redirected yet
+    if (!hasRedirected) {
+      checkCandidateProfile()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading, user, router, pathname, hasRedirected])
 
   const checkCandidateProfile = async () => {
     try {
-      if (!token || !user?.id) return
+      if (!token || !user?.id) {
+        setLoading(false)
+        return
+      }
 
       const data = await apiClient.getCandidateById(user.id, token)
       setCandidateData(data)
 
-      // Check if profile needs completion
+      // Check approval status (handle both "approved" and "Approved")
+      const approvalStatus = data.approval_status?.toLowerCase()
+      const approved = approvalStatus === "approved"
+      setIsApproved(approved)
+
+      // If approved and we're on the dashboard page, redirect to profile page
+      // Only redirect if we're actually on the dashboard route and haven't redirected yet
+      if (approved && pathname === "/dashboard/candidate" && !hasRedirected) {
+        setHasRedirected(true)
+        router.replace("/dashboard/candidate/profile")
+        return
+      }
+
+      // Check if profile needs completion (only if not approved)
       const missingFields = []
       if (!data.cv_file && !data.cv_base64) missingFields.push("cv")
       if (!data.skills || data.skills.length === 0) missingFields.push("skills")
 
       setNeedsProfileCompletion(missingFields.length > 0)
     } catch (error) {
-      // Candidate profile doesn't exist yet
+      // Candidate profile doesn't exist yet - show dashboard to complete profile
+      setIsApproved(false)
       setNeedsProfileCompletion(true)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
+  // Show loading while auth is loading or while checking candidate profile
+  if (isLoading || loading) {
+    return (
+      <DashboardLayout title="Candidate Dashboard">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // If approved and redirecting, show loading
+  if (isApproved && hasRedirected) {
     return (
       <DashboardLayout title="Candidate Dashboard">
         <div className="flex items-center justify-center py-12">
@@ -64,7 +103,8 @@ export default function CandidateDashboard() {
           <p className="text-muted-foreground">Find your next career opportunity</p>
         </div>
 
-        {needsProfileCompletion && (
+        {/* Only show profile completion prompt if profile is NOT approved */}
+        {needsProfileCompletion && !isApproved && (
           <ProfileCompletionPrompt
             title="Complete Your Candidate Profile"
             description="To apply for jobs, please complete your profile with your CV and skills."
