@@ -43,7 +43,7 @@ export default function CandidateProfilePage() {
       if (!token || !user?.id) return
 
       try {
-        const candidate = await apiClient.getCandidateByUserId(user.id, token)
+        const candidate = await apiClient.getCandidateByUserId(user.id, token) as any
         setFormData({
           major: candidate.major || "",
           year: candidate.year || 1,

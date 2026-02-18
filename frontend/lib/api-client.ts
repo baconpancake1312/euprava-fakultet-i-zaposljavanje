@@ -179,6 +179,41 @@ class ApiClient {
     return this.handleResponse(response)
   }
 
+  async getExamSessionsByProfessor(professorId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/professor/${professorId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getAllExamSessionsForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getExamRegistrationsBySession(examSessionId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/exam-session/${examSessionId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getExamGradesForExamSession(examSessionId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/exam-session/${examSessionId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getCoursesByProfessor(professorId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/subjects/professor/${professorId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)
@@ -377,6 +412,8 @@ class ApiClient {
   }
 
   async register(data: RegisterData): Promise<AuthResponse> {
+    console.log("Sending registration request with data:", data) // Debug
+    
     const response = await fetch(`${AUTH_API_URL}/users/register`, {
       method: "POST",
       headers: this.getAuthHeaders(),
@@ -384,7 +421,16 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      await ApiErrorHandler.handleResponse(response)
+      // Log the full error for debugging
+      const errorText = await response.text()
+      console.error("Registration failed:", response.status, errorText)
+      
+      try {
+        const errorJson = JSON.parse(errorText)
+        throw new Error(errorJson.error || `Registration failed: ${response.statusText}`)
+      } catch {
+        throw new Error(`Registration failed: ${response.statusText} - ${errorText}`)
+      }
     }
 
     const responseData = await response.json()

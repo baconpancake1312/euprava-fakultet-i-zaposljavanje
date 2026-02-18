@@ -96,12 +96,13 @@ export default function AdminEmployersPage() {
 
   const handleClearTestData = async () => {
     try {
-      await apiClient.clearTestData(token!)
+      // await apiClient.clearTestData(token!)
       toast({
-        title: "Test Data Cleared",
-        description: "All test companies and job listings have been removed.",
+        title: "Feature Not Available",
+        description: "Test data clearing is currently disabled.",
+        variant: "default",
       })
-      loadEmployers()
+      // loadEmployers()
     } catch (error) {
       console.error("Failed to clear test data:", error)
       toast({

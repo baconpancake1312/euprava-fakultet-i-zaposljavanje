@@ -27,34 +27,42 @@ export default function CandidateApplicationsPage() {
       try {
         // Try to get applications by candidate ID first
         const data = await apiClient.getApplicationsByCandidate(user.id, token)
+        
+        // Ensure data is an array before processing
+        const applicationsData = Array.isArray(data) ? data : []
+        
         setApplications(prev => {
           // Check for status changes and show toast notifications
-          data.forEach(newApp => {
-            const oldApp = prev.find(app => app.id === newApp.id)
-            if (oldApp && oldApp.status !== newApp.status) {
-              if (newApp.status === "accepted") {
-                toast({
-                  title: "Application Accepted! 🎉",
-                  description: `Your application for ${newApp.job_listing?.position || "the position"} has been accepted!`,
-                })
-              } else if (newApp.status === "rejected") {
-                toast({
-                  title: "Application Update",
-                  description: `Your application for ${newApp.job_listing?.position || "the position"} was not selected this time.`,
-                  variant: "destructive",
-                })
+          if (applicationsData.length > 0) {
+            applicationsData.forEach(newApp => {
+              const oldApp = prev.find(app => app.id === newApp.id)
+              if (oldApp && oldApp.status !== newApp.status) {
+                if (newApp.status === "accepted") {
+                  toast({
+                    title: "Application Accepted! 🎉",
+                    description: `Your application for ${newApp.job_listing?.position || "the position"} has been accepted!`,
+                  })
+                } else if (newApp.status === "rejected") {
+                  toast({
+                    title: "Application Update",
+                    description: `Your application for ${newApp.job_listing?.position || "the position"} was not selected this time.`,
+                    variant: "destructive",
+                  })
+                }
               }
-            }
-          })
-          return data
+            })
+          }
+          return applicationsData
         })
       } catch (err) {
         // Fallback to general applications endpoint
         try {
           const data = await apiClient.getApplications(token)
-          setApplications(data)
+          const fallbackData = Array.isArray(data) ? data : []
+          setApplications(fallbackData)
         } catch (fallbackErr) {
           setError(err instanceof Error ? err.message : "Failed to load applications")
+          setApplications([]) // Set empty array on error
         }
       } finally {
         setLoading(false)
@@ -62,7 +70,8 @@ export default function CandidateApplicationsPage() {
     }
 
     loadApplications()
-  }, [token, user, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, user?.id]) // Removed toast from dependencies to prevent re-renders
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2 } from "lucide-react"
+import { Loader2, Briefcase } from "lucide-react"
 import Link from "next/link"
 
 export default function RegisterPage() {
@@ -35,6 +35,7 @@ export default function RegisterPage() {
 
   const formatDateToISO = (dateString: string): string => {
     if (!dateString) return ""
+    // Parse the date string and create a date at noon UTC
     const date = new Date(dateString + "T12:00:00.000Z")
     return date.toISOString()
   }
@@ -45,14 +46,21 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
+      // Format the date properly for the backend
+      const dateOfBirth = formData.date_of_birth ? formatDateToISO(formData.date_of_birth) : ""
+      
       const payload = {
         ...formData,
-        date_of_birth: formatDateToISO(formData.date_of_birth),
+        date_of_birth: dateOfBirth,
       }
+      
+      console.log("Registration payload:", payload) // Debug log
+      
       const response = await apiClient.register(payload)
       login(response.user, response.token)
       router.push("/dashboard")
     } catch (err) {
+      console.error("Registration error:", err)
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
     } finally {
       setLoading(false)
@@ -64,34 +72,49 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl space-y-6 my-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-20 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-2xl space-y-6 my-8 relative z-10">
         <div className="flex flex-col items-center gap-2">
-          <Link href="/" className="flex items-center gap-2 mb-2">
-            <span className="text-xl font-semibold">euprava</span>
+          <Link href="/" className="flex items-center gap-2 mb-4 group">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-primary/25">
+              <Briefcase className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              euprava
+            </span>
           </Link>
-          <h1 className="text-2xl font-bold">Create an account</h1>
-          <p className="text-muted-foreground text-center">
-            Join our platform to access university and employment services
-          </p>
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-2">Create an account</h1>
+            <p className="text-muted-foreground">
+              Join our platform to access employment services
+            </p>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign up</CardTitle>
+        <Card className="border-2 shadow-xl">
+          <CardHeader className="space-y-1 pb-6">
+            <CardTitle className="text-2xl">Sign up</CardTitle>
             <CardDescription>Fill in your information to create your account</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <Alert variant="destructive">
+                <Alert variant="destructive" className="border-destructive/50">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first_name">First Name</Label>
+                  <Label htmlFor="first_name" className="text-sm font-medium">
+                    First Name
+                  </Label>
                   <Input
                     id="first_name"
                     placeholder="John"
@@ -99,11 +122,14 @@ export default function RegisterPage() {
                     onChange={(e) => updateField("first_name", e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="last_name">Last Name</Label>
+                  <Label htmlFor="last_name" className="text-sm font-medium">
+                    Last Name
+                  </Label>
                   <Input
                     id="last_name"
                     placeholder="Doe"
@@ -111,12 +137,15 @@ export default function RegisterPage() {
                     onChange={(e) => updateField("last_name", e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email address
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -125,26 +154,32 @@ export default function RegisterPage() {
                   onChange={(e) => updateField("email", e.target.value)}
                   required
                   disabled={loading}
+                  className="h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Minimum 8 characters"
                   value={formData.password}
                   onChange={(e) => updateField("password", e.target.value)}
                   required
                   minLength={8}
                   disabled={loading}
+                  className="h-11"
                 />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone" className="text-sm font-medium">
+                    Phone Number
+                  </Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -153,11 +188,14 @@ export default function RegisterPage() {
                     onChange={(e) => updateField("phone", e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="jmbg">JMBG</Label>
+                  <Label htmlFor="jmbg" className="text-sm font-medium">
+                    JMBG
+                  </Label>
                   <Input
                     id="jmbg"
                     placeholder="1234567890123"
@@ -166,12 +204,15 @@ export default function RegisterPage() {
                     required
                     maxLength={13}
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address" className="text-sm font-medium">
+                  Address
+                </Label>
                 <Input
                   id="address"
                   placeholder="123 Main St, City"
@@ -179,12 +220,15 @@ export default function RegisterPage() {
                   onChange={(e) => updateField("address", e.target.value)}
                   required
                   disabled={loading}
+                  className="h-11"
                 />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">Date of Birth</Label>
+                  <Label htmlFor="date_of_birth" className="text-sm font-medium">
+                    Date of Birth
+                  </Label>
                   <Input
                     id="date_of_birth"
                     type="date"
@@ -192,19 +236,22 @@ export default function RegisterPage() {
                     onChange={(e) => updateField("date_of_birth", e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="user_type">Account Type</Label>
+                  <Label htmlFor="user_type" className="text-sm font-medium">
+                    Account Type
+                  </Label>
                   <Select
                     value={formData.user_type}
                     onValueChange={(value) => updateField("user_type", value)}
                     required
                     disabled={loading}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Select account type" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="STUDENT">Student</SelectItem>
@@ -217,7 +264,11 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all" 
+                disabled={loading}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -231,12 +282,14 @@ export default function RegisterPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/login" className="text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary hover:underline font-medium">
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
