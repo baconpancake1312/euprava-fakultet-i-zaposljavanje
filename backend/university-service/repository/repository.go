@@ -337,8 +337,115 @@ func (r *Repository) GetProfessorByID(professorID string) (*Professor, error) {
 
 func (r *Repository) UpdateProfessor(professor *Professor) error {
 	r.logger.Println("Updating professor with ID:", professor.ID.Hex())
+	
+	// Get the current professor to compare subjects
+	currentProfessor, err := r.GetProfessorByID(professor.ID.Hex())
+	if err != nil {
+		return fmt.Errorf("failed to get current professor: %w", err)
+	}
+	if currentProfessor == nil {
+		return fmt.Errorf("professor not found")
+	}
+
+	// Create maps for easier lookup
+	oldSubjectIDs := make(map[primitive.ObjectID]bool)
+	for _, s := range currentProfessor.Subjects {
+		oldSubjectIDs[s.ID] = true
+	}
+
+	newSubjectIDs := make(map[primitive.ObjectID]bool)
+	for _, s := range professor.Subjects {
+		newSubjectIDs[s.ID] = true
+	}
+
+	// Find subjects that were added (in new but not in old)
+	addedSubjects := make([]primitive.ObjectID, 0)
+	for subjectID := range newSubjectIDs {
+		if !oldSubjectIDs[subjectID] {
+			addedSubjects = append(addedSubjects, subjectID)
+		}
+	}
+
+	// Find subjects that were removed (in old but not in new)
+	removedSubjects := make([]primitive.ObjectID, 0)
+	for subjectID := range oldSubjectIDs {
+		if !newSubjectIDs[subjectID] {
+			removedSubjects = append(removedSubjects, subjectID)
+		}
+	}
+
+	subjectCollection := r.getCollection("subjects")
+
+	// Add professor ID to newly added subjects' ProfessorIDs
+	for _, subjectID := range addedSubjects {
+		_, err = subjectCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"_id": subjectID},
+			bson.M{"$addToSet": bson.M{"professor_ids": professor.ID}},
+		)
+		if err != nil {
+			r.logger.Printf("Warning: failed to add professor ID to subject %s: %v", subjectID.Hex(), err)
+			// Continue with other subjects even if one fails
+		}
+	}
+
+	// Remove professor ID from removed subjects' ProfessorIDs
+	for _, subjectID := range removedSubjects {
+		_, err = subjectCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"_id": subjectID},
+			bson.M{"$pull": bson.M{"professor_ids": professor.ID}},
+		)
+		if err != nil {
+			r.logger.Printf("Warning: failed to remove professor ID from subject %s: %v", subjectID.Hex(), err)
+			// Continue with other subjects even if one fails
+		}
+	}
+
+	// Update department staff for added subjects
+	for _, subjectID := range addedSubjects {
+		if err := r.updateDepartmentStaffForSubject(subjectID, professor.ID, true); err != nil {
+			r.logger.Printf("Warning: failed to add professor to department staff for subject %s: %v", subjectID.Hex(), err)
+			// Continue with other subjects even if one fails
+		}
+	}
+
+	// Update department staff for removed subjects
+	// For each removed subject, check if professor has other subjects in the same department
+	for _, subjectID := range removedSubjects {
+		subject, err := r.GetSubjectByID(subjectID.Hex())
+		if err != nil || subject == nil {
+			continue
+		}
+		major, err := r.GetMajorByID(subject.MajorID)
+		if err != nil || major == nil || major.DepartmentID == nil {
+			continue
+		}
+
+		// Check if professor has other subjects in this department
+		hasOtherSubjectsInDept := false
+		for _, s := range professor.Subjects {
+			subjMajor, err := r.GetMajorByID(s.MajorID)
+			if err == nil && subjMajor != nil && subjMajor.DepartmentID != nil {
+				if subjMajor.DepartmentID.Hex() == major.DepartmentID.Hex() {
+					hasOtherSubjectsInDept = true
+					break
+				}
+			}
+		}
+
+		// Only remove from department if no other subjects in this department
+		if !hasOtherSubjectsInDept {
+			if err := r.updateDepartmentStaffForSubject(subjectID, professor.ID, false); err != nil {
+				r.logger.Printf("Warning: failed to remove professor from department staff for subject %s: %v", subjectID.Hex(), err)
+				// Continue with other subjects even if one fails
+			}
+		}
+	}
+
+	// Update the professor
 	collection := r.getCollection("professor")
-	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": professor.ID}, bson.M{"$set": professor})
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": professor.ID}, bson.M{"$set": professor})
 	if err != nil {
 		r.logger.Println("Error updating professor:", err)
 	}
@@ -446,6 +553,59 @@ func (r *Repository) CreateSubject(subject *Subject) error {
 	}
 	return nil
 }
+// updateDepartmentStaffForSubject updates the department's staff list based on a subject assignment/removal
+func (r *Repository) updateDepartmentStaffForSubject(subjectID primitive.ObjectID, professorID primitive.ObjectID, add bool) error {
+	// Get the subject to find its major
+	subject, err := r.GetSubjectByID(subjectID.Hex())
+	if err != nil {
+		return fmt.Errorf("failed to get subject: %w", err)
+	}
+	if subject == nil {
+		return fmt.Errorf("subject not found")
+	}
+
+	// Get the major to find its department
+	major, err := r.GetMajorByID(subject.MajorID)
+	if err != nil {
+		return fmt.Errorf("failed to get major: %w", err)
+	}
+	if major == nil || major.DepartmentID == nil {
+		// Subject's major has no department, nothing to update
+		return nil
+	}
+
+	// Get the department
+	department, err := r.GetDepartmentByID(major.DepartmentID.Hex())
+	if err != nil {
+		return fmt.Errorf("failed to get department: %w", err)
+	}
+	if department == nil {
+		return fmt.Errorf("department not found")
+	}
+
+	// Update department staff
+	departmentCollection := r.getCollection("department")
+	if add {
+		// Add professor to department staff if not already present
+		_, err = departmentCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"_id": department.ID},
+			bson.M{"$addToSet": bson.M{"staff": professorID}},
+		)
+	} else {
+		// Remove professor from department staff
+		_, err = departmentCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"_id": department.ID},
+			bson.M{"$pull": bson.M{"staff": professorID}},
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to update department staff: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) RemoveSubjectFromProfessor(professorID primitive.ObjectID, subjectID string) error {
 	collection := r.getCollection("subjects")
 	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": subjectID}, bson.M{"$pull": bson.M{"professor_ids": professorID}})
@@ -468,6 +628,34 @@ func (r *Repository) RemoveSubjectFromProfessor(professorID primitive.ObjectID, 
 		}
 	}
 	professor.Subjects = newSubjects
+	
+	// Update department staff - remove professor from department if needed
+	// Get the subject to find its major and department
+	subject, err := r.GetSubjectByID(subjectID)
+	if err == nil && subject != nil {
+		major, err := r.GetMajorByID(subject.MajorID)
+		if err == nil && major != nil && major.DepartmentID != nil {
+			// Check if professor has other subjects in this department
+			hasOtherSubjectsInDept := false
+			for _, s := range professor.Subjects {
+				// Get each subject's major to check if it's in the same department
+				subjMajor, err := r.GetMajorByID(s.MajorID)
+				if err == nil && subjMajor != nil && subjMajor.DepartmentID != nil {
+					if subjMajor.DepartmentID.Hex() == major.DepartmentID.Hex() {
+						hasOtherSubjectsInDept = true
+						break
+					}
+				}
+			}
+			// Only remove from department if no other subjects in this department
+			if !hasOtherSubjectsInDept {
+				if err := r.updateDepartmentStaffForSubject(subjectIDPrimitive, professorID, false); err != nil {
+					r.logger.Printf("Warning: failed to update department staff: %v", err)
+				}
+			}
+		}
+	}
+	
 	return r.UpdateProfessor(professor)
 }
 func (r *Repository) AddSubjectToProfessor(subjectIDs []primitive.ObjectID, professorID string) error {
@@ -521,6 +709,12 @@ func (r *Repository) AddSubjectToProfessor(subjectIDs []primitive.ObjectID, prof
 			if err != nil {
 				return fmt.Errorf("failed to update subject %s: %w", subjectID.Hex(), err)
 			}
+		}
+
+		// Add professor to department staff of the subject's major
+		if err := r.updateDepartmentStaffForSubject(subjectID, professorIDPrimitive, true); err != nil {
+			r.logger.Printf("Warning: failed to update department staff for subject %s: %v", subjectID.Hex(), err)
+			// Continue with other subjects even if department update fails
 		}
 	}
 
