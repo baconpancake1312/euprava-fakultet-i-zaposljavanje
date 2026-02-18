@@ -3,6 +3,8 @@ student
 	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu ✅
  	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd
 	kaskadno brisanje
+	prikaz predmeta po godini
+	zahtev za zavrsavanje fakulteta
 }
 
 profesor

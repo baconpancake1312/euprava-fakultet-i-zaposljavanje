@@ -433,7 +433,17 @@ func (r *Repository) CreateSubject(subject *Subject) error {
 	if err != nil {
 		return err
 	}
-
+	for _, professorID := range subject.ProfessorIDs {
+		professor, err := r.GetProfessorByID(professorID.Hex())
+		if err != nil {
+			return err
+		}
+		professor.Subjects = append(professor.Subjects, *subject)
+		err = r.UpdateProfessor(professor)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1392,11 +1402,13 @@ func (r *Repository) GetProfessorsByMajorId(majorId primitive.ObjectID) ([]Profe
 		return nil, err
 	}
 	for _, subject := range subjects {
-		professor, err := r.GetProfessorByID(subject.ProfessorID.Hex())
-		if err != nil {
-			return nil, err
+		for _, professorID := range subject.ProfessorIDs {
+			professor, err := r.GetProfessorByID(professorID.Hex())
+			if err != nil {
+				return nil, err
+			}
+			professors = append(professors, *professor)
 		}
-		professors = append(professors, *professor)
 	}
 	return professors, nil
 }

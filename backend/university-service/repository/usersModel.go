@@ -56,6 +56,7 @@ type Student struct {
 	CVBase64      string             `json:"cv_base64,omitempty"`
 	Skills        []string           `json:"skills,omitempty"`
 	Subjects      []Subject          `json:"subjects,omitempty"`
+	Graduated     bool               `bson:"graduated" json:"graduated,omitempty"`
 }
 
 type TuitionPayment struct {
@@ -91,6 +92,13 @@ type Internship struct {
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 }
 
+type GraduationRequest struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	StudentID   primitive.ObjectID `bson:"student_id" json:"student_id"`
+	RequestedAt time.Time          `bson:"requested_at" json:"requested_at"`
+	Status      Status             `bson:"status" json:"status"`
+	Comments    string             `bson:"comments" json:"comments,omitempty"`
+}
 type Notifications []*Notification
 type InternshipApplications []*InternshipApplication
 type Internships []*Internship

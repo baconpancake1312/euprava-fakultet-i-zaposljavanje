@@ -29,10 +29,10 @@ type Major struct {
 	DepartmentID *primitive.ObjectID `bson:"department_id,omitempty" json:"department_id,omitempty"`
 }
 type Subject struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name        string             `bson:"name" json:"name" validate:"required"`
-	MajorID     primitive.ObjectID `bson:"major_id,omitempty" json:"major_id,omitempty"`
-	ProfessorID primitive.ObjectID `bson:"professor_id,omitempty" json:"professor_id,omitempty"`
-	Year        int                `bson:"year" json:"year"`
-	HasPassed   bool               `bson:"has_passed,omitempty" json:"has_passed,omitempty"`
+	ID           primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
+	Name         string               `bson:"name" json:"name" validate:"required"`
+	MajorID      primitive.ObjectID   `bson:"major_id,omitempty" json:"major_id,omitempty"`
+	ProfessorIDs []primitive.ObjectID `bson:"professor_ids,omitempty" json:"professor_ids,omitempty"`
+	Year         int                  `bson:"year" json:"year"`
+	HasPassed    bool                 `bson:"has_passed,omitempty" json:"has_passed,omitempty"`
 }

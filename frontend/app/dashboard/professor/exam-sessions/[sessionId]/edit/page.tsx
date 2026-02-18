@@ -110,11 +110,6 @@ export default function EditExamSessionPage() {
                 Object.entries(submitData).filter(([key]) => allowedKeys.includes(key))
             ) as typeof submitData
 
-            // Log to verify what we're sending (remove in production)
-            console.log("Sending update request with data:", JSON.stringify(cleanedData, null, 2))
-            console.log("Cleaned data keys:", Object.keys(cleanedData))
-            console.log("Cleaned data values:", Object.values(cleanedData))
-
             await apiClient.updateExamSession(sessionId, cleanedData, token)
             router.push(`/dashboard/professor/exam-sessions/${sessionId}`)
         } catch (error) {
