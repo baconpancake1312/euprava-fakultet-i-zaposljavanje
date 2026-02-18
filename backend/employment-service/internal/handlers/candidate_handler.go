@@ -87,7 +87,11 @@ func (h *CandidateHandler) UpdateCandidate() gin.HandlerFunc {
 
 		err := h.service.UpdateCandidate(candidateId, &candidate)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -100,7 +104,11 @@ func (h *CandidateHandler) DeleteCandidate() gin.HandlerFunc {
 		candidateId := c.Param("id")
 		err := h.service.DeleteCandidate(candidateId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Candidate deleted successfully"})

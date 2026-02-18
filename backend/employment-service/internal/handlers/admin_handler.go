@@ -33,7 +33,11 @@ func (h *AdminHandler) ApproveEmployer() gin.HandlerFunc {
 
 		err := h.service.ApproveEmployer(employerId, adminId.(string))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -64,7 +68,11 @@ func (h *AdminHandler) RejectEmployer() gin.HandlerFunc {
 
 		err := h.service.RejectEmployer(employerId, adminId.(string))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -105,7 +113,11 @@ func (h *AdminHandler) ApproveJobListing() gin.HandlerFunc {
 
 		err := h.service.ApproveJobListing(jobId, adminId.(string))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -124,7 +136,11 @@ func (h *AdminHandler) RejectJobListing() gin.HandlerFunc {
 
 		err := h.service.RejectJobListing(jobId, adminId.(string))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 

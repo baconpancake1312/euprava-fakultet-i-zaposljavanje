@@ -3,12 +3,23 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"employment-service/models"
 	"employment-service/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
+
+// isNotFoundError checks if an error is a "not found" error
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "not found") || 
+		   strings.Contains(errMsg, "no ") && strings.Contains(errMsg, "found")
+}
 
 type UserHandler struct {
 	service *services.UserService
@@ -74,7 +85,11 @@ func (h *UserHandler) UpdateUser() gin.HandlerFunc {
 
 		err := h.service.UpdateUser(userID, &user)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -87,7 +102,11 @@ func (h *UserHandler) DeleteUser() gin.HandlerFunc {
 		userID := c.Param("id")
 		err := h.service.DeleteUser(userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})

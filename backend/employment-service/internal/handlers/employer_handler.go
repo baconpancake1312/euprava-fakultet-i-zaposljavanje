@@ -87,7 +87,11 @@ func (h *EmployerHandler) UpdateEmployer() gin.HandlerFunc {
 
 		err := h.service.UpdateEmployer(employerId, &employer)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -100,7 +104,11 @@ func (h *EmployerHandler) DeleteEmployer() gin.HandlerFunc {
 		employerId := c.Param("id")
 		err := h.service.DeleteEmployer(employerId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Employer deleted successfully"})

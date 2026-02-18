@@ -132,6 +132,8 @@ services:
       - UNIVERSITY_SERVICE_URL=http://university-service:8088
       - KEYCLOAK_URL=http://keycloak:8080
       - KEYCLOAK_REALM=euprava
+      - KEYCLOAK_CLIENT_ID=euprava-client
+      - KEYCLOAK_CLIENT_SECRET=olp0SqcHvKGvUnonpemuc3nTigYyHqLQ
     depends_on:
       employment_data_base:
         condition: service_healthy

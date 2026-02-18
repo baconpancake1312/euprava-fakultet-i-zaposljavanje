@@ -45,7 +45,11 @@ func (h *CompanyHandler) UpdateCompanyProfile() gin.HandlerFunc {
 
 		err := h.service.UpdateCompany(companyId, &company)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 

@@ -76,7 +76,11 @@ func (h *JobHandler) UpdateJobListing() gin.HandlerFunc {
 
 		err := h.service.UpdateJobListing(jobId, &job)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -89,7 +93,11 @@ func (h *JobHandler) DeleteJobListing() gin.HandlerFunc {
 		jobId := c.Param("id")
 		err := h.service.DeleteJobListing(jobId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Job listing deleted successfully"})
@@ -176,7 +184,10 @@ func (h *JobHandler) SaveJob() gin.HandlerFunc {
 		}
 
 		if c.Request.ContentLength > 0 {
-			c.BindJSON(&req)
+			if err := c.BindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
 		}
 		if req.CandidateID == "" {
 			req.CandidateID = c.Param("candidateId")
@@ -191,9 +202,18 @@ func (h *JobHandler) SaveJob() gin.HandlerFunc {
 			}
 		}
 
+		if req.CandidateID == "" || req.JobID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "candidate_id and job_id are required"})
+			return
+		}
+
 		err := h.service.SaveJob(req.CandidateID, req.JobID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Job saved"})

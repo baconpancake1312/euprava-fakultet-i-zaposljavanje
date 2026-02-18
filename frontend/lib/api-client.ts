@@ -1,25 +1,43 @@
 import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer } from "./types"
+import { ApiErrorHandler, type ApiError } from "./error-handler"
 
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost:8080"
 const EMPLOYMENT_API_URL = process.env.NEXT_PUBLIC_EMPLOYMENT_API_URL || "http://localhost:8089"
 const UNIVERSITY_API_URL = process.env.NEXT_PUBLIC_UNIVERSITY_API_URL || "http://localhost:8088"
 
 class ApiClient {
+  /**
+   * Handles API response and throws standardized errors
+   */
+  private async handleResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return response.json()
+  }
+
+  /**
+   * Handles optional responses (returns empty array/object on error)
+   */
+  private async handleOptionalResponse<T>(
+    response: Response,
+    defaultValue: T
+  ): Promise<T> {
+    if (!response.ok) {
+      // Silently return default value for optional endpoints
+      return defaultValue
+    }
+    return response.json()
+  }
   // Get user notifications from university service
   async getUserNotifications(userId: string, token?: string) {
     try {
       const response = await fetch(`${UNIVERSITY_API_URL}/notifications/user/${userId}`, {
         headers: this.getAuthHeaders(token),
       })
-      
-      if (!response.ok) {
-        console.error("Failed to fetch notifications:", response.statusText)
-        return []
-      }
-      
-      return await response.json()
+      return await this.handleOptionalResponse(response, [])
     } catch (error) {
-      console.error("Error fetching notifications:", error)
+      // Silently fail for optional notifications
       return []
     }
   }
@@ -29,9 +47,7 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-    
-    if (!response.ok) throw new Error("Failed to mark notification as seen")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteNotification(notificationId: string, token: string) {
@@ -39,8 +55,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-    
-    if (!response.ok) throw new Error("Failed to delete notification")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
     return response.ok
   }
   private getAuthHeaders(token?: string) {
@@ -62,16 +79,14 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-    if (!response.ok) throw new Error("Failed to send message")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getMessagesBetweenUsers(userAId: string, userBId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/messages/${userAId}/${userBId}`, {
       headers: this.getAuthHeaders(token),
     })
-    if (!response.ok) throw new Error("Failed to fetch messages")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async createExamSession(data: any, token: string) {
@@ -80,9 +95,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create exam session")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateExamSession(id: string, data: any, token: string) {
@@ -94,18 +107,12 @@ class ApiClient {
       max_students: typeof data.max_students === "number" ? data.max_students : parseInt(String(data.max_students || 1), 10)
     }
     
-    const requestBody = JSON.stringify(cleanData)
-    console.log("API Client - Request body being sent:", requestBody)
-    console.log("API Client - Clean data object:", cleanData)
-    
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
-      body: requestBody,
+      body: JSON.stringify(cleanData),
     })
-
-    if (!response.ok) throw new Error("Failed to update exam session")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteExamSession(id: string, token: string) {
@@ -113,8 +120,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete exam session")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   async registerForExamSession(data: any, token: string) {
@@ -123,12 +131,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Failed to register for exam session" }))
-      throw new Error(errorData.error || "Failed to register for exam session")
-    }
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deregisterFromExamSession(studentId: string, courseId: string, token: string) {
@@ -136,36 +139,46 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to deregister from exam session")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   async getStudentExamRegistrations(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/student/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch student exam registrations")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getPassedCorusesForStudent(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/subjects/passed/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch courses")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getAllExamGradesForStudent(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/student/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch courses")
-    return response.json()
+    return this.handleResponse(response)
   }
+  // Exam Session methods
+  async getAllExamSessions(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getExamSessionById(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)
@@ -187,9 +200,7 @@ class ApiClient {
     const response = await fetch(`${UNIVERSITY_API_URL}/exams/calendar`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch exam calendar")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async manageExams(data: any, token: string) {
@@ -198,9 +209,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to manage exams")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async cancelExam(id: string, token: string) {
@@ -208,9 +217,7 @@ class ApiClient {
       method: "POST",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to cancel exam")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   // University Service APIs - Administrators
@@ -218,8 +225,7 @@ class ApiClient {
     const response = await fetch(`${UNIVERSITY_API_URL}/administrators`, {
       headers: this.getAuthHeaders(token),
     })
-    if (!response.ok) throw new Error("Failed to mark messages as read")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   // Employment Service APIs - Interviews
@@ -229,24 +235,21 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-    if (!response.ok) throw new Error("Failed to schedule interview")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getInterviewsByCandidate(candidateId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/interviews/candidate/${candidateId}`, {
       headers: this.getAuthHeaders(token),
     })
-    if (!response.ok) throw new Error("Failed to fetch candidate interviews")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getInterviewsByEmployer(employerId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/interviews/employer/${employerId}`, {
       headers: this.getAuthHeaders(token),
     })
-    if (!response.ok) throw new Error("Failed to fetch employer interviews")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateInterviewStatus(interviewId: string, status: string, token: string) {
@@ -255,8 +258,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify({ status }),
     })
-    if (!response.ok) throw new Error("Failed to update interview status")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   // Candidate Saved Jobs - Updated to match Postman collection
@@ -276,7 +278,9 @@ class ApiClient {
         method: "POST",
         headers: this.getAuthHeaders(token),
       });
-      if (!legacyResponse.ok) throw new Error("Failed to save job");
+      if (!legacyResponse.ok) {
+        await ApiErrorHandler.handleResponse(legacyResponse);
+      }
       return legacyResponse.json();
     }
     return response.json();
@@ -294,7 +298,9 @@ class ApiClient {
         method: "DELETE",
         headers: this.getAuthHeaders(token),
       });
-      if (!legacyResponse.ok) throw new Error("Failed to unsave job");
+      if (!legacyResponse.ok) {
+        await ApiErrorHandler.handleResponse(legacyResponse);
+      }
       return legacyResponse.json();
     }
     return response.json();
@@ -310,7 +316,9 @@ class ApiClient {
       const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/saved-jobs`, {
         headers: this.getAuthHeaders(token),
       });
-      if (!legacyResponse.ok) throw new Error("Failed to fetch saved jobs");
+      if (!legacyResponse.ok) {
+        await ApiErrorHandler.handleResponse(legacyResponse);
+      }
       return legacyResponse.json();
     }
     const data = await response.json();
@@ -321,16 +329,14 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/recommendations?limit=${limit}`, {
       headers: this.getAuthHeaders(token),
     });
-    if (!response.ok) throw new Error("Failed to fetch job recommendations");
-    return response.json();
+    return this.handleResponse(response);
   }
 
   async getCandidateApplicationStats(candidateId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}/stats`, {
       headers: this.getAuthHeaders(token),
     });
-    if (!response.ok) throw new Error("Failed to fetch application statistics");
-    return response.json();
+    return this.handleResponse(response);
   }
 
   // Employment Service APIs - Internships
@@ -338,16 +344,14 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/internships`, {
       headers: this.getAuthHeaders(token),
     });
-    if (!response.ok) throw new Error("Failed to fetch internships");
-    return response.json();
+    return this.handleResponse(response);
   }
 
   async getInternshipsForStudent(studentId: string, token?: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/internships/student/${studentId}`, {
       headers: this.getAuthHeaders(token),
     });
-    if (!response.ok) throw new Error("Failed to fetch internships for student");
-    return response.json();
+    return this.handleResponse(response);
   }
 
   // Auth Service APIs
@@ -359,8 +363,7 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "Login failed" }))
-      throw new Error(error.message || "Login failed")
+      await ApiErrorHandler.handleResponse(response)
     }
 
     const data = await response.json()
@@ -380,18 +383,8 @@ class ApiClient {
       body: JSON.stringify(data),
     })
 
-    // Handle non-OK responses
     if (!response.ok) {
-      let errorMessage = "Registration failed"
-      try {
-        const errorData = await response.json()
-        // Your API sends { "error": "message" }
-        errorMessage = errorData.error || errorMessage
-      } catch {
-        // fallback in case JSON parsing fails
-        errorMessage = "Registration failed (invalid server response)"
-      }
-      throw new Error(errorMessage)
+      await ApiErrorHandler.handleResponse(response)
     }
 
     const responseData = await response.json()
@@ -411,7 +404,12 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      throw new Error("Logout failed")
+      // Don't throw error for logout - just log it
+      try {
+        await ApiErrorHandler.handleResponse(response)
+      } catch {
+        // Silently fail logout errors
+      }
     }
   }
 
@@ -421,9 +419,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update user profile")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   // Employment Service APIs - Job Listings
@@ -433,7 +429,7 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      throw new Error("Failed to fetch job listings")
+      await ApiErrorHandler.handleResponse(response)
     }
 
     const data = await response.json()
@@ -453,7 +449,9 @@ class ApiClient {
       }
     )
 
-    if (!response.ok) throw new Error("Failed to search jobs")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
     const data = await response.json()
     return {
       jobs: data.jobs || [],
@@ -471,7 +469,9 @@ class ApiClient {
       }
     )
 
-    if (!response.ok) throw new Error("Failed to search jobs by internship")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
     const data = await response.json()
     return {
       jobs: data.jobs || [],
@@ -486,7 +486,9 @@ class ApiClient {
       headers: this.getAuthHeaders(),
     })
 
-    if (!response.ok) throw new Error("Failed to fetch active jobs")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
     const data = await response.json()
     return data.active_jobs || []
   }
@@ -496,7 +498,9 @@ class ApiClient {
       headers: this.getAuthHeaders(),
     })
 
-    if (!response.ok) throw new Error("Failed to fetch trending jobs")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
     const data = await response.json()
     return data.trending_jobs || []
   }
@@ -505,9 +509,7 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async createJobListing(data: any, token: string) {
@@ -516,9 +518,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateJobListing(id: string, data: any, token: string) {
@@ -527,9 +527,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteJobListing(id: string, token: string) {
@@ -537,9 +535,10 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete job listing")
-    return response.json()
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return response.ok
   }
 
   // Employment Service APIs - Applications
@@ -547,27 +546,21 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch applications")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getApplicationsByCandidate(candidateId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidate applications")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getApplicationsByEmployer(employerId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/employer/${employerId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch employer applications")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async acceptApplication(applicationId: string, token: string) {
@@ -575,9 +568,7 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to accept application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async rejectApplication(applicationId: string, token: string) {
@@ -585,18 +576,14 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to reject application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getApplicationById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/${id}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async applyToJob(listingId: string, data: any, token: string) {
@@ -605,9 +592,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify({ ...data, listing_id: listingId }),
     })
-
-    if (!response.ok) throw new Error("Failed to apply to job")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateApplication(id: string, data: any, token: string) {
@@ -616,9 +601,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteApplication(id: string, token: string) {
@@ -626,8 +609,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete application")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   // Employment Service APIs - Employers
@@ -637,7 +621,7 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      throw new Error("Failed to fetch employers")
+      await ApiErrorHandler.handleResponse(response)
     }
 
     const data = await response.json()
@@ -653,18 +637,14 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getEmployerByUserId(userId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers/user/${userId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async createEmployer(data: any, token: string) {
@@ -673,9 +653,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateEmployer(id: string, data: any, token: string) {
@@ -684,9 +662,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteEmployer(id: string, token: string) {
@@ -694,8 +670,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete employer")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   // Employment Service APIs - Companies
@@ -703,18 +680,14 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/companies`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch companies")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getCompanyByEmployer(employerId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/companies/employer/${employerId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch company profile")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateCompany(companyId: string, data: any, token: string) {
@@ -723,9 +696,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update company profile")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   // Employment Service APIs - Candidates
@@ -733,27 +704,21 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidates")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getCandidateById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${id}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidate")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getCandidateByUserId(userId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/user/${userId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidate by user ID")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async createCandidate(data: any, token: string) {
@@ -762,9 +727,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create candidate")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateCandidate(id: string, data: any, token: string) {
@@ -773,9 +736,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update candidate")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteCandidate(id: string, token: string) {
@@ -783,8 +744,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete candidate")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   // Employment Service APIs - Admin Approve/Reject
@@ -793,9 +755,7 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to approve job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async rejectJobListing(id: string, token: string) {
@@ -803,9 +763,7 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to reject job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async approveEmployer(id: string, token: string) {
@@ -813,9 +771,7 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to approve employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async rejectEmployer(id: string, token: string) {
@@ -823,45 +779,35 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to reject employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getPendingJobListings(token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/pending`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch pending job listings")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getPendingEmployers(token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/pending`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch pending employers")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getEmployerStats(token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/stats`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch employer stats")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getApplicationsForJob(jobId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${jobId}/applications`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch applications for job")
-    return response.json()
+    return this.handleResponse(response)
   }
 }
 

@@ -138,7 +138,11 @@ func (h *ApplicationHandler) UpdateApplication() gin.HandlerFunc {
 
 		err := h.service.UpdateApplication(appId, &application)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -151,7 +155,11 @@ func (h *ApplicationHandler) AcceptApplication() gin.HandlerFunc {
 		appId := c.Param("id")
 		err := h.service.AcceptApplication(appId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -179,7 +187,11 @@ func (h *ApplicationHandler) RejectApplication() gin.HandlerFunc {
 		appId := c.Param("id")
 		err := h.service.RejectApplication(appId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
@@ -207,7 +219,11 @@ func (h *ApplicationHandler) DeleteApplication() gin.HandlerFunc {
 		appId := c.Param("id")
 		err := h.service.DeleteApplication(appId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Application deleted successfully"})

@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -23,15 +25,30 @@ func Authentication() gin.HandlerFunc {
 		clientToken := c.Request.Header.Get("Authorization")
 		clientToken = strings.Replace(clientToken, "Bearer ", "", 1)
 		if clientToken == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "No Authorization header provided"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No Authorization header provided"})
 			c.Abort()
 			return
 		}
 
 		if keycloakURL != "" && keycloakRealm != "" {
-			keycloakUserInfo, keycloakErr := validateKeycloakToken(clientToken)
+			var keycloakUserInfo map[string]interface{}
+			var keycloakErr error
+			
+			// Try to decode JWT token directly first (faster, no network call)
+			jwtUserInfo, jwtErr := decodeKeycloakJWT(clientToken)
+			if jwtErr == nil && jwtUserInfo != nil {
+				// JWT decode successful, use it
+				keycloakUserInfo = jwtUserInfo
+			} else {
+				// Fallback to Keycloak API validation
+				keycloakUserInfo, keycloakErr = validateKeycloakToken(clientToken)
+				if keycloakErr != nil {
+					// Log error for debugging but continue to legacy validation
+					fmt.Printf("[Keycloak Auth] Token validation failed: %v\n", keycloakErr)
+				}
+			}
+			
 			if keycloakErr == nil && keycloakUserInfo != nil {
-
 				email, _ := keycloakUserInfo["email"].(string)
 				preferredUsername, _ := keycloakUserInfo["preferred_username"].(string)
 				if email == "" {
@@ -42,10 +59,44 @@ func Authentication() gin.HandlerFunc {
 				lastName, _ := keycloakUserInfo["family_name"].(string)
 				sub, _ := keycloakUserInfo["sub"].(string)
 				
-				userType := "CANDIDATE"
+				userType := "CANDIDATE" // default
+				// Try to get user_type from token claims (if mapper is configured)
 				if userTypeAttr, ok := keycloakUserInfo["user_type"].([]interface{}); ok && len(userTypeAttr) > 0 {
 					if ut, ok := userTypeAttr[0].(string); ok {
-						userType = ut
+						userType = strings.ToUpper(ut)
+					}
+				} else if userTypeStr, ok := keycloakUserInfo["user_type"].(string); ok {
+					userType = strings.ToUpper(userTypeStr)
+				} else {
+					// Fallback: Try to infer from username pattern (for test users)
+					username := preferredUsername
+					if strings.HasPrefix(username, "testadmin") {
+						userType = "ADMIN"
+					} else if strings.HasPrefix(username, "testemployer") {
+						userType = "EMPLOYER"
+					} else if strings.HasPrefix(username, "testcandidate") {
+						userType = "CANDIDATE"
+					} else {
+						// Try to get from realm roles or resource access
+						if realmAccess, ok := keycloakUserInfo["realm_access"].(map[string]interface{}); ok {
+							if roles, ok := realmAccess["roles"].([]interface{}); ok {
+								for _, role := range roles {
+									if roleStr, ok := role.(string); ok {
+										roleUpper := strings.ToUpper(roleStr)
+										if roleUpper == "ADMIN" {
+											userType = "ADMIN"
+											break
+										} else if roleUpper == "EMPLOYER" {
+											userType = "EMPLOYER"
+											break
+										} else if roleUpper == "CANDIDATE" {
+											userType = "CANDIDATE"
+											break
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 
@@ -64,7 +115,7 @@ func Authentication() gin.HandlerFunc {
 
 		claims, err := helper.ValidateToken(clientToken)
 		if err != "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err})
 			c.Abort()
 			return
 		}
@@ -89,6 +140,7 @@ func validateKeycloakToken(token string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("Keycloak configuration not set")
 	}
 
+	// Try userinfo endpoint first
 	url := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/userinfo", keycloakURL, keycloakRealm)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -97,21 +149,148 @@ func validateKeycloakToken(token string) (map[string]interface{}, error) {
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to Keycloak: %v", err)
 	}
 	defer resp.Body.Close()
 
+	// If userinfo fails, try token introspection
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid token: status %d", resp.StatusCode)
+		// Try token introspection as fallback
+		return validateKeycloakTokenIntrospection(token)
 	}
 
 	var userInfo map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, fmt.Errorf("failed to decode userinfo: %v", err)
+	}
+
+	return userInfo, nil
+}
+
+func validateKeycloakTokenIntrospection(token string) (map[string]interface{}, error) {
+	if keycloakURL == "" || keycloakRealm == "" {
+		return nil, fmt.Errorf("Keycloak configuration not set")
+	}
+
+	// Get client credentials from environment or use default
+	clientID := os.Getenv("KEYCLOAK_CLIENT_ID")
+	clientSecret := os.Getenv("KEYCLOAK_CLIENT_SECRET")
+	
+	if clientID == "" {
+		clientID = "euprava-client"
+	}
+	if clientSecret == "" {
+		clientSecret = "olp0SqcHvKGvUnonpemuc3nTigYyHqLQ"
+	}
+
+	introspectURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token/introspect", keycloakURL, keycloakRealm)
+
+	// Properly URL-encode the form data
+	formData := url.Values{}
+	formData.Set("token", token)
+	formData.Set("client_id", clientID)
+	formData.Set("client_secret", clientSecret)
+	
+	req, err := http.NewRequest("POST", introspectURL, strings.NewReader(formData.Encode()))
+	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to introspect token: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes := make([]byte, 1024)
+		resp.Body.Read(bodyBytes)
+		return nil, fmt.Errorf("token introspection failed: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var introspectionResult map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&introspectionResult); err != nil {
+		return nil, fmt.Errorf("failed to decode introspection result: %v", err)
+	}
+
+	// Check if token is active
+	active, ok := introspectionResult["active"].(bool)
+	if !ok || !active {
+		return nil, fmt.Errorf("token is not active")
+	}
+
+	// Return the introspection result which contains user info
+	// Note: user_type might not be in introspection result, will be handled in Authentication()
+	return introspectionResult, nil
+}
+
+// decodeKeycloakJWT decodes a JWT token without verification to extract user info
+// This is faster than calling Keycloak API and works even if Keycloak is temporarily unavailable
+func decodeKeycloakJWT(token string) (map[string]interface{}, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid JWT token format")
+	}
+
+	// Decode the payload (second part)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode JWT payload: %v", err)
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return nil, fmt.Errorf("failed to parse JWT claims: %v", err)
+	}
+
+	// Check if token is expired
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < time.Now().Unix() {
+			return nil, fmt.Errorf("token is expired")
+		}
+	}
+
+	// Verify issuer matches expected Keycloak realm
+	expectedIssuer := fmt.Sprintf("%s/realms/%s", keycloakURL, keycloakRealm)
+	if iss, ok := claims["iss"].(string); ok && iss != expectedIssuer {
+		// Allow localhost:8090 as well (for tokens issued externally)
+		if !strings.Contains(iss, keycloakRealm) {
+			return nil, fmt.Errorf("token issuer mismatch")
+		}
+	}
+
+	// Extract user info from claims
+	userInfo := make(map[string]interface{})
+	
+	// Copy relevant claims to userInfo
+	if email, ok := claims["email"].(string); ok {
+		userInfo["email"] = email
+	}
+	if preferredUsername, ok := claims["preferred_username"].(string); ok {
+		userInfo["preferred_username"] = preferredUsername
+	}
+	if givenName, ok := claims["given_name"].(string); ok {
+		userInfo["given_name"] = givenName
+	}
+	if familyName, ok := claims["family_name"].(string); ok {
+		userInfo["family_name"] = familyName
+	}
+	if sub, ok := claims["sub"].(string); ok {
+		userInfo["sub"] = sub
+	}
+	
+	// Copy realm_access for role extraction
+	if realmAccess, ok := claims["realm_access"].(map[string]interface{}); ok {
+		userInfo["realm_access"] = realmAccess
 	}
 
 	return userInfo, nil
