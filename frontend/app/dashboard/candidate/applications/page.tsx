@@ -26,14 +26,27 @@ export default function CandidateApplicationsPage() {
       }
 
       try {
-        // First, get the candidate ID from the user ID
-        const candidate = await apiClient.getCandidateByUserId(user.id, token) as any
+        // Find the candidate by matching email
+        console.log("Finding candidate for user:", user.email)
+        const candidates = await apiClient.getAllCandidates(token) as any[]
+        const candidate = candidates.find((c: any) => 
+          c.email === user.email || 
+          c.id === user.id ||
+          c.user_id === user.id
+        )
         
-        if (candidate && candidate.id) {
-          setCandidateId(candidate.id)
-          
-          // Now fetch applications using the candidate ID
-          const data = await apiClient.getApplicationsByCandidate(candidate.id, token)
+        if (!candidate || !candidate.id) {
+          setError("Candidate profile not found. Please complete your profile first.")
+          setLoading(false)
+          return
+        }
+        
+        const candidateId = candidate.id
+        console.log("Loading applications for candidate ID:", candidateId)
+        setCandidateId(candidateId)
+        
+        // Fetch applications using the candidate ID
+        const data = await apiClient.getApplicationsByCandidate(candidateId, token)
           
           // Ensure data is an array before processing
           const applicationsData = Array.isArray(data) ? data : []
@@ -80,9 +93,6 @@ export default function CandidateApplicationsPage() {
             }
             return applicationsWithDetails
           })
-        } else {
-          setError("Candidate profile not found. Please complete your profile first.")
-        }
       } catch (err) {
         console.error("Error loading applications:", err)
         setError(err instanceof Error ? err.message : "Failed to load applications")

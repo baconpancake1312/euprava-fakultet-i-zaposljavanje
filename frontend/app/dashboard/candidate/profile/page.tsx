@@ -25,7 +25,8 @@ import {
   Plus,
   Edit,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Download
 } from "lucide-react"
 
 export default function CandidateProfilePage() {
@@ -66,10 +67,19 @@ export default function CandidateProfilePage() {
 
       setLoadingData(true)
       try {
-        console.log("Fetching candidate for user ID:", user.id)
-        // First get the candidate by user ID to get the candidate ID
-        const candidate = await apiClient.getCandidateByUserId(user.id, token) as any
-        console.log("Candidate response:", candidate)
+        console.log("Fetching all candidates to find match for user email:", user.email)
+        
+        // Get all candidates and find the one matching the user's email
+        const candidates = await apiClient.getAllCandidates(token) as any[]
+        console.log("All candidates:", candidates)
+        
+        const candidate = candidates.find((c: any) => 
+          c.email === user.email || 
+          c.id === user.id ||
+          c.user_id === user.id
+        )
+        
+        console.log("Matched candidate:", candidate)
         
         if (candidate && candidate.id) {
           console.log("Found candidate with ID:", candidate.id)
@@ -122,6 +132,50 @@ export default function CandidateProfilePage() {
     }
   }
 
+  const downloadCV = () => {
+    if (!formData.cv_base64) return
+
+    try {
+      // Extract the base64 data (remove data:application/pdf;base64, prefix if present)
+      const base64Data = formData.cv_base64.includes(',') 
+        ? formData.cv_base64.split(',')[1] 
+        : formData.cv_base64
+
+      // Convert base64 to blob
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      
+      // Determine file type from base64 string
+      let mimeType = 'application/pdf'
+      if (formData.cv_base64.includes('application/pdf')) {
+        mimeType = 'application/pdf'
+      } else if (formData.cv_base64.includes('application/msword') || formData.cv_base64.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+        mimeType = formData.cv_base64.includes('vnd.openxmlformats') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/msword'
+      }
+      
+      const blob = new Blob([byteArray], { type: mimeType })
+      const url = window.URL.createObjectURL(blob)
+      
+      // Create download link
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `CV_${user?.first_name || 'Candidate'}_${user?.last_name || ''}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Error downloading CV:", error)
+      setError("Failed to download CV. Please try again.")
+    }
+  }
+
   const addSkill = () => {
     if (formData.skillInput.trim() && !formData.skills.includes(formData.skillInput.trim())) {
       setFormData((prev) => ({
@@ -160,18 +214,25 @@ export default function CandidateProfilePage() {
       }
 
       if (isCreating || !candidateId) {
-        // Create new candidate profile
-        console.log("Creating candidate profile:", updateData)
+        // Create new candidate profile with user ID as the candidate ID
+        console.log("Creating candidate profile for user:", user.id)
+        console.log("Profile data:", updateData)
         const newCandidate = await apiClient.createCandidate(
           {
-            user_id: user.id,
+            id: user.id,  // Set the candidate ID to match the auth user ID
             ...updateData,
           },
           token
         ) as any
-        setCandidateId(newCandidate?.id || newCandidate?._id || null)
+        console.log("Created candidate:", newCandidate)
+        const createdId = newCandidate?.id || newCandidate?._id || user.id
+        setCandidateId(createdId)
         setIsCreating(false)
+        setIsEditing(false)
         setSuccess(true)
+        
+        // Reload the profile to show the saved data
+        setTimeout(() => window.location.reload(), 1000)
       } else {
         // Update existing profile
         console.log("Updating candidate:", candidateId, updateData)
@@ -441,9 +502,22 @@ export default function CandidateProfilePage() {
                       className="h-11 cursor-pointer"
                     />
                     {formData.cv_base64 && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span>CV uploaded and ready</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg flex-1">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span>CV uploaded and ready</span>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={downloadCV}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          disabled={loading}
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </Button>
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
@@ -609,9 +683,20 @@ export default function CandidateProfilePage() {
                     <div>
                       <Label className="text-sm text-muted-foreground">CV / Resume</Label>
                       {formData.cv_base64 ? (
-                        <div className="flex items-center gap-2 text-sm p-3 bg-muted/30 rounded-lg mt-1">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span>CV uploaded and available</span>
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center gap-2 text-sm p-3 bg-muted/30 rounded-lg flex-1">
+                            <FileText className="h-4 w-4 text-primary" />
+                            <span>CV uploaded and available</span>
+                          </div>
+                          <Button
+                            onClick={downloadCV}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download CV
+                          </Button>
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground mt-1">No CV uploaded</p>

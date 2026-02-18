@@ -16,11 +16,11 @@ func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitiv
 	defer cancel()
 	candidateCollection := OpenCollection(er.cli, "candidates")
 
-	if candidate.User.ID.IsZero() {
+	if !candidate.User.ID.IsZero() {
+		candidate.ID = candidate.User.ID
+	} else if candidate.ID.IsZero() {
 		candidate.ID = primitive.NewObjectID()
 		candidate.User.ID = candidate.ID
-	} else {
-		candidate.ID = candidate.User.ID
 	}
 
 	if candidate.Major == "" {

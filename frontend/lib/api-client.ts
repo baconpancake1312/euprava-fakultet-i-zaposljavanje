@@ -767,6 +767,20 @@ class ApiClient {
     return this.handleResponse(response)
   }
 
+  async getCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getAllCandidates(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
   async createCandidate(data: any, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates`, {
       method: "POST",
