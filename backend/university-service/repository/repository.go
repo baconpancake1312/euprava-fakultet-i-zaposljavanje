@@ -337,7 +337,7 @@ func (r *Repository) GetProfessorByID(professorID string) (*Professor, error) {
 
 func (r *Repository) UpdateProfessor(professor *Professor) error {
 	r.logger.Println("Updating professor with ID:", professor.ID.Hex())
-	
+
 	// Get the current professor to compare subjects
 	currentProfessor, err := r.GetProfessorByID(professor.ID.Hex())
 	if err != nil {
@@ -553,6 +553,7 @@ func (r *Repository) CreateSubject(subject *Subject) error {
 	}
 	return nil
 }
+
 // updateDepartmentStaffForSubject updates the department's staff list based on a subject assignment/removal
 func (r *Repository) updateDepartmentStaffForSubject(subjectID primitive.ObjectID, professorID primitive.ObjectID, add bool) error {
 	// Get the subject to find its major
@@ -628,7 +629,7 @@ func (r *Repository) RemoveSubjectFromProfessor(professorID primitive.ObjectID, 
 		}
 	}
 	professor.Subjects = newSubjects
-	
+
 	// Update department staff - remove professor from department if needed
 	// Get the subject to find its major and department
 	subject, err := r.GetSubjectByID(subjectID)
@@ -655,7 +656,7 @@ func (r *Repository) RemoveSubjectFromProfessor(professorID primitive.ObjectID, 
 			}
 		}
 	}
-	
+
 	return r.UpdateProfessor(professor)
 }
 func (r *Repository) AddSubjectToProfessor(subjectIDs []primitive.ObjectID, professorID string) error {
@@ -1373,7 +1374,7 @@ func (r *Repository) GetExamSessionsByStudent(studentID primitive.ObjectID) ([]E
 		return nil, err
 	}
 	majorId := student.MajorID
-	cursor, err := collection.Find(context.TODO(), bson.M{"subject.major_id": majorId})
+	cursor, err := collection.Find(context.TODO(), bson.M{"subject.major_id": majorId, "subject.year": student.Year})
 	if err != nil {
 		return nil, err
 	}
@@ -1603,9 +1604,19 @@ func (r *Repository) GetExamGradeByStudentAndExam(studentID, examSessionID primi
 	collection := r.getCollection("exam_grades")
 	var grade ExamGrade
 	err := collection.FindOne(context.TODO(), bson.M{
-		"student._id":      studentID,
-		"exam_session._id": examSessionID,
+		"student._id":     studentID,
+		"exam_session_id": examSessionID,
 	}).Decode(&grade)
+	r.logger.Println("Getting exam grade by student and exam: ")
+	r.logger.Println("err: ", err)
+	r.logger.Println("studentID: ", studentID.Hex())
+	r.logger.Println("examSessionID: ", examSessionID.Hex())
+	r.logger.Println("grade: ", grade.Grade)
+	r.logger.Println("grade subject id: ", grade.SubjectId.Hex())
+	r.logger.Println("grade exam session id: ", grade.ExamSessionId.Hex())
+	r.logger.Println("grade exam registration id: ", grade.ExamRegistrationId.Hex())
+	r.logger.Println("grade student id: ", grade.Student.ID.Hex())
+
 	if err != nil {
 		return nil, err
 	}
@@ -1741,7 +1752,7 @@ func (r *Repository) GetSubjectsFromMajor(id primitive.ObjectID) ([]Subject, err
 }
 func (r *Repository) GetSubjectsByProfessorId(professorID primitive.ObjectID) ([]Subject, error) {
 	collection := r.getCollection("subjects")
-	cursor, err := collection.Find(context.TODO(), bson.M{"professor_id": professorID})
+	cursor, err := collection.Find(context.TODO(), bson.M{"professor_ids": bson.M{"$in": []primitive.ObjectID{professorID}}})
 	if err != nil {
 		return nil, err
 	}
