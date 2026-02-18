@@ -1903,6 +1903,8 @@ type createMajorRequest struct {
 	Name         string                 `json:"name"`
 	DepartmentID string                 `json:"department_id"`
 	Subjects     []repositories.Subject `json:"subjects,omitempty"`
+	Duration     int                    `json:"duration"`
+	Description  string                 `json:"description"`
 }
 
 func (ctrl *Controllers) CreateMajor(c *gin.Context) {
@@ -1913,8 +1915,10 @@ func (ctrl *Controllers) CreateMajor(c *gin.Context) {
 	}
 
 	major := &repositories.Major{
-		Name:     req.Name,
-		Subjects: req.Subjects,
+		Name:        req.Name,
+		Subjects:    req.Subjects,
+		Duration:    req.Duration,
+		Description: req.Description,
 	}
 	if req.DepartmentID != "" {
 		depID, err := primitive.ObjectIDFromHex(req.DepartmentID)

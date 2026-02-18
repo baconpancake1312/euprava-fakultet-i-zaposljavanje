@@ -27,6 +27,8 @@ type Major struct {
 	Name         string              `bson:"name" json:"name"`
 	Subjects     []Subject           `bson:"subjects,omitempty" json:"subjects,omitempty"`
 	DepartmentID *primitive.ObjectID `bson:"department_id,omitempty" json:"department_id,omitempty"`
+	Duration     int                 `bson:"duration" json:"duration"`
+	Description  string              `bson:"description" json:"description"`
 }
 type Subject struct {
 	ID           primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
