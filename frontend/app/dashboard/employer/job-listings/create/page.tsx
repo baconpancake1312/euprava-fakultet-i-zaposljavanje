@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
@@ -18,7 +18,7 @@ import { Loader2 } from "lucide-react"
 
 export default function CreateJobListingPage() {
   const router = useRouter()
-  const { user, token } = useAuth()
+  const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
   const [formData, setFormData] = useState({
     position: "",
     description: "",
@@ -27,6 +27,45 @@ export default function CreateJobListingPage() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [employerId, setEmployerId] = useState<string | null>(null)
+  const [checkingEmployer, setCheckingEmployer] = useState(true)
+
+  useEffect(() => {
+    const loadEmployer = async () => {
+      if (authLoading) return
+
+      if (!isAuthenticated || !token || !user) {
+        setCheckingEmployer(false)
+        setError("Please log in to create a job listing")
+        return
+      }
+
+      try {
+        const employer = await apiClient.getEmployerByUserId(user.id, token)
+        
+        if (!employer || !employer.id) {
+          setError("Employer profile not found. Please complete your profile first.")
+          setCheckingEmployer(false)
+          return
+        }
+
+        if (employer.approval_status !== "approved" && employer.approval_status !== "Approved") {
+          setError("Your employer profile must be approved before you can create job listings.")
+          setCheckingEmployer(false)
+          return
+        }
+
+        setEmployerId(employer.id)
+      } catch (err) {
+        console.error("Error loading employer:", err)
+        setError("Failed to load employer profile. Please complete your profile first.")
+      } finally {
+        setCheckingEmployer(false)
+      }
+    }
+
+    loadEmployer()
+  }, [authLoading, isAuthenticated, token, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,19 +73,21 @@ export default function CreateJobListingPage() {
     setLoading(true)
 
     try {
-      if (!token || !user?.id) throw new Error("Not authenticated")
+      if (!token || !employerId) throw new Error("Not authenticated")
 
       const data = {
-        poster_id: user.id,
+        poster_id: employerId,
         position: formData.position,
         description: formData.description,
         expire_at: formData.expire_at ? new Date(formData.expire_at).toISOString() : undefined,
         is_internship: formData.is_internship,
       }
 
+      console.log("Creating job listing:", data)
       await apiClient.createJobListing(data, token)
       router.push("/dashboard/employer/job-listings")
     } catch (err) {
+      console.error("Error creating job listing:", err)
       setError(err instanceof Error ? err.message : "Failed to create job listing")
     } finally {
       setLoading(false)
@@ -55,6 +96,33 @@ export default function CreateJobListingPage() {
 
   const updateField = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // Show loading while auth loads
+  if (authLoading || checkingEmployer) {
+    return (
+      <DashboardLayout title="Create Job Listing">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated or employer not ready
+  if (!isAuthenticated || !token || !user || !employerId) {
+    return (
+      <DashboardLayout title="Create Job Listing">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>{error || "Please log in and complete your employer profile first"}</AlertDescription>
+          </Alert>
+          <Button onClick={() => router.push("/dashboard/employer")}>
+            Go to Dashboard
+          </Button>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (

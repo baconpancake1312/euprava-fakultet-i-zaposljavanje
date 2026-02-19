@@ -816,14 +816,20 @@ class ApiClient {
 
   // Employment Service APIs - Admin Approve/Reject
   async approveJobListing(id: string, token: string) {
+    console.log(`[API] Approving job listing: ${id}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`)
+    console.log(`[API] Token present:`, !!token)
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-    return this.handleResponse(response)
+    const data = await this.handleResponse(response)
+    console.log(`[API] Approve job response:`, data)
+    return data
   }
 
   async rejectJobListing(id: string, token: string) {
+    console.log(`[API] Rejecting job listing: ${id}`)
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/${id}/reject`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
@@ -832,19 +838,50 @@ class ApiClient {
   }
 
   async approveEmployer(id: string, token: string) {
+    console.log(`[API] Approving employer: ${id}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`)
+    console.log(`[API] Token present:`, !!token)
+    console.log(`[API] Headers:`, this.getAuthHeaders(token))
+    
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-    return this.handleResponse(response)
+    
+    console.log(`[API] Response status:`, response.status)
+    console.log(`[API] Response ok:`, response.ok)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Error response:`, errorText)
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log(`[API] Approve employer response:`, data)
+    return data
   }
 
   async rejectEmployer(id: string, token: string) {
+    console.log(`[API] Rejecting employer: ${id}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/employers/${id}/reject`)
+    
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/${id}/reject`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-    return this.handleResponse(response)
+    
+    console.log(`[API] Response status:`, response.status)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Error response:`, errorText)
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log(`[API] Reject employer response:`, data)
+    return data
   }
 
   async getPendingJobListings(token: string) {

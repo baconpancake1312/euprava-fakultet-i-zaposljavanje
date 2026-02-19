@@ -13,27 +13,46 @@ import { Badge } from "@/components/ui/badge"
 
 export default function EmployerJobListingsPage() {
   const router = useRouter()
-  const { token, user } = useAuth()
+  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [employerId, setEmployerId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (token && user?.id) {
-      loadListings()
+    const loadData = async () => {
+      if (authLoading) return
+
+      if (!isAuthenticated || !token || !user) {
+        setLoading(false)
+        setError("Please log in to view your job listings")
+        return
+      }
+
+      await loadListings()
     }
-  }, [token, user])
+
+    loadData()
+  }, [token, user, authLoading, isAuthenticated])
 
   const loadListings = async () => {
+    setLoading(true)
     try {
-      if (!token) throw new Error("Not authenticated")
-      if (!user?.id) throw new Error("User ID not available")
+      if (!token || !user?.id) throw new Error("Not authenticated")
       
+      // Get employer profile to find employer ID
+      const employer = await apiClient.getEmployerByUserId(user.id, token)
+      setEmployerId(employer.id)
+      
+      // Get all job listings and filter by employer ID
       const data = await apiClient.getJobListings(token)
-      const myListings = data.filter((listing: any) => listing.poster_id === user.id)
+      const myListings = data.filter((listing: any) => 
+        listing.poster_id === employer.id || listing.poster_id === user.id
+      )
       setListings(myListings)
     } catch (err) {
+      console.error("Error loading job listings:", err)
       setError(err instanceof Error ? err.message : "Failed to load job listings")
     } finally {
       setLoading(false)
@@ -67,6 +86,30 @@ export default function EmployerJobListingsPage() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  // Show loading while auth loads
+  if (authLoading) {
+    return (
+      <DashboardLayout title="Job Listings">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated || !token || !user) {
+    return (
+      <DashboardLayout title="Job Listings">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>Please log in to view your job listings</AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (

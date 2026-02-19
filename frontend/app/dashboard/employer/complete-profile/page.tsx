@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
@@ -17,7 +17,7 @@ import { Loader2 } from "lucide-react"
 
 export default function CompleteEmployerProfile() {
   const router = useRouter()
-  const { user, token } = useAuth()
+  const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
   const [formData, setFormData] = useState({
     firm_name: "",
     pib: "",
@@ -28,6 +28,35 @@ export default function CompleteEmployerProfile() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [checkingExisting, setCheckingExisting] = useState(true)
+
+  useEffect(() => {
+    const checkExistingProfile = async () => {
+      if (authLoading) return
+
+      if (!isAuthenticated || !token || !user) {
+        setCheckingExisting(false)
+        setError("Please log in to complete your profile")
+        return
+      }
+
+      try {
+        // Check if employer profile already exists
+        const employer = await apiClient.getEmployerByUserId(user.id, token)
+        if (employer && employer.id) {
+          // Profile already exists, redirect to dashboard
+          router.push("/dashboard/employer")
+        }
+      } catch (err) {
+        // No existing profile found, that's okay - let them create one
+        console.log("No existing employer profile found")
+      } finally {
+        setCheckingExisting(false)
+      }
+    }
+
+    checkExistingProfile()
+  }, [authLoading, isAuthenticated, token, user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,14 +67,20 @@ export default function CompleteEmployerProfile() {
       if (!token || !user?.id) throw new Error("Not authenticated")
 
       const data = {
-        ...user,
+        user_id: user.id,
+        email: user.email,
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
         ...formData,
-        approval_status: "Pending",
+        approval_status: "pending",
       }
 
+      console.log("Creating employer profile:", data)
       await apiClient.createEmployer(data, token)
+      
       router.push("/dashboard/employer")
     } catch (err) {
+      console.error("Error creating employer profile:", err)
       setError(err instanceof Error ? err.message : "Failed to create employer profile")
     } finally {
       setLoading(false)
@@ -54,6 +89,30 @@ export default function CompleteEmployerProfile() {
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // Show loading while auth loads
+  if (authLoading || checkingExisting) {
+    return (
+      <DashboardLayout title="Complete Employer Profile">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated || !token || !user) {
+    return (
+      <DashboardLayout title="Complete Employer Profile">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>Please log in to complete your employer profile</AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -119,7 +178,7 @@ export default function CompleteEmployerProfile() {
                 <Label htmlFor="delatnost">Business Description</Label>
                 <Textarea
                   id="delatnost"
-                  placeholder="Man i hate frontend dev"
+                  placeholder="Describe your business activity..."
                   value={formData.delatnost}
                   onChange={(e) => updateField("delatnost", e.target.value)}
                   required
@@ -145,7 +204,7 @@ export default function CompleteEmployerProfile() {
                 <Input
                   id="firm_phone"
                   type="tel"
-                  placeholder="+1234567890"
+                  placeholder="+381234567890"
                   value={formData.firm_phone}
                   onChange={(e) => updateField("firm_phone", e.target.value)}
                   required

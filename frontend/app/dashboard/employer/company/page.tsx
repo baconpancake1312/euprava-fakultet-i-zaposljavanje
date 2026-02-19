@@ -51,9 +51,13 @@ export default function CompanyProfilePage() {
 
       setDataLoading(true)
       try {
-        // First try to load company profile
+        // First get employer to find employer ID
+        const employer = await apiClient.getEmployerByUserId(user.id, token)
+        const employerId = employer.id
+        
+        // Then try to load company profile using employer ID
         try {
-          const company = await apiClient.getCompanyByEmployer(user.id, token)
+          const company = await apiClient.getCompanyByEmployer(employerId, token)
           setFormData({
             name: company.name || "",
             description: company.description || "",
@@ -70,31 +74,25 @@ export default function CompanyProfilePage() {
           })
         } catch (companyErr) {
           // If company doesn't exist, load from employer data
-          console.log("Company not found, loading employer data:", companyErr)
-          try {
-            const employer = await apiClient.getEmployerByUserId(user.id, token)
-            setFormData({
-              name: employer.firm_name || "",
-              description: employer.delatnost || "",
-              website: "",
-              industry: "",
-              size: "",
-              founded: "",
-              logo: "",
-              address: employer.firm_address || "",
-              phone: employer.firm_phone || "",
-              email: employer.email || user?.email || "",
-              pib: employer.pib || "",
-              maticni_broj: employer.maticni_broj || "",
-            })
-          } catch (employerErr) {
-            console.error("Failed to load employer data:", employerErr)
-            // Don't set error here, just leave fields empty
-          }
+          console.log("Company not found, loading employer data")
+          setFormData({
+            name: employer.firm_name || "",
+            description: employer.delatnost || "",
+            website: "",
+            industry: "",
+            size: "",
+            founded: "",
+            logo: "",
+            address: employer.firm_address || "",
+            phone: employer.firm_phone || "",
+            email: employer.email || user?.email || "",
+            pib: employer.pib || "",
+            maticni_broj: employer.maticni_broj || "",
+          })
         }
       } catch (err) {
-        console.error("Failed to load company/employer data:", err)
-        setError("Failed to load company data. Please refresh the page.")
+        console.error("Failed to load employer/company data:", err)
+        setError("Failed to load company data. Please complete your employer profile first.")
       } finally {
         setDataLoading(false)
       }
@@ -112,13 +110,17 @@ export default function CompanyProfilePage() {
     try {
       if (!token || !user?.id) throw new Error("Not authenticated")
 
-      // First try to get the company to update it
+      // First get employer to find employer ID
+      const employer = await apiClient.getEmployerByUserId(user.id, token)
+      const employerId = employer.id
+      
+      // Then try to get the company to update it
       try {
-        const company = await apiClient.getCompanyByEmployer(user.id, token)
+        const company = await apiClient.getCompanyByEmployer(employerId, token)
         await apiClient.updateCompany(company.id, formData, token)
       } catch (companyErr) {
         // If company doesn't exist, update employer data instead
-        await apiClient.updateEmployer(user.id, {
+        await apiClient.updateEmployer(employerId, {
           firm_name: formData.name,
           pib: formData.pib,
           maticni_broj: formData.maticni_broj,
@@ -129,6 +131,7 @@ export default function CompanyProfilePage() {
       }
       setSuccess(true)
     } catch (err) {
+      console.error("Error updating company profile:", err)
       setError(err instanceof Error ? err.message : "Failed to update company profile")
     } finally {
       setLoading(false)

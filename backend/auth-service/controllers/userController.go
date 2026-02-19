@@ -364,13 +364,17 @@ func Login() gin.HandlerFunc {
 				return
 			}
 
-			// Return Keycloak tokens
+			fmt.Printf("[Login - Keycloak] User: %s, User_type: %s, User_id: %s\n", *foundUser.Email, string(foundUser.User_type), foundUser.User_id)
+
+			token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
+			helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
+			
+			fmt.Printf("[Login - Keycloak] Generated token with User_type: %s\n", string(foundUser.User_type))
+
 			c.JSON(http.StatusOK, gin.H{
-				"user":           foundUser,
-				"token":          keycloakTokenResp.AccessToken,
-				"refresh_token":  keycloakTokenResp.RefreshToken,
-				"expires_in":     keycloakTokenResp.ExpiresIn,
-				"token_type":     keycloakTokenResp.TokenType,
+				"user":          foundUser,
+				"token":         token,
+				"refresh_token": refreshToken,
 			})
 			return
 		}
@@ -392,6 +396,9 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
 			return
 		}
+
+		// Log user info for debugging
+		fmt.Printf("[Login] User: %s, User_type: %s, User_id: %s\n", *foundUser.Email, string(foundUser.User_type), foundUser.User_id)
 
 		// Generate legacy tokens for backward compatibility
 		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)

@@ -120,6 +120,8 @@ func Authentication() gin.HandlerFunc {
 			return
 		}
 
+		fmt.Printf("[Auth Service Token] Email: %s, User_type: %s, UID: %s\n", claims.Email, claims.User_type, claims.Uid)
+
 		c.Set("email", claims.Email)
 		c.Set("first_name", claims.First_name)
 		c.Set("last_name", claims.Last_name)
@@ -260,12 +262,20 @@ func decodeKeycloakJWT(token string) (map[string]interface{}, error) {
 	}
 
 	// Verify issuer matches expected Keycloak realm
+	// If this is an auth service token (has User_type), it's not a Keycloak token
+	if _, hasUserType := claims["User_type"].(string); hasUserType {
+		return nil, fmt.Errorf("auth service token detected, not Keycloak token")
+	}
+	
+	// For Keycloak tokens, verify issuer
 	expectedIssuer := fmt.Sprintf("%s/realms/%s", keycloakURL, keycloakRealm)
-	if iss, ok := claims["iss"].(string); ok && iss != expectedIssuer {
-		// Allow localhost:8090 as well (for tokens issued externally)
-		if !strings.Contains(iss, keycloakRealm) {
+	if iss, ok := claims["iss"].(string); ok {
+		if iss != expectedIssuer && !strings.Contains(iss, keycloakRealm) {
 			return nil, fmt.Errorf("token issuer mismatch")
 		}
+	} else {
+		// No issuer field - likely not a Keycloak token
+		return nil, fmt.Errorf("token missing issuer, not a Keycloak token")
 	}
 
 	// Extract user info from claims
@@ -286,6 +296,11 @@ func decodeKeycloakJWT(token string) (map[string]interface{}, error) {
 	}
 	if sub, ok := claims["sub"].(string); ok {
 		userInfo["sub"] = sub
+	}
+	
+	// Check for auth service User_type field (capital U, capital T)
+	if userType, ok := claims["User_type"].(string); ok {
+		userInfo["user_type"] = userType
 	}
 	
 	// Copy realm_access for role extraction
@@ -314,6 +329,10 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user_type, _ := c.Get("user_type")
 		userRole := user_type.(string)
+		
+		// Log the authorization check
+		fmt.Printf("[AuthorizeRoles] Required roles: %v, User role: %s\n", roles, userRole)
+		
 		authorized := false
 		if isServiceAccountType(userRole) || userRole == "ADMIN" {
 			authorized = true
@@ -327,9 +346,12 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 		}
 
 		if !authorized {
+			fmt.Printf("[AuthorizeRoles] FORBIDDEN - Required roles: %v, User role: %s\n", roles, userRole)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 			return
 		}
+		
+		fmt.Printf("[AuthorizeRoles] AUTHORIZED - User role: %s\n", userRole)
 		c.Next()
 	}
 }

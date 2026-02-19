@@ -51,6 +51,9 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 		return
 	}
 
+	// Log the extracted claims for debugging
+	fmt.Printf("[ValidateToken] Extracted claims - Email: %s, User_type: %s, Uid: %s\n", claims.Email, claims.User_type, claims.Uid)
+
 	if claims.ExpiresAt < time.Now().Local().Unix() {
 		msg = fmt.Sprintf("token is expired")
 		msg = err.Error()

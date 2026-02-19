@@ -49,14 +49,29 @@ func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitiv
 }
 
 func (er *EmploymentRepo) GetCandidate(candidateId string) (*models.Candidate, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	var candidate models.Candidate
 	candidateCollection := OpenCollection(er.cli, "candidates")
+
 	objectId, err := primitive.ObjectIDFromHex(candidateId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid ID: %v", err)
+		// Not a valid ObjectID — try matching as string user_id
+		err2 := candidateCollection.FindOne(ctx, bson.M{"user_id": candidateId}).Decode(&candidate)
+		if err2 != nil {
+			return nil, fmt.Errorf("no candidate found for id: %s", candidateId)
+		}
+		return &candidate, nil
 	}
 
-	err = candidateCollection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&candidate)
+	// Try _id (document ID) OR user._id (auth user ID nested inside user object)
+	err = candidateCollection.FindOne(ctx, bson.M{
+		"$or": []bson.M{
+			{"_id": objectId},
+			{"user._id": objectId},
+		},
+	}).Decode(&candidate)
 	if err != nil {
 		return nil, fmt.Errorf("no candidate found for id: %s", candidateId)
 	}
@@ -72,16 +87,25 @@ func (er *EmploymentRepo) GetCandidateByUserID(userID string) (*models.Candidate
 
 	objectId, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid user ID: %v", err)
-	}
-
-	var candidate models.Candidate
-	err = candidateCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&candidate)
-	if err != nil {
+		// Not a valid ObjectID — try string user_id
+		var candidate models.Candidate
 		err2 := candidateCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&candidate)
 		if err2 != nil {
 			return nil, fmt.Errorf("no candidate found for user id: %s", userID)
 		}
+		return &candidate, nil
+	}
+
+	var candidate models.Candidate
+	// Try _id (document ID) OR user._id (auth user ID nested inside user object)
+	err = candidateCollection.FindOne(ctx, bson.M{
+		"$or": []bson.M{
+			{"_id": objectId},
+			{"user._id": objectId},
+		},
+	}).Decode(&candidate)
+	if err != nil {
+		return nil, fmt.Errorf("no candidate found for user id: %s", userID)
 	}
 
 	return &candidate, nil

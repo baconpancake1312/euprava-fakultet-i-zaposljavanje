@@ -60,16 +60,25 @@ func (er *EmploymentRepo) GetEmployerByUserID(userID string) (*models.Employer, 
 
 	objectId, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid user ID: %v", err)
-	}
-
-	var employer models.Employer
-	err = employerCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&employer)
-	if err != nil {
+		// Not a valid ObjectID — try string user_id
+		var employer models.Employer
 		err2 := employerCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&employer)
 		if err2 != nil {
 			return nil, fmt.Errorf("no employer found for user id: %s", userID)
 		}
+		return &employer, nil
+	}
+
+	var employer models.Employer
+	// Try _id (document ID) OR user._id (auth user ID nested inside user object)
+	err = employerCollection.FindOne(ctx, bson.M{
+		"$or": []bson.M{
+			{"_id": objectId},
+			{"user._id": objectId},
+		},
+	}).Decode(&employer)
+	if err != nil {
+		return nil, fmt.Errorf("no employer found for user id: %s", userID)
 	}
 
 	return &employer, nil
@@ -155,15 +164,42 @@ func (er *EmploymentRepo) DeleteEmployer(employerId string) error {
 	return nil
 }
 
+// findEmployerFilter builds a MongoDB filter that matches an employer by _id, user._id, or user_id.
+// Employers are stored with a nested "user" object, so the auth user ID is at user._id.
+func (er *EmploymentRepo) findEmployerFilter(employerId string) (bson.M, error) {
+	er.logger.Printf("[findEmployerFilter] Looking up employer with ID: %s", employerId)
+
+	objectId, err := primitive.ObjectIDFromHex(employerId)
+	if err != nil {
+		er.logger.Printf("[findEmployerFilter] ID is not a valid ObjectID, will try user._id string match: %v", err)
+		// Not a valid ObjectID - try matching as a string user_id only
+		return bson.M{"user_id": employerId}, nil
+	}
+
+	// Valid ObjectID - match _id (document ID) OR user._id (auth user ID nested inside user object)
+	er.logger.Printf("[findEmployerFilter] Valid ObjectID: %s, will try _id or user._id", objectId.Hex())
+	return bson.M{
+		"$or": []bson.M{
+			{"_id": objectId},
+			{"user._id": objectId},
+		},
+	}, nil
+}
+
 func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	er.logger.Printf("[ApproveEmployer] Received employerId: %s, adminId: %s", employerId, adminId)
+
 	collection := OpenCollection(er.cli, "employers")
-	objectId, err := primitive.ObjectIDFromHex(employerId)
+
+	filter, err := er.findEmployerFilter(employerId)
 	if err != nil {
 		return fmt.Errorf("invalid employer ID: %v", err)
 	}
+
+	er.logger.Printf("[ApproveEmployer] Using filter: %+v", filter)
 
 	updateData := bson.M{
 		"$set": bson.M{
@@ -173,12 +209,26 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	result, err := collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
+		er.logger.Printf("[ApproveEmployer] UpdateOne error: %v", err)
 		return fmt.Errorf("error approving employer: %v", err)
 	}
+
+	er.logger.Printf("[ApproveEmployer] MatchedCount: %d, ModifiedCount: %d", result.MatchedCount, result.ModifiedCount)
+
 	if result.MatchedCount == 0 {
-		return fmt.Errorf("employer not found")
+		// Log all employers for debugging
+		var allEmployers []bson.M
+		cursor, _ := collection.Find(ctx, bson.M{})
+		if cursor != nil {
+			cursor.All(ctx, &allEmployers)
+			er.logger.Printf("[ApproveEmployer] Total employers in DB: %d", len(allEmployers))
+			for _, emp := range allEmployers {
+				er.logger.Printf("[ApproveEmployer] DB employer _id: %v, user_id: %v", emp["_id"], emp["user_id"])
+			}
+		}
+		return fmt.Errorf("employer not found with id: %s", employerId)
 	}
 
 	er.logger.Printf("Employer %s approved by admin %s", employerId, adminId)
@@ -195,11 +245,16 @@ func (er *EmploymentRepo) RejectEmployer(employerId, adminId string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	er.logger.Printf("[RejectEmployer] Received employerId: %s, adminId: %s", employerId, adminId)
+
 	collection := OpenCollection(er.cli, "employers")
-	objectId, err := primitive.ObjectIDFromHex(employerId)
+
+	filter, err := er.findEmployerFilter(employerId)
 	if err != nil {
 		return fmt.Errorf("invalid employer ID: %v", err)
 	}
+
+	er.logger.Printf("[RejectEmployer] Using filter: %+v", filter)
 
 	updateData := bson.M{
 		"$set": bson.M{
@@ -209,12 +264,26 @@ func (er *EmploymentRepo) RejectEmployer(employerId, adminId string) error {
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	result, err := collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
+		er.logger.Printf("[RejectEmployer] UpdateOne error: %v", err)
 		return fmt.Errorf("error rejecting employer: %v", err)
 	}
+
+	er.logger.Printf("[RejectEmployer] MatchedCount: %d, ModifiedCount: %d", result.MatchedCount, result.ModifiedCount)
+
 	if result.MatchedCount == 0 {
-		return fmt.Errorf("employer not found")
+		// Log all employers for debugging
+		var allEmployers []bson.M
+		cursor, _ := collection.Find(ctx, bson.M{})
+		if cursor != nil {
+			cursor.All(ctx, &allEmployers)
+			er.logger.Printf("[RejectEmployer] Total employers in DB: %d", len(allEmployers))
+			for _, emp := range allEmployers {
+				er.logger.Printf("[RejectEmployer] DB employer _id: %v, user_id: %v", emp["_id"], emp["user_id"])
+			}
+		}
+		return fmt.Errorf("employer not found with id: %s", employerId)
 	}
 
 	er.logger.Printf("Employer %s rejected by admin %s", employerId, adminId)

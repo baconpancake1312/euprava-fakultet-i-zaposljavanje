@@ -19,7 +19,7 @@ import { Loader2, ArrowLeft } from "lucide-react"
 export default function EditJobListingPage() {
   const router = useRouter()
   const params = useParams()
-  const { user, token, isLoading } = useAuth()
+  const { user, token, isLoading, isAuthenticated } = useAuth()
   const [formData, setFormData] = useState({
     position: "",
     description: "",
@@ -29,11 +29,12 @@ export default function EditJobListingPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [employerId, setEmployerId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isLoading) return
 
-    if (!token || !params?.id) {
+    if (!isAuthenticated || !token || !params?.id) {
       setLoading(false)
       setError("Authentication required or invalid job listing ID")
       return
@@ -41,11 +42,15 @@ export default function EditJobListingPage() {
 
     const loadJobListing = async () => {
       try {
+        // Get employer profile first
+        const employer = await apiClient.getEmployerByUserId(user!.id, token)
+        setEmployerId(employer.id)
+        
         const jobId = Array.isArray(params.id) ? params.id[0] : params.id
         const jobData = await apiClient.getJobListingById(jobId, token)
         
-        // Check if user owns this job listing
-        if (jobData.poster_id !== user?.id && jobData.posterId !== user?.id) {
+        // Check if user owns this job listing (using employer ID)
+        if (jobData.poster_id !== employer.id && jobData.posterId !== employer.id) {
           setError("You don't have permission to edit this job listing")
           setLoading(false)
           return
@@ -60,6 +65,7 @@ export default function EditJobListingPage() {
           is_internship: jobData.is_internship || false,
         })
       } catch (err) {
+        console.error("Error loading job listing:", err)
         setError(err instanceof Error ? err.message : "Failed to load job listing")
       } finally {
         setLoading(false)
@@ -67,7 +73,7 @@ export default function EditJobListingPage() {
     }
 
     loadJobListing()
-  }, [token, params?.id, isLoading, user])
+  }, [token, params?.id, isLoading, isAuthenticated, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
