@@ -3,23 +3,30 @@ student
 	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu ✅
  	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd ✅
 	kaskadno brisanje
-	prikaz predmeta po godini
-	dostupnost ispita u zavisnosti od godine
+	prikaz predmeta (polozenih/nepolozenih i po godini) i ocena na posebnoj strani
+	dostupnost ispita u zavisnosti od godine 
 	prebacivanje u sledecu godinu
 	zahtev za zavrsavanje fakulteta
+	?? semestri: predmet dobija field semestar,
+	?? prostorije na fakultetu: zauzimanje prostorija za ispit
+	?? ispitni rokovi: moze da se doda ispit samo za taj rok i ispit koji se podudara sa trenutnim semestrom:
+		student moze da vidi ispite po ispitnim rokovima
+
+
 
 }
 
 profesor
 {
-	✅ update profila
-	pravljenje ispita
-	ocenjivanje ispita
+	update profila✅ 
+	pravljenje ispita✅ 
+	ocenjivanje ispita✅ 
 	prikaz ispita ✅
 	prikaz predmeta ✅
-	prikaz svojih studenata
-	kaskadno brisanje
 	ako profesor predaje prdmet iz x departmana onda je on u staff od x departmana ✅
+	prikaz enrolled students
+	manage exams i grades dugme 
+	kaskadno brisanje
 }
 
 admin
@@ -33,16 +40,14 @@ admin
 		notifikacija:
 			slanje✅/editovanje/brisanje✅ notifikacija po roleu/smeru/departmanu/korisniku✅
 			bug:✅ kada korisnik klikne mark as read posalje se i uradi se update ali front jos uvek pokazuje kao da ima neprocitana notifikacija ✅
-		poslovi
-		poslodavci
-		
+
 		
 }
 
 auth{
 		✅ registrovanje na oba servisa: cant find password for auth service
-		update func
-		update na drugim da se odnosi i na auth entitete
+		update func✅
+		update na drugim da se odnosi i na auth entitete ✅
 		
 	}
 
@@ -51,6 +56,9 @@ notifikacije{
 	pojavi se notifikacija kada:
 		 se oceni ispit ✅
 		 se updateuje ispit na koji je student prijavljen ✅
+	
+	?? podsetnik za profesora oceni studenta
+
 		 	
 
 

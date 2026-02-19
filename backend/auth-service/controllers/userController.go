@@ -306,6 +306,47 @@ func RegisterIntoEmployment(user *models.User) error {
 	}
 	return nil
 }
+
+// DeleteFromUni deletes the user from the university service based on their role
+func DeleteFromUni(user *models.User) error {
+	var url string
+	switch user.User_type {
+	case models.StudentType:
+		url = "http://university-service:8088/students/" + user.User_id
+	case models.ProfessorType:
+		url = "http://university-service:8088/professors/" + user.User_id
+	case models.AdministratorType:
+		url = "http://university-service:8088/administrators/" + user.User_id
+	case models.StudentServiceType:
+		url = "http://university-service:8088/assistants/" + user.User_id
+	default:
+		return fmt.Errorf("unsupported user type for university service delete: %s", user.User_type)
+	}
+
+	token, err := getServiceToken("auth-service")
+	if err != nil {
+		return fmt.Errorf("failed to get service token: %v", err)
+	}
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("failed to delete user in university service, status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fmt.Println("Request headers:", c.Errors)
@@ -528,6 +569,73 @@ func UpdateUser() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "user updated successfully"})
+	}
+}
+
+// DeleteUser deletes a user from the auth service and from university/employment services by role
+func DeleteUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("user_id")
+		if userID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_id parameter is required"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		l := log.New(gin.DefaultWriter, "User controller: ", log.LstdFlags)
+
+		var user models.User
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&user)
+		if err != nil {
+			// Try by _id (MongoDB ObjectID hex)
+			objectID, parseErr := primitive.ObjectIDFromHex(userID)
+			if parseErr != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+				return
+			}
+			err = userCollection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&user)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+				return
+			}
+		}
+		var uniErr error
+		var uniDone chan struct{}
+		// Delete from university service if user is academic (same ID used there)
+		// Async delete to avoid blocking the main thread
+		// TODO: Implement the same for employment service
+		if models.IsAcademicUser(user.User_type) {
+			uniDone = make(chan struct{})
+			go func() {
+				uniErr = DeleteFromUni(&user)
+				close(uniDone)
+			}()
+		}
+
+		// Delete from auth service
+		filter := bson.M{"user_id": user.User_id}
+		result, err := userCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			l.Println("Error deleting user:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
+			return
+		}
+		if result.DeletedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		if uniDone != nil {
+			<-uniDone
+			if uniErr != nil {
+				l.Println("Error deleting user from university service:", uniErr)
+				c.JSON(http.StatusMultiStatus, gin.H{"error": "failed to delete user from university service"})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "user deleted successfully"})
 	}
 }
 
