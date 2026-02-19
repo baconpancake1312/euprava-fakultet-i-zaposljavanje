@@ -126,7 +126,7 @@ export default function AdminStudentsPage() {
       return
     }
     try {
-      await apiClient.deleteStudent(student.id, token)
+      await apiClient.deleteUser(student.id, token)
       setStudents((prev) => prev.filter((s) => s.id !== student.id))
     } catch (error) {
       console.error("Failed to delete student:", error)

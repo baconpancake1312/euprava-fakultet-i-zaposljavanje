@@ -118,8 +118,33 @@ class ApiClient {
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error("Failed to create student")
-    return response.json()
+    if (!response.ok) {
+      let errorMessage = "Failed to create student"
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        // fallback if JSON parsing fails
+        errorMessage = `Failed to create student (${response.status})`
+      }
+      const error: any = new Error(errorMessage)
+      error.status = response.status
+      error.response = response
+      throw error
+    }
+    
+    // Handle responses - try to parse JSON, but don't fail if it's empty or not JSON
+    try {
+      const text = await response.text()
+      if (!text || text.trim().length === 0) {
+        return {}
+      }
+      return JSON.parse(text)
+    } catch (parseError) {
+      // If parsing fails but status is OK, assume success and return empty object
+      console.warn("createStudent: Response was OK but couldn't parse JSON, assuming success")
+      return {}
+    }
   }
 
   async updateStudent(id: string, data: any, token: string) {
@@ -140,6 +165,14 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to delete student")
+  }
+  async deleteUser(id: string, token: string) {
+    const response = await fetch(`${AUTH_API_URL}/users/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+
+    if (!response.ok) throw new Error("Failed to delete user")
   }
 
   // University Service APIs - Professors
