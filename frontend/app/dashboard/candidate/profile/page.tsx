@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Loader2, 
   FileText, 
@@ -50,7 +49,6 @@ export default function CandidateProfilePage() {
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const [activeTab, setActiveTab] = useState("academic")
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -263,19 +261,6 @@ export default function CandidateProfilePage() {
   return (
     <DashboardLayout title="Profile">
       <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
-        {/* Debug Info - Shows current state */}
-        <Card className="border-blue-500 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-sm">Debug Info</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs space-y-1">
-            <p><strong>User ID (Auth):</strong> {user?.id}</p>
-            <p><strong>Candidate ID (Employment):</strong> {candidateId || "Not loaded yet"}</p>
-            <p><strong>Is Creating:</strong> {isCreating ? "Yes" : "No"}</p>
-            <p><strong>Is Editing:</strong> {isEditing ? "Yes" : "No"}</p>
-            <p><strong>Has Form Data:</strong> {formData.major ? "Yes" : "No"}</p>
-          </CardContent>
-        </Card>
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -350,7 +335,7 @@ export default function CandidateProfilePage() {
           </Card>
         )}
 
-        {/* Main Form/View with Tabs */}
+        {/* Main Form/View - Single Page */}
         {isEditing || isCreating ? (
           // EDIT MODE
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -360,26 +345,16 @@ export default function CandidateProfilePage() {
             </Alert>
           )}
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="academic" className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4" />
-                Academic
-              </TabsTrigger>
-              <TabsTrigger value="professional" className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                Professional
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Academic Information Tab */}
-            <TabsContent value="academic" className="space-y-4 mt-6">
-              <Card className="border-2 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Academic Information</CardTitle>
-                  <CardDescription>Your educational background and achievements</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          {/* Academic Information Section */}
+          <Card className="border-2 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Academic Information
+              </CardTitle>
+              <CardDescription>Your educational background and achievements</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="major">Major / Field of Study *</Label>
@@ -481,16 +456,17 @@ export default function CandidateProfilePage() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            {/* Professional Information Tab */}
-            <TabsContent value="professional" className="space-y-4 mt-6">
-              <Card className="border-2 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Professional Information</CardTitle>
-                  <CardDescription>Your CV, skills, and professional details</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          {/* Professional Information Section */}
+          <Card className="border-2 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                Professional Information
+              </CardTitle>
+              <CardDescription>Your CV, skills, and professional details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="cv">CV / Resume (PDF, DOC, DOCX) - Max 5MB</Label>
                     <Input 
@@ -569,8 +545,6 @@ export default function CandidateProfilePage() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
 
           {/* Action Buttons */}
           <div className="flex gap-3 justify-end pt-4 border-t">
@@ -613,26 +587,16 @@ export default function CandidateProfilePage() {
         ) : (
           // VIEW MODE - Display profile data
           <div className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="academic" className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4" />
-                  Academic
-                </TabsTrigger>
-                <TabsTrigger value="professional" className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  Professional
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Academic Information View */}
-              <TabsContent value="academic" className="space-y-4 mt-6">
-                <Card className="border-2 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Academic Information</CardTitle>
-                    <CardDescription>Your educational background and achievements</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+            {/* Academic Information Section */}
+            <Card className="border-2 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  Academic Information
+                </CardTitle>
+                <CardDescription>Your educational background and achievements</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm text-muted-foreground">Major / Field of Study</Label>
@@ -670,16 +634,17 @@ export default function CandidateProfilePage() {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
 
-              {/* Professional Information View */}
-              <TabsContent value="professional" className="space-y-4 mt-6">
-                <Card className="border-2 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Professional Information</CardTitle>
-                    <CardDescription>Your CV, skills, and professional details</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+            {/* Professional Information Section */}
+            <Card className="border-2 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Professional Information
+                </CardTitle>
+                <CardDescription>Your CV, skills, and professional details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                     <div>
                       <Label className="text-sm text-muted-foreground">CV / Resume</Label>
                       {formData.cv_base64 ? (
@@ -719,8 +684,6 @@ export default function CandidateProfilePage() {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </Tabs>
           </div>
         )}
       </div>

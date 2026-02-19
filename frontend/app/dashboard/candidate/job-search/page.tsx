@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function CandidateJobSearchPage() {
-  const { token, user } = useAuth()
+  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searching, setSearching] = useState(false)
@@ -78,18 +78,54 @@ export default function CandidateJobSearchPage() {
   }, [searchTerm, jobType, token])
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return
+    }
+
+    // If not authenticated, don't load data
+    if (!isAuthenticated || !token || !user) {
+      setLoading(false)
+      setError("Please log in to view job listings")
+      return
+    }
+
     loadInitialListings()
     loadSavedJobs()
-  }, [token, user])
+  }, [token, user, authLoading, isAuthenticated])
 
   const loadSavedJobs = async () => {
-    if (!token || !user?.id) return
+    if (!token || !user) return
     try {
-      const data = await apiClient.getSavedJobs(user.id, token)
-      const savedIds = new Set((data.saved_jobs || []).map((job: any) => job.id || job.job_id))
+      // Find candidate ID by email match (same as profile page)
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        // No candidate profile yet - that's okay, just skip saved jobs
+        return
+      }
+
+      const data = await apiClient.getSavedJobs(candidate.id, token)
+      // Handle different response structures
+      let jobs: any[] = []
+      if (Array.isArray(data)) {
+        jobs = data
+      } else if (data && typeof data === 'object') {
+        jobs = data.saved_jobs || data.jobs || data.data || []
+      }
+      const savedIds = new Set(jobs.map((job: any) => {
+        const jobObj = job.job || job.job_listing || job
+        return jobObj?.id || jobObj?.job_id || job.id || job.job_id
+      }))
       setSavedJobIds(savedIds)
     } catch (err) {
       // Silently fail - saved jobs are optional
+      console.log("Failed to load saved jobs:", err)
     }
   }
 
@@ -97,7 +133,10 @@ export default function CandidateJobSearchPage() {
     setLoading(true)
     setMatchScoresLoaded(false) // Reset flag for new load
     try {
-      if (!token) throw new Error("Not authenticated")
+      if (!token) {
+        setError("Not authenticated")
+        return
+      }
       const data = await apiClient.getJobListings(token)
       const approved = data.filter((listing: any) => listing.approval_status?.toLowerCase() === "approved")
       setListings(approved)
@@ -115,7 +154,7 @@ export default function CandidateJobSearchPage() {
 
   // Auto-search when job type filter changes
   useEffect(() => {
-    if (!loading && token) {
+    if (!loading && token && !authLoading && isAuthenticated) {
       performSearch()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,11 +184,28 @@ export default function CandidateJobSearchPage() {
   }
 
   const handleSaveJob = async (jobId: string) => {
-    if (!token || !user?.id) return
+    if (!token || !user) return
     setSaving(jobId)
     try {
+      // Find candidate ID by email match
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        toast({
+          title: "Error",
+          description: "Please complete your profile first",
+          variant: "destructive",
+        })
+        return
+      }
+
       if (savedJobIds.has(jobId)) {
-        await apiClient.unsaveJob(user.id, jobId, token)
+        await apiClient.unsaveJob(candidate.id, jobId, token)
         setSavedJobIds((prev) => {
           const next = new Set(prev)
           next.delete(jobId)
@@ -160,7 +216,7 @@ export default function CandidateJobSearchPage() {
           description: "Job removed from your saved jobs.",
         })
       } else {
-        await apiClient.saveJob(user.id, jobId, token)
+        await apiClient.saveJob(candidate.id, jobId, token)
         setSavedJobIds((prev) => new Set(prev).add(jobId))
         toast({
           title: "Job Saved",
@@ -223,6 +279,32 @@ export default function CandidateJobSearchPage() {
       console.error("Failed to load match scores:", err)
       setMatchScoresLoaded(true) // Still mark as loaded to prevent infinite retries
     }
+  }
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <DashboardLayout title="Job Search">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated || !token || !user) {
+    return (
+      <DashboardLayout title="Job Search">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Please log in to view job listings
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (

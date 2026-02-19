@@ -21,6 +21,7 @@ import {
   Bell,
   CheckCheck,
   Trash2,
+  Bookmark,
 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 import {
@@ -162,6 +163,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         return [
           { href: "/dashboard/candidate", label: "Dashboard", icon: Home },
           { href: "/dashboard/candidate/job-search", label: "Job Search", icon: Briefcase },
+          { href: "/dashboard/candidate/saved-jobs", label: "Saved Jobs", icon: Bookmark },
           { href: "/dashboard/candidate/applications", label: "My Applications", icon: FileText },
           { href: "/dashboard/candidate/profile", label: "Profile", icon: User },
         ]

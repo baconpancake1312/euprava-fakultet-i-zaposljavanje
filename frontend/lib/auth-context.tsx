@@ -93,8 +93,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error("Failed to parse stored user data:", error)
-        localStorage.removeItem("user")
-        localStorage.removeItem("token")
+        // Don't clear on parse error - might be temporary
+        // Only clear if it's a critical error
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+          setToken(storedToken)
+        } catch {
+          localStorage.removeItem("user")
+          localStorage.removeItem("token")
+        }
       }
     }
     setIsLoading(false)

@@ -70,32 +70,32 @@ export default function CandidateApplicationsPage() {
             })
           )
           
-          setApplications(prev => {
-            // Check for status changes and show toast notifications
+        setApplications(prev => {
+          // Check for status changes and show toast notifications
             if (applicationsWithDetails.length > 0) {
               applicationsWithDetails.forEach(newApp => {
-                const oldApp = prev.find(app => app.id === newApp.id)
-                if (oldApp && oldApp.status !== newApp.status) {
-                  if (newApp.status === "accepted") {
-                    toast({
-                      title: "Application Accepted! 🎉",
-                      description: `Your application for ${newApp.job_listing?.position || "the position"} has been accepted!`,
-                    })
-                  } else if (newApp.status === "rejected") {
-                    toast({
-                      title: "Application Update",
-                      description: `Your application for ${newApp.job_listing?.position || "the position"} was not selected this time.`,
-                      variant: "destructive",
-                    })
-                  }
-                }
-              })
+            const oldApp = prev.find(app => app.id === newApp.id)
+            if (oldApp && oldApp.status !== newApp.status) {
+              if (newApp.status === "accepted") {
+                toast({
+                  title: "Application Accepted! 🎉",
+                  description: `Your application for ${newApp.job_listing?.position || "the position"} has been accepted!`,
+                })
+              } else if (newApp.status === "rejected") {
+                toast({
+                  title: "Application Update",
+                  description: `Your application for ${newApp.job_listing?.position || "the position"} was not selected this time.`,
+                  variant: "destructive",
+                })
+              }
+            }
+          })
             }
             return applicationsWithDetails
-          })
+        })
       } catch (err) {
         console.error("Error loading applications:", err)
-        setError(err instanceof Error ? err.message : "Failed to load applications")
+          setError(err instanceof Error ? err.message : "Failed to load applications")
         setApplications([])
       } finally {
         setLoading(false)
@@ -176,7 +176,7 @@ export default function CandidateApplicationsPage() {
                       </CardDescription>
                     </div>
                     <div className="flex flex-col gap-2 items-end">
-                      {getStatusBadge(application.status)}
+                    {getStatusBadge(application.status)}
                       {application.job_listing?.is_internship && (
                         <Badge variant="secondary" className="text-xs">Internship</Badge>
                       )}
