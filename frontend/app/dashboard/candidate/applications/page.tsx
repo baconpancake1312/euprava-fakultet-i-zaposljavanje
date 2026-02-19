@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 
 export default function CandidateApplicationsPage() {
-  const { token, user } = useAuth()
+  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [candidateId, setCandidateId] = useState<string | null>(null)
   const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,8 +20,15 @@ export default function CandidateApplicationsPage() {
 
   useEffect(() => {
     const loadCandidateAndApplications = async () => {
-      if (!token || !user?.id) {
+      // Wait for auth to finish loading
+      if (authLoading) {
+        return
+      }
+
+      // If not authenticated, don't load data
+      if (!isAuthenticated || !token || !user) {
         setLoading(false)
+        setError("Please log in to view your applications")
         return
       }
 
@@ -43,13 +50,17 @@ export default function CandidateApplicationsPage() {
         
         const candidateId = candidate.id
         console.log("Loading applications for candidate ID:", candidateId)
+        console.log("Candidate ID type:", typeof candidateId)
         setCandidateId(candidateId)
         
         // Fetch applications using the candidate ID
         const data = await apiClient.getApplicationsByCandidate(candidateId, token)
+        console.log("Raw applications data received:", data)
+        console.log("Data type:", typeof data, "Is array:", Array.isArray(data))
           
           // Ensure data is an array before processing
           const applicationsData = Array.isArray(data) ? data : []
+          console.log("Applications array length:", applicationsData.length)
           
           // Fetch job listing details for each application
           const applicationsWithDetails = await Promise.all(
@@ -104,7 +115,7 @@ export default function CandidateApplicationsPage() {
 
     loadCandidateAndApplications()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, user?.id])
+  }, [token, user?.id, authLoading, isAuthenticated])
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -132,6 +143,17 @@ export default function CandidateApplicationsPage() {
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
+  }
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <DashboardLayout title="My Applications">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (

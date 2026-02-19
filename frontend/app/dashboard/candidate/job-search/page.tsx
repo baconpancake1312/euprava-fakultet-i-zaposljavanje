@@ -7,7 +7,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Briefcase, Building, Calendar, Search, Filter, Bookmark, BookmarkCheck, Star, ArrowRight } from "lucide-react"
+import { Loader2, Briefcase, Building, Calendar, Search, Filter, Bookmark, BookmarkCheck, Star, ArrowRight, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
@@ -24,6 +24,7 @@ export default function CandidateJobSearchPage() {
   const [applying, setApplying] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set())
   const [totalResults, setTotalResults] = useState(0)
   const { toast } = useToast()
 
@@ -92,6 +93,7 @@ export default function CandidateJobSearchPage() {
 
     loadInitialListings()
     loadSavedJobs()
+    loadAppliedJobs()
   }, [token, user, authLoading, isAuthenticated])
 
   const loadSavedJobs = async () => {
@@ -129,6 +131,67 @@ export default function CandidateJobSearchPage() {
     }
   }
 
+  const loadAppliedJobs = async () => {
+    if (!token || !user) return
+    try {
+      // Find candidate ID by email match
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        // No candidate profile yet - that's okay, just skip applied jobs
+        console.log("No candidate found for applied jobs")
+        return
+      }
+
+      console.log("Loading applied jobs for candidate:", candidate.id)
+      const applications = await apiClient.getApplicationsByCandidate(candidate.id, token)
+      const applicationsData = Array.isArray(applications) ? applications : []
+      
+      console.log("Applications received:", applicationsData.length)
+      if (applicationsData.length > 0) {
+        console.log("Sample application:", JSON.stringify(applicationsData[0], null, 2))
+      }
+      
+      // Extract job listing IDs from applications
+      // Normalize all IDs to strings for comparison
+      const normalizeId = (id: any): string | null => {
+        if (!id) return null
+        if (typeof id === 'string') return id
+        if (typeof id === 'object' && id.toString) return id.toString()
+        return String(id)
+      }
+      
+      const appliedIds = new Set(
+        applicationsData
+          .map((app: any) => {
+            // Try different possible field names
+            const listingId = normalizeId(
+              app.listing_id || 
+              app.job_listing_id || 
+              app.job_listing?.id ||
+              app.listing?.id
+            )
+            if (listingId) {
+              console.log("Found listing_id:", listingId, "from app ID:", app.id)
+            }
+            return listingId
+          })
+          .filter(Boolean) as string[]
+      )
+      
+      console.log("Applied job IDs set:", Array.from(appliedIds))
+      setAppliedJobIds(appliedIds)
+    } catch (err) {
+      // Log error for debugging
+      console.error("Failed to load applied jobs:", err)
+    }
+  }
+
   const loadInitialListings = async () => {
     setLoading(true)
     setMatchScoresLoaded(false) // Reset flag for new load
@@ -161,10 +224,39 @@ export default function CandidateJobSearchPage() {
   }, [jobType])
 
   const handleApply = async (listingId: string) => {
-    setApplying(listingId)
+    // Normalize ID for comparison
+    const normalizedId = String(listingId)
+    
+    if (appliedJobIds.has(normalizedId)) {
+      toast({
+        title: "Already Applied",
+        description: "You have already applied to this job.",
+        variant: "default",
+      })
+      return
+    }
+
+    setApplying(normalizedId)
     try {
-      if (!token || !user?.id) throw new Error("Not authenticated")
-      await apiClient.applyToJob(listingId, { applicant_id: user.id }, token)
+      if (!token || !user) throw new Error("Not authenticated")
+      
+      // Find candidate ID by email match
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        throw new Error("Please complete your profile first")
+      }
+
+      await apiClient.applyToJob(normalizedId, { applicant_id: candidate.id }, token)
+      
+      // Add to applied jobs set (use normalized ID)
+      setAppliedJobIds((prev) => new Set(prev).add(normalizedId))
+      
       toast({
         title: "Application Submitted",
         description: "Your application has been successfully submitted to the employer.",
@@ -411,7 +503,12 @@ export default function CandidateJobSearchPage() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {listings.map((listing) => (
+            {listings.map((listing) => {
+              // Normalize listing ID for comparison
+              const listingId = String(listing.id || listing._id || '')
+              const isApplied = appliedJobIds.has(listingId)
+              
+              return (
               <Card key={listing.id} className="border-2 hover:border-primary/50 transition-all hover:shadow-xl group relative overflow-hidden">
                 {/* Gradient accent */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary to-primary/60" />
@@ -433,6 +530,12 @@ export default function CandidateJobSearchPage() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
+                      {isApplied && (
+                        <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Applied
+                        </Badge>
+                      )}
                       {listing.match_score !== undefined && (
                         <Badge variant="outline" className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 border-yellow-500/20">
                           <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
@@ -447,13 +550,13 @@ export default function CandidateJobSearchPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleSaveJob(listing.id)}
-                        disabled={saving === listing.id}
+                        onClick={() => handleSaveJob(listingId)}
+                        disabled={saving === listingId}
                         className="h-9 w-9 hover:bg-primary/10"
                       >
-                        {saving === listing.id ? (
+                        {saving === listingId ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : savedJobIds.has(listing.id) ? (
+                        ) : savedJobIds.has(listingId) ? (
                           <BookmarkCheck className="h-5 w-5 text-primary fill-primary" />
                         ) : (
                           <Bookmark className="h-5 w-5" />
@@ -474,14 +577,21 @@ export default function CandidateJobSearchPage() {
                   </div>
                   
                   <Button
-                    onClick={() => handleApply(listing.id)}
-                    disabled={applying === listing.id}
-                    className="w-full h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 group-hover:scale-[1.02] transition-all"
+                    onClick={() => handleApply(listingId)}
+                    disabled={applying === listingId || isApplied}
+                    className={`w-full h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 group-hover:scale-[1.02] transition-all ${
+                      isApplied ? 'bg-green-500 hover:bg-green-600' : ''
+                    }`}
                   >
-                    {applying === listing.id ? (
+                    {applying === listingId ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Applying...
+                      </>
+                    ) : isApplied ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Applied
                       </>
                     ) : (
                       <>
@@ -492,7 +602,8 @@ export default function CandidateJobSearchPage() {
                   </Button>
                 </CardContent>
               </Card>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

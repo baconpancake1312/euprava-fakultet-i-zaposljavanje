@@ -596,10 +596,15 @@ class ApiClient {
   }
 
   async getApplicationsByCandidate(candidateId: string, token: string) {
+    console.log(`[API] Fetching applications for candidate: ${candidateId}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}`)
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}`, {
       headers: this.getAuthHeaders(token),
     })
-    return this.handleResponse(response)
+    const data = await this.handleResponse(response)
+    console.log(`[API] Applications response:`, data)
+    console.log(`[API] Applications count:`, Array.isArray(data) ? data.length : 'not an array')
+    return data
   }
 
   async getApplicationsByEmployer(employerId: string, token: string) {
