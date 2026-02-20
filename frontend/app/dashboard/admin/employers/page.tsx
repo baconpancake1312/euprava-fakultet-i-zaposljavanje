@@ -7,9 +7,10 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, Building2, Loader2 } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Building2, Loader2, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 interface Employer {
   id: string
@@ -30,6 +31,7 @@ interface Employer {
 
 export default function AdminEmployersPage() {
   const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
   const [employers, setEmployers] = useState<Employer[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
@@ -348,6 +350,16 @@ export default function AdminEmployersPage() {
                         )}
                       </Button>
                     </div>
+                  )}
+                  {employer.approval_status?.toLowerCase() === "approved" && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push(`/dashboard/admin/employers/${employer.id}`)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Applications & Candidates
+                    </Button>
                   )}
                   {employer.approved_at && (
                     <p className="text-xs text-muted-foreground">

@@ -911,6 +911,32 @@ class ApiClient {
     })
     return this.handleResponse(response)
   }
+
+  // Get all job listings by a specific employer (poster_id)
+  async getJobListingsByEmployer(employerId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    const data = await response.json()
+    const listings = Array.isArray(data) ? data : []
+    return listings.filter((l: any) => {
+      const posterId = l.poster_id?.toString?.() || l.poster_id || ""
+      return posterId === employerId
+    })
+  }
+
+  // Send a message/letter to a candidate
+  async sendMessageToCandidate(data: { sender_id: string; receiver_id: string; job_listing_id?: string; content: string }, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
 }
 
 export const apiClient = new ApiClient()

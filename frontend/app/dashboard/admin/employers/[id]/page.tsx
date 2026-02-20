@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
@@ -20,13 +21,16 @@ import {
 } from "@/components/ui/dialog"
 import {
   Loader2,
-  FileText,
+  ArrowLeft,
+  CheckCircle,
   XCircle,
-  Calendar,
   User,
   Briefcase,
+  Calendar,
   Download,
   Mail,
+  GraduationCap,
+  FileText,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -52,7 +56,6 @@ interface Application {
   listing_id: string
   status: string
   submitted_at: string
-  updated_at?: string
   job_listing?: {
     id: string
     position: string
@@ -61,17 +64,36 @@ interface Application {
   candidate?: Candidate
 }
 
-export default function EmployerApplicationsPage() {
-  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
-  const [applications, setApplications] = useState<Application[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [processingId, setProcessingId] = useState<string | null>(null)
+interface JobListing {
+  id: string
+  position: string
+  description: string
+  poster_id: string
+  approval_status: string
+  created_at: string
+}
+
+interface Employer {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  firm_name: string
+  approval_status: string
+}
+
+export default function AdminEmployerDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const employerId = params.id as string
+  const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
   const { toast } = useToast()
 
-  // Profile dialog
-  const [profileDialog, setProfileDialog] = useState(false)
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  const [employer, setEmployer] = useState<Employer | null>(null)
+  const [jobListings, setJobListings] = useState<JobListing[]>([])
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(true)
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   // Message dialog
   const [messageDialog, setMessageDialog] = useState(false)
@@ -79,113 +101,110 @@ export default function EmployerApplicationsPage() {
   const [messageContent, setMessageContent] = useState("")
   const [sendingMessage, setSendingMessage] = useState(false)
 
-  const loadApplications = useCallback(async () => {
-    if (!token || !user?.id) {
-      setLoading(false)
-      return
-    }
+  // Candidate profile dialog
+  const [profileDialog, setProfileDialog] = useState(false)
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
 
+  const adminToken = (user as any)?.token || token
+
+  const loadData = useCallback(async () => {
+    if (!adminToken || !employerId) return
+    setLoading(true)
     try {
-      setLoading(true)
-      // First get the employer's ID
-      let employerId = user.id
-      try {
-        const emp = await apiClient.getEmployerByUserId(user.id, token)
-        if (emp && (emp as any).id) {
-          employerId = (emp as any).id
-        }
-      } catch {
-        // use user.id as fallback
-      }
+      // Load employer info
+      const emp = await apiClient.getEmployerById(employerId, adminToken)
+      setEmployer(emp as Employer)
 
-      const data = await apiClient.getApplicationsByEmployer(employerId, token)
-      const apps: Application[] = Array.isArray(data) ? data : []
+      // Load all job listings and filter by this employer
+      const allListings = await apiClient.getJobListings(adminToken)
+      const empListings = (allListings as JobListing[]).filter((l) => {
+        const pid = (l.poster_id as any)?.toString?.() || l.poster_id || ""
+        return pid === employerId
+      })
+      setJobListings(empListings)
 
-      // Enrich with job listing and candidate info
-      const allCandidates = await apiClient.getAllCandidates(token).catch(() => [])
-      const candidateList = Array.isArray(allCandidates) ? allCandidates : []
-
-      const enriched = await Promise.all(
-        apps.map(async (app) => {
-          // Get job listing info
+      // Load applications for each job listing
+      const allApplications: Application[] = []
+      await Promise.all(
+        empListings.map(async (listing) => {
           try {
-            const listing = await apiClient.getJobListingById(app.listing_id?.toString(), token)
-            if (listing) {
-              app.job_listing = {
-                id: (listing as any).id,
-                position: (listing as any).position,
-                description: (listing as any).description,
-              }
-            }
+            const result = await apiClient.getApplicationsForJob(listing.id, adminToken)
+            const apps: Application[] = Array.isArray(result)
+              ? result
+              : (result as any)?.applications || []
+
+            // Enrich with job listing info and candidate info
+            await Promise.all(
+              apps.map(async (app) => {
+                app.job_listing = { id: listing.id, position: listing.position, description: listing.description }
+                // Fetch candidate profile
+                try {
+                  const candidates = await apiClient.getAllCandidates(adminToken)
+                  const candidateList = Array.isArray(candidates) ? candidates : []
+                  const candidate = candidateList.find((c: any) => {
+                    const cid = c.id || c._id || ""
+                    const appId = app.applicant_id?.toString?.() || app.applicant_id || ""
+                    return cid === appId || (c.user && (c.user.id === appId || c.user._id === appId))
+                  })
+                  if (candidate) {
+                    app.candidate = {
+                      id: (candidate as any).id || (candidate as any)._id,
+                      first_name: (candidate as any).first_name || (candidate as any).user?.first_name,
+                      last_name: (candidate as any).last_name || (candidate as any).user?.last_name,
+                      email: (candidate as any).email || (candidate as any).user?.email,
+                      major: (candidate as any).major,
+                      year: (candidate as any).year,
+                      gpa: (candidate as any).gpa,
+                      highschool_gpa: (candidate as any).highschool_gpa,
+                      esbp: (candidate as any).esbp,
+                      scholarship: (candidate as any).scholarship,
+                      skills: (candidate as any).skills,
+                      cv_base64: (candidate as any).cv_base64,
+                      cv_file: (candidate as any).cv_file,
+                    }
+                  }
+                } catch {
+                  // ignore
+                }
+                allApplications.push(app)
+              })
+            )
           } catch {
-            // ignore
+            // ignore listing errors
           }
-
-          // Find candidate from cached list
-          const appId = app.applicant_id?.toString?.() || app.applicant_id || ""
-          const candidate = candidateList.find((c: any) => {
-            const cid = c.id || c._id || ""
-            return cid === appId || (c.user && (c.user.id === appId || c.user._id === appId))
-          }) as any
-
-          if (candidate) {
-            app.candidate = {
-              id: candidate.id || candidate._id,
-              first_name: candidate.first_name || candidate.user?.first_name,
-              last_name: candidate.last_name || candidate.user?.last_name,
-              email: candidate.email || candidate.user?.email,
-              major: candidate.major,
-              year: candidate.year,
-              gpa: candidate.gpa,
-              highschool_gpa: candidate.highschool_gpa,
-              esbp: candidate.esbp,
-              scholarship: candidate.scholarship,
-              skills: candidate.skills,
-              cv_base64: candidate.cv_base64,
-              cv_file: candidate.cv_file,
-            }
-          }
-
-          return app
         })
       )
-
-      setApplications(enriched)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load applications")
+      setApplications(allApplications)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load data",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
-  }, [token, user])
+  }, [adminToken, employerId, toast])
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAuthenticated || !token || !user) {
-      setLoading(false)
-      return
-    }
-    loadApplications()
-  }, [authLoading, isAuthenticated, token, user, loadApplications])
+    if (!isAuthenticated || !user) return
+    if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") return
+    loadData()
+  }, [authLoading, isAuthenticated, user, loadData])
 
   const handleAccept = async (applicationId: string) => {
     setProcessingId(applicationId)
     try {
-      await apiClient.acceptApplication(applicationId, token!)
+      await apiClient.acceptApplication(applicationId, adminToken!)
+      toast({ title: "Application Accepted", description: "The candidate has been accepted." })
       setApplications((prev) =>
-        prev.map((app) =>
-          app.id === applicationId
-            ? { ...app, status: "accepted", updated_at: new Date().toISOString() }
-            : app
-        )
+        prev.map((a) => (a.id === applicationId ? { ...a, status: "accepted" } : a))
       )
-      toast({
-        title: "Application Accepted",
-        description: "The application has been accepted successfully.",
-      })
-    } catch (err) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to accept application",
+        description: error instanceof Error ? error.message : "Failed to accept",
         variant: "destructive",
       })
     } finally {
@@ -196,22 +215,15 @@ export default function EmployerApplicationsPage() {
   const handleReject = async (applicationId: string) => {
     setProcessingId(applicationId)
     try {
-      await apiClient.rejectApplication(applicationId, token!)
+      await apiClient.rejectApplication(applicationId, adminToken!)
+      toast({ title: "Application Rejected", description: "The candidate has been rejected." })
       setApplications((prev) =>
-        prev.map((app) =>
-          app.id === applicationId
-            ? { ...app, status: "rejected", updated_at: new Date().toISOString() }
-            : app
-        )
+        prev.map((a) => (a.id === applicationId ? { ...a, status: "rejected" } : a))
       )
-      toast({
-        title: "Application Rejected",
-        description: "The application has been rejected.",
-      })
-    } catch (err) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to reject application",
+        description: error instanceof Error ? error.message : "Failed to reject",
         variant: "destructive",
       })
     } finally {
@@ -236,15 +248,15 @@ export default function EmployerApplicationsPage() {
           job_listing_id: messageTarget.listingId,
           content: messageContent.trim(),
         },
-        token!
+        adminToken!
       )
       toast({ title: "Message Sent", description: `Message sent to ${messageTarget.name}.` })
       setMessageDialog(false)
       setMessageContent("")
-    } catch (err) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to send message",
+        description: error instanceof Error ? error.message : "Failed to send message",
         variant: "destructive",
       })
     } finally {
@@ -279,11 +291,11 @@ export default function EmployerApplicationsPage() {
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
       case "accepted":
-        return <Badge className="bg-green-100 text-green-800">Accepted</Badge>
+        return <Badge className="bg-green-500 text-white">Accepted</Badge>
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+        return <Badge className="bg-red-500 text-white">Rejected</Badge>
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+        return <Badge className="bg-yellow-500 text-white">Pending</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -291,7 +303,7 @@ export default function EmployerApplicationsPage() {
 
   if (authLoading) {
     return (
-      <DashboardLayout title="Job Applications">
+      <DashboardLayout title="Employer Applications">
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
         </div>
@@ -299,36 +311,77 @@ export default function EmployerApplicationsPage() {
     )
   }
 
+  if (!isAuthenticated || !user || (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA")) {
+    return (
+      <DashboardLayout title="Employer Applications">
+        <Alert variant="destructive">
+          <AlertDescription>Access denied. Admin privileges required.</AlertDescription>
+        </Alert>
+      </DashboardLayout>
+    )
+  }
+
   return (
-    <DashboardLayout title="Job Applications">
+    <DashboardLayout title="Employer Applications">
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold">Job Applications</h2>
-          <p className="text-muted-foreground">Manage applications for your job listings</p>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/admin/employers")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Employers
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">
+              {employer ? employer.firm_name : "Employer"} — Applications
+            </h1>
+            {employer && (
+              <p className="text-muted-foreground">
+                {employer.first_name} {employer.last_name} • {employer.email}
+              </p>
+            )}
+          </div>
         </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+        {/* Job Listings Summary */}
+        {jobListings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5" />
+                Job Listings ({jobListings.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {jobListings.map((listing) => (
+                  <Badge key={listing.id} variant="outline" className="text-sm py-1 px-3">
+                    {listing.position}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({applications.filter((a) => a.listing_id?.toString() === listing.id).length} applicants)
+                    </span>
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
+        {/* Applications */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : applications.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No applications yet</p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Applications will appear here when candidates apply to your jobs
-              </p>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No applications found for this employer's job listings.</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              All Applications ({applications.length})
+            </h2>
             {applications.map((application) => {
               const candidate = application.candidate
               const candidateName = candidate
@@ -341,12 +394,12 @@ export default function EmployerApplicationsPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="flex items-center gap-2">
-                          <Briefcase className="h-5 w-5 text-primary" />
-                          {application.job_listing?.position || "Position"}
+                          <User className="h-5 w-5 text-primary" />
+                          {candidateName}
                         </CardTitle>
                         <CardDescription className="flex items-center gap-2 mt-1">
-                          <User className="h-4 w-4" />
-                          {candidateName}
+                          <Briefcase className="h-4 w-4" />
+                          Applied for: {application.job_listing?.position || "Unknown Position"}
                         </CardDescription>
                       </div>
                       {getStatusBadge(application.status)}
@@ -382,19 +435,13 @@ export default function EmployerApplicationsPage() {
                         )}
                         {candidate.skills && candidate.skills.length > 0 && (
                           <div className="col-span-2 md:col-span-3">
-                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                              Skills
-                            </p>
+                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">Skills</p>
                             <div className="flex flex-wrap gap-1">
-                              {candidate.skills.slice(0, 5).map((skill, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">
-                                  {skill}
-                                </Badge>
+                              {candidate.skills.slice(0, 6).map((skill, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs">{skill}</Badge>
                               ))}
-                              {candidate.skills.length > 5 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{candidate.skills.length - 5} more
-                                </Badge>
+                              {candidate.skills.length > 6 && (
+                                <Badge variant="outline" className="text-xs">+{candidate.skills.length - 6} more</Badge>
                               )}
                             </div>
                           </div>
@@ -448,9 +495,9 @@ export default function EmployerApplicationsPage() {
                         <>
                           <Button
                             size="sm"
+                            className="bg-green-600 hover:bg-green-700"
                             onClick={() => handleAccept(application.id)}
                             disabled={processingId === application.id}
-                            className="bg-green-600 hover:bg-green-700"
                           >
                             {processingId === application.id ? (
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -521,17 +568,13 @@ export default function EmployerApplicationsPage() {
                 )}
                 {selectedCandidate.gpa !== undefined && selectedCandidate.gpa > 0 && (
                   <div>
-                    <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                      University GPA
-                    </p>
+                    <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">University GPA</p>
                     <p>{selectedCandidate.gpa.toFixed(2)}</p>
                   </div>
                 )}
                 {selectedCandidate.highschool_gpa !== undefined && selectedCandidate.highschool_gpa > 0 && (
                   <div>
-                    <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                      High School GPA
-                    </p>
+                    <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">High School GPA</p>
                     <p>{selectedCandidate.highschool_gpa.toFixed(2)}</p>
                   </div>
                 )}
@@ -553,15 +596,17 @@ export default function EmployerApplicationsPage() {
                   <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide mb-2">Skills</p>
                   <div className="flex flex-wrap gap-1">
                     {selectedCandidate.skills.map((skill, i) => (
-                      <Badge key={i} variant="secondary">
-                        {skill}
-                      </Badge>
+                      <Badge key={i} variant="secondary">{skill}</Badge>
                     ))}
                   </div>
                 </div>
               )}
               {(selectedCandidate.cv_base64 || selectedCandidate.cv_file) && (
-                <Button className="w-full" variant="outline" onClick={() => downloadCV(selectedCandidate)}>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => downloadCV(selectedCandidate)}
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Download CV
                 </Button>
@@ -590,9 +635,9 @@ export default function EmployerApplicationsPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="emp-message-content">Message</Label>
+              <Label htmlFor="message-content">Message</Label>
               <Textarea
-                id="emp-message-content"
+                id="message-content"
                 placeholder="Write your message here..."
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
