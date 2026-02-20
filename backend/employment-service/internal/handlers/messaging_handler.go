@@ -56,6 +56,20 @@ func (h *MessagingHandler) GetMessagesBetweenUsers() gin.HandlerFunc {
 	}
 }
 
+func (h *MessagingHandler) GetInboxMessages() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userId := c.Param("userId")
+
+		messages, err := h.service.GetInboxMessages(userId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, messages)
+	}
+}
+
 func (h *MessagingHandler) MarkMessagesAsRead() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		senderId := c.Param("senderId")

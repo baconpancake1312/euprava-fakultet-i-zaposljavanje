@@ -44,10 +44,10 @@ export default function CandidateApplicationsPage() {
         
         if (!candidate || !candidate.id) {
           setError("Candidate profile not found. Please complete your profile first.")
-          setLoading(false)
-          return
-        }
-        
+        setLoading(false)
+        return
+      }
+
         const candidateId = candidate.id
         console.log("Loading applications for candidate ID:", candidateId)
         console.log("Candidate ID type:", typeof candidateId)

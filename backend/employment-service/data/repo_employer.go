@@ -58,9 +58,11 @@ func (er *EmploymentRepo) GetEmployerByUserID(userID string) (*models.Employer, 
 
 	employerCollection := OpenCollection(er.cli, "employers")
 
+	// Employer embeds User directly (flat document), so _id IS the user ID.
+	// Also support legacy documents that may have stored user_id separately.
 	objectId, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		// Not a valid ObjectID — try string user_id
+		// Not a valid ObjectID — try string user_id field
 		var employer models.Employer
 		err2 := employerCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&employer)
 		if err2 != nil {
@@ -70,14 +72,16 @@ func (er *EmploymentRepo) GetEmployerByUserID(userID string) (*models.Employer, 
 	}
 
 	var employer models.Employer
-	// Try _id (document ID) OR user._id (auth user ID nested inside user object)
+	// _id is the primary key and equals the auth user ID (User is embedded flat).
+	// Also check user_id field for legacy documents.
 	err = employerCollection.FindOne(ctx, bson.M{
 		"$or": []bson.M{
 			{"_id": objectId},
-			{"user._id": objectId},
+			{"user_id": objectId},
 		},
 	}).Decode(&employer)
 	if err != nil {
+		er.logger.Printf("[GetEmployerByUserID] Not found for id: %s, error: %v", userID, err)
 		return nil, fmt.Errorf("no employer found for user id: %s", userID)
 	}
 
@@ -164,24 +168,24 @@ func (er *EmploymentRepo) DeleteEmployer(employerId string) error {
 	return nil
 }
 
-// findEmployerFilter builds a MongoDB filter that matches an employer by _id, user._id, or user_id.
-// Employers are stored with a nested "user" object, so the auth user ID is at user._id.
+// findEmployerFilter builds a MongoDB filter that matches an employer by _id or user_id.
+// Employer embeds User directly (flat document), so _id IS the auth user ID.
 func (er *EmploymentRepo) findEmployerFilter(employerId string) (bson.M, error) {
 	er.logger.Printf("[findEmployerFilter] Looking up employer with ID: %s", employerId)
 
 	objectId, err := primitive.ObjectIDFromHex(employerId)
 	if err != nil {
-		er.logger.Printf("[findEmployerFilter] ID is not a valid ObjectID, will try user._id string match: %v", err)
-		// Not a valid ObjectID - try matching as a string user_id only
+		er.logger.Printf("[findEmployerFilter] ID is not a valid ObjectID, trying string user_id: %v", err)
 		return bson.M{"user_id": employerId}, nil
 	}
 
-	// Valid ObjectID - match _id (document ID) OR user._id (auth user ID nested inside user object)
-	er.logger.Printf("[findEmployerFilter] Valid ObjectID: %s, will try _id or user._id", objectId.Hex())
+	// _id is the primary key and equals the auth user ID (User is embedded flat).
+	// Also check user_id for legacy documents.
+	er.logger.Printf("[findEmployerFilter] Valid ObjectID: %s, searching _id or user_id", objectId.Hex())
 	return bson.M{
 		"$or": []bson.M{
 			{"_id": objectId},
-			{"user._id": objectId},
+			{"user_id": objectId},
 		},
 	}, nil
 }

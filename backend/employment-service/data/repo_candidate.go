@@ -65,11 +65,12 @@ func (er *EmploymentRepo) GetCandidate(candidateId string) (*models.Candidate, e
 		return &candidate, nil
 	}
 
-	// Try _id (document ID) OR user._id (auth user ID nested inside user object)
+	// Candidate embeds User directly (flat document), so _id IS the auth user ID.
+	// Also check user_id for legacy documents.
 	err = candidateCollection.FindOne(ctx, bson.M{
 		"$or": []bson.M{
 			{"_id": objectId},
-			{"user._id": objectId},
+			{"user_id": objectId},
 		},
 	}).Decode(&candidate)
 	if err != nil {
@@ -97,11 +98,12 @@ func (er *EmploymentRepo) GetCandidateByUserID(userID string) (*models.Candidate
 	}
 
 	var candidate models.Candidate
-	// Try _id (document ID) OR user._id (auth user ID nested inside user object)
+	// Candidate embeds User directly (flat document), so _id IS the auth user ID.
+	// Also check user_id for legacy documents.
 	err = candidateCollection.FindOne(ctx, bson.M{
 		"$or": []bson.M{
 			{"_id": objectId},
-			{"user._id": objectId},
+			{"user_id": objectId},
 		},
 	}).Decode(&candidate)
 	if err != nil {

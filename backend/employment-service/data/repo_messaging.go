@@ -54,6 +54,25 @@ func (er *EmploymentRepo) GetMessagesBetweenUsers(userAId, userBId string) ([]*m
 	return messages, nil
 }
 
+// GetInboxMessages returns all messages where the user is the receiver (inbox).
+func (er *EmploymentRepo) GetInboxMessages(userId string) ([]*models.Message, error) {
+	collection := OpenCollection(er.cli, "messages")
+	oid, err := primitive.ObjectIDFromHex(userId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id: %v", err)
+	}
+	filter := bson.M{"receiver_id": oid}
+	cursor, err := collection.Find(context.Background(), filter, nil)
+	if err != nil {
+		return nil, err
+	}
+	var messages []*models.Message
+	if err := cursor.All(context.Background(), &messages); err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
 func (er *EmploymentRepo) MarkMessagesAsRead(senderId, receiverId string) error {
 	collection := OpenCollection(er.cli, "messages")
 	oidSender, err := primitive.ObjectIDFromHex(senderId)

@@ -91,9 +91,10 @@ func setupProtectedRoutes(router *gin.Engine, h *handlers.Handlers) {
 		protected.GET("/interviews/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), h.Interview.GetInterviewsByEmployer())
 		protected.PUT("/interviews/:id/status", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), h.Interview.UpdateInterviewStatus())
 
-		protected.POST("/messages", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), h.Messaging.SendMessage())
-		protected.GET("/messages/:userAId/:userBId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), h.Messaging.GetMessagesBetweenUsers())
-		protected.PUT("/messages/:senderId/:receiverId/read", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), h.Messaging.MarkMessagesAsRead())
+		protected.POST("/messages", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.SendMessage())
+		protected.GET("/messages/inbox/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetInboxMessages())
+		protected.GET("/messages/:userAId/:userBId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetMessagesBetweenUsers())
+		protected.PUT("/messages/:senderId/:receiverId/read", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.MarkMessagesAsRead())
 
 		protected.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.SearchApplicationsByStatus())
 

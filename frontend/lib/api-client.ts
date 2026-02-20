@@ -82,8 +82,23 @@ class ApiClient {
     return this.handleResponse(response)
   }
 
+  async getInboxMessages(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/inbox/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
   async getMessagesBetweenUsers(userAId: string, userBId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/messages/${userAId}/${userBId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async markMessagesAsRead(senderId: string, receiverId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/${senderId}/${receiverId}/read`, {
+      method: "PUT",
       headers: this.getAuthHeaders(token),
     })
     return this.handleResponse(response)

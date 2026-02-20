@@ -29,6 +29,10 @@ func (s *MessagingService) GetMessagesBetweenUsers(userAID, userBID string) ([]*
 	return s.repo.GetMessagesBetweenUsers(userAID, userBID)
 }
 
+func (s *MessagingService) GetInboxMessages(userID string) ([]*models.Message, error) {
+	return s.repo.GetInboxMessages(userID)
+}
+
 func (s *MessagingService) MarkMessagesAsRead(senderID, receiverID string) error {
 	return s.repo.MarkMessagesAsRead(senderID, receiverID)
 }

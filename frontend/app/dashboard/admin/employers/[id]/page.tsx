@@ -29,8 +29,11 @@ import {
   Calendar,
   Download,
   Mail,
-  GraduationCap,
   FileText,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Clock,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -56,11 +59,6 @@ interface Application {
   listing_id: string
   status: string
   submitted_at: string
-  job_listing?: {
-    id: string
-    position: string
-    description: string
-  }
   candidate?: Candidate
 }
 
@@ -71,6 +69,7 @@ interface JobListing {
   poster_id: string
   approval_status: string
   created_at: string
+  is_internship?: boolean
 }
 
 interface Employer {
@@ -91,9 +90,13 @@ export default function AdminEmployerDetailPage() {
 
   const [employer, setEmployer] = useState<Employer | null>(null)
   const [jobListings, setJobListings] = useState<JobListing[]>([])
-  const [applications, setApplications] = useState<Application[]>([])
+  // Map: listingId -> Application[]
+  const [applicationsByListing, setApplicationsByListing] = useState<Record<string, Application[]>>({})
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
+  // Which listing is expanded
+  const [expandedListing, setExpandedListing] = useState<string | null>(null)
+  const [loadingApps, setLoadingApps] = useState<string | null>(null)
 
   // Message dialog
   const [messageDialog, setMessageDialog] = useState(false)
@@ -122,59 +125,6 @@ export default function AdminEmployerDetailPage() {
         return pid === employerId
       })
       setJobListings(empListings)
-
-      // Load applications for each job listing
-      const allApplications: Application[] = []
-      await Promise.all(
-        empListings.map(async (listing) => {
-          try {
-            const result = await apiClient.getApplicationsForJob(listing.id, adminToken)
-            const apps: Application[] = Array.isArray(result)
-              ? result
-              : (result as any)?.applications || []
-
-            // Enrich with job listing info and candidate info
-            await Promise.all(
-              apps.map(async (app) => {
-                app.job_listing = { id: listing.id, position: listing.position, description: listing.description }
-                // Fetch candidate profile
-                try {
-                  const candidates = await apiClient.getAllCandidates(adminToken)
-                  const candidateList = Array.isArray(candidates) ? candidates : []
-                  const candidate = candidateList.find((c: any) => {
-                    const cid = c.id || c._id || ""
-                    const appId = app.applicant_id?.toString?.() || app.applicant_id || ""
-                    return cid === appId || (c.user && (c.user.id === appId || c.user._id === appId))
-                  })
-                  if (candidate) {
-                    app.candidate = {
-                      id: (candidate as any).id || (candidate as any)._id,
-                      first_name: (candidate as any).first_name || (candidate as any).user?.first_name,
-                      last_name: (candidate as any).last_name || (candidate as any).user?.last_name,
-                      email: (candidate as any).email || (candidate as any).user?.email,
-                      major: (candidate as any).major,
-                      year: (candidate as any).year,
-                      gpa: (candidate as any).gpa,
-                      highschool_gpa: (candidate as any).highschool_gpa,
-                      esbp: (candidate as any).esbp,
-                      scholarship: (candidate as any).scholarship,
-                      skills: (candidate as any).skills,
-                      cv_base64: (candidate as any).cv_base64,
-                      cv_file: (candidate as any).cv_file,
-                    }
-                  }
-                } catch {
-                  // ignore
-                }
-                allApplications.push(app)
-              })
-            )
-          } catch {
-            // ignore listing errors
-          }
-        })
-      )
-      setApplications(allApplications)
     } catch (error) {
       toast({
         title: "Error",
@@ -193,14 +143,84 @@ export default function AdminEmployerDetailPage() {
     loadData()
   }, [authLoading, isAuthenticated, user, loadData])
 
-  const handleAccept = async (applicationId: string) => {
+  const loadApplicationsForListing = async (listingId: string) => {
+    // Already loaded
+    if (applicationsByListing[listingId]) {
+      setExpandedListing(expandedListing === listingId ? null : listingId)
+      return
+    }
+
+    setLoadingApps(listingId)
+    setExpandedListing(listingId)
+    try {
+      const result = await apiClient.getApplicationsForJob(listingId, adminToken!)
+      const apps: Application[] = Array.isArray(result)
+        ? result
+        : (result as any)?.applications || []
+
+      // Fetch all candidates once and enrich
+      const allCandidates = await apiClient.getAllCandidates(adminToken!).catch(() => [])
+      const candidateList = Array.isArray(allCandidates) ? allCandidates : []
+
+      const enriched = apps.map((app) => {
+        const appId = app.applicant_id?.toString?.() || app.applicant_id || ""
+        const candidate = candidateList.find((c: any) => {
+          const cid = c.id || c._id || ""
+          return cid === appId || (c.user && (c.user.id === appId || c.user._id === appId))
+        }) as any
+
+        if (candidate) {
+          app.candidate = {
+            id: candidate.id || candidate._id,
+            first_name: candidate.first_name || candidate.user?.first_name,
+            last_name: candidate.last_name || candidate.user?.last_name,
+            email: candidate.email || candidate.user?.email,
+            major: candidate.major,
+            year: candidate.year,
+            gpa: candidate.gpa,
+            highschool_gpa: candidate.highschool_gpa,
+            esbp: candidate.esbp,
+            scholarship: candidate.scholarship,
+            skills: candidate.skills,
+            cv_base64: candidate.cv_base64,
+            cv_file: candidate.cv_file,
+          }
+        }
+        return app
+      })
+
+      setApplicationsByListing((prev) => ({ ...prev, [listingId]: enriched }))
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load applications",
+        variant: "destructive",
+      })
+      setExpandedListing(null)
+    } finally {
+      setLoadingApps(null)
+    }
+  }
+
+  const handleToggleListing = (listingId: string) => {
+    if (expandedListing === listingId) {
+      setExpandedListing(null)
+    } else {
+      loadApplicationsForListing(listingId)
+    }
+  }
+
+  const handleAccept = async (applicationId: string, listingId: string) => {
     setProcessingId(applicationId)
     try {
       await apiClient.acceptApplication(applicationId, adminToken!)
       toast({ title: "Application Accepted", description: "The candidate has been accepted." })
-      setApplications((prev) =>
-        prev.map((a) => (a.id === applicationId ? { ...a, status: "accepted" } : a))
-      )
+      setApplicationsByListing((prev) => ({
+        ...prev,
+        [listingId]: (prev[listingId] || []).map((a) =>
+          a.id === applicationId ? { ...a, status: "accepted" } : a
+        ),
+      }))
     } catch (error) {
       toast({
         title: "Error",
@@ -212,14 +232,17 @@ export default function AdminEmployerDetailPage() {
     }
   }
 
-  const handleReject = async (applicationId: string) => {
+  const handleReject = async (applicationId: string, listingId: string) => {
     setProcessingId(applicationId)
     try {
       await apiClient.rejectApplication(applicationId, adminToken!)
       toast({ title: "Application Rejected", description: "The candidate has been rejected." })
-      setApplications((prev) =>
-        prev.map((a) => (a.id === applicationId ? { ...a, status: "rejected" } : a))
-      )
+      setApplicationsByListing((prev) => ({
+        ...prev,
+        [listingId]: (prev[listingId] || []).map((a) =>
+          a.id === applicationId ? { ...a, status: "rejected" } : a
+        ),
+      }))
     } catch (error) {
       toast({
         title: "Error",
@@ -297,13 +320,24 @@ export default function AdminEmployerDetailPage() {
       case "pending":
         return <Badge className="bg-yellow-500 text-white">Pending</Badge>
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        return <Badge variant="secondary">{status || "Unknown"}</Badge>
+    }
+  }
+
+  const getListingStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "approved":
+        return <Badge className="bg-green-100 text-green-800 text-xs">Approved</Badge>
+      case "rejected":
+        return <Badge className="bg-red-100 text-red-800 text-xs">Rejected</Badge>
+      default:
+        return <Badge className="bg-yellow-100 text-yellow-800 text-xs">Pending</Badge>
     }
   }
 
   if (authLoading) {
     return (
-      <DashboardLayout title="Employer Applications">
+      <DashboardLayout title="Employer Positions">
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
         </div>
@@ -313,7 +347,7 @@ export default function AdminEmployerDetailPage() {
 
   if (!isAuthenticated || !user || (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA")) {
     return (
-      <DashboardLayout title="Employer Applications">
+      <DashboardLayout title="Employer Positions">
         <Alert variant="destructive">
           <AlertDescription>Access denied. Admin privileges required.</AlertDescription>
         </Alert>
@@ -322,8 +356,9 @@ export default function AdminEmployerDetailPage() {
   }
 
   return (
-    <DashboardLayout title="Employer Applications">
+    <DashboardLayout title="Employer Positions">
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/admin/employers")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -331,7 +366,7 @@ export default function AdminEmployerDetailPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">
-              {employer ? employer.firm_name : "Employer"} — Applications
+              {employer ? employer.firm_name : "Employer"} — Job Positions
             </h1>
             {employer && (
               <p className="text-muted-foreground">
@@ -341,188 +376,205 @@ export default function AdminEmployerDetailPage() {
           </div>
         </div>
 
-        {/* Job Listings Summary */}
-        {jobListings.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Briefcase className="h-5 w-5" />
-                Job Listings ({jobListings.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {jobListings.map((listing) => (
-                  <Badge key={listing.id} variant="outline" className="text-sm py-1 px-3">
-                    {listing.position}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({applications.filter((a) => a.listing_id?.toString() === listing.id).length} applicants)
-                    </span>
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Applications */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : applications.length === 0 ? (
+        ) : jobListings.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No applications found for this employer's job listings.</p>
+              <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>This employer has no job listings yet.</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              All Applications ({applications.length})
-            </h2>
-            {applications.map((application) => {
-              const candidate = application.candidate
-              const candidateName = candidate
-                ? `${candidate.first_name || ""} ${candidate.last_name || ""}`.trim() || "Unknown Candidate"
-                : "Unknown Candidate"
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Click on a position to view candidates who applied.
+            </p>
+            {jobListings.map((listing) => {
+              const isExpanded = expandedListing === listing.id
+              const isLoadingThis = loadingApps === listing.id
+              const apps = applicationsByListing[listing.id] || []
+              const appCount = applicationsByListing[listing.id]?.length
 
               return (
-                <Card key={application.id} className="hover:border-primary/50 transition-colors">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="flex items-center gap-2">
-                          <User className="h-5 w-5 text-primary" />
-                          {candidateName}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-2 mt-1">
-                          <Briefcase className="h-4 w-4" />
-                          Applied for: {application.job_listing?.position || "Unknown Position"}
-                        </CardDescription>
+                <Card key={listing.id} className={`transition-all ${isExpanded ? "border-primary" : "hover:border-primary/50"}`}>
+                  {/* Listing header — clickable */}
+                  <CardHeader
+                    className="cursor-pointer select-none"
+                    onClick={() => handleToggleListing(listing.id)}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Briefcase className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <CardTitle className="text-base truncate">{listing.position}</CardTitle>
+                          <CardDescription className="flex items-center gap-2 mt-0.5">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {new Date(listing.created_at).toLocaleDateString()}
+                            {listing.is_internship && (
+                              <Badge variant="outline" className="text-xs ml-1">Internship</Badge>
+                            )}
+                          </CardDescription>
+                        </div>
                       </div>
-                      {getStatusBadge(application.status)}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {getListingStatusBadge(listing.approval_status)}
+                        {appCount !== undefined && (
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {appCount}
+                          </Badge>
+                        )}
+                        {isLoadingThis ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Candidate basic info */}
-                    {candidate && (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm bg-muted/30 rounded-lg p-3">
-                        {candidate.email && (
-                          <div>
-                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Email</p>
-                            <p>{candidate.email}</p>
-                          </div>
-                        )}
-                        {candidate.major && (
-                          <div>
-                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Major</p>
-                            <p>{candidate.major}</p>
-                          </div>
-                        )}
-                        {candidate.year !== undefined && candidate.year > 0 && (
-                          <div>
-                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Year</p>
-                            <p>Year {candidate.year}</p>
-                          </div>
-                        )}
-                        {candidate.gpa !== undefined && candidate.gpa > 0 && (
-                          <div>
-                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">GPA</p>
-                            <p>{candidate.gpa.toFixed(2)}</p>
-                          </div>
-                        )}
-                        {candidate.skills && candidate.skills.length > 0 && (
-                          <div className="col-span-2 md:col-span-3">
-                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">Skills</p>
-                            <div className="flex flex-wrap gap-1">
-                              {candidate.skills.slice(0, 6).map((skill, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">{skill}</Badge>
-                              ))}
-                              {candidate.skills.length > 6 && (
-                                <Badge variant="outline" className="text-xs">+{candidate.skills.length - 6} more</Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>Applied {new Date(application.submitted_at).toLocaleDateString()}</span>
-                    </div>
+                  {/* Expanded applicants */}
+                  {isExpanded && !isLoadingThis && (
+                    <CardContent className="pt-0 border-t">
+                      {apps.length === 0 ? (
+                        <div className="py-6 text-center text-muted-foreground text-sm">
+                          <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                          No applications for this position yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pt-4">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {apps.length} applicant{apps.length !== 1 ? "s" : ""}
+                          </p>
+                          {apps.map((application) => {
+                            const candidate = application.candidate
+                            const candidateName = candidate
+                              ? `${candidate.first_name || ""} ${candidate.last_name || ""}`.trim() || "Unknown"
+                              : "Unknown Candidate"
 
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {candidate && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedCandidate(candidate)
-                            setProfileDialog(true)
-                          }}
-                        >
-                          <User className="mr-2 h-4 w-4" />
-                          View Profile
-                        </Button>
-                      )}
-                      {candidate && (candidate.cv_base64 || candidate.cv_file) && (
-                        <Button size="sm" variant="outline" onClick={() => downloadCV(candidate)}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Download CV
-                        </Button>
-                      )}
-                      {candidate && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            openMessageDialog(
-                              candidate.id,
-                              candidateName,
-                              application.listing_id?.toString()
+                            return (
+                              <div
+                                key={application.id}
+                                className="border rounded-lg p-4 space-y-3 bg-muted/20"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                      <User className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-sm">{candidateName}</p>
+                                      {candidate?.email && (
+                                        <p className="text-xs text-muted-foreground">{candidate.email}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {getStatusBadge(application.status)}
+                                </div>
+
+                                {/* Candidate quick info */}
+                                {candidate && (
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                    {candidate.major && (
+                                      <span>📚 {candidate.major}{candidate.year ? `, Y${candidate.year}` : ""}</span>
+                                    )}
+                                    {candidate.gpa !== undefined && candidate.gpa > 0 && (
+                                      <span>🎓 GPA {candidate.gpa.toFixed(2)}</span>
+                                    )}
+                                    {candidate.skills && candidate.skills.length > 0 && (
+                                      <span>🛠 {candidate.skills.slice(0, 3).join(", ")}{candidate.skills.length > 3 ? ` +${candidate.skills.length - 3}` : ""}</span>
+                                    )}
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      {new Date(application.submitted_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="flex flex-wrap gap-2">
+                                  {candidate && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        setSelectedCandidate(candidate)
+                                        setProfileDialog(true)
+                                      }}
+                                    >
+                                      <User className="mr-1 h-3 w-3" />
+                                      Profile
+                                    </Button>
+                                  )}
+                                  {candidate && (candidate.cv_base64 || candidate.cv_file) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => downloadCV(candidate)}
+                                    >
+                                      <Download className="mr-1 h-3 w-3" />
+                                      CV
+                                    </Button>
+                                  )}
+                                  {candidate && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => openMessageDialog(candidate.id, candidateName, listing.id)}
+                                    >
+                                      <Mail className="mr-1 h-3 w-3" />
+                                      Message
+                                    </Button>
+                                  )}
+                                  {application.status === "pending" && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                        onClick={() => handleAccept(application.id, listing.id)}
+                                        disabled={processingId === application.id}
+                                      >
+                                        {processingId === application.id ? (
+                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <CheckCircle className="mr-1 h-3 w-3" />
+                                        )}
+                                        Accept
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        className="h-7 text-xs"
+                                        onClick={() => handleReject(application.id, listing.id)}
+                                        disabled={processingId === application.id}
+                                      >
+                                        {processingId === application.id ? (
+                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <XCircle className="mr-1 h-3 w-3" />
+                                        )}
+                                        Reject
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             )
-                          }
-                        >
-                          <Mail className="mr-2 h-4 w-4" />
-                          Send Message
-                        </Button>
+                          })}
+                        </div>
                       )}
-                      {application.status === "pending" && (
-                        <>
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() => handleAccept(application.id)}
-                            disabled={processingId === application.id}
-                          >
-                            {processingId === application.id ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                            )}
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleReject(application.id)}
-                            disabled={processingId === application.id}
-                          >
-                            {processingId === application.id ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <XCircle className="mr-2 h-4 w-4" />
-                            )}
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
+                    </CardContent>
+                  )}
                 </Card>
               )
             })}
@@ -601,22 +653,18 @@ export default function AdminEmployerDetailPage() {
                   </div>
                 </div>
               )}
-              {(selectedCandidate.cv_base64 || selectedCandidate.cv_file) && (
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => downloadCV(selectedCandidate)}
-                >
+              {(selectedCandidate.cv_base64 || selectedCandidate.cv_file) ? (
+                <Button className="w-full" variant="outline" onClick={() => downloadCV(selectedCandidate)}>
                   <Download className="mr-2 h-4 w-4" />
                   Download CV
                 </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center">No CV uploaded</p>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setProfileDialog(false)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setProfileDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -647,20 +695,12 @@ export default function AdminEmployerDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setMessageDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setMessageDialog(false)}>Cancel</Button>
             <Button onClick={handleSendMessage} disabled={sendingMessage || !messageContent.trim()}>
               {sendingMessage ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
               ) : (
-                <>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Send Message
-                </>
+                <><Mail className="mr-2 h-4 w-4" />Send Message</>
               )}
             </Button>
           </DialogFooter>
