@@ -19,7 +19,7 @@ import {
     User
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { Subject, Major } from "@/lib/types"
+import { Subject, Major, Student } from "@/lib/types"
 
 export default function CourseDetailPage() {
     const router = useRouter()
@@ -28,7 +28,7 @@ export default function CourseDetailPage() {
     const [loading, setLoading] = useState(true)
     const [course, setCourse] = useState<Subject | null>(null)
     const [major, setMajor] = useState<Major | null>(null)
-    const [students, setStudents] = useState<any[]>([])
+    const [students, setStudents] = useState<Student[]>([])
 
     const courseId = params.courseId as string
 
@@ -47,21 +47,48 @@ export default function CourseDetailPage() {
         try {
             if (!token || !courseId) return
 
-            // Fetch course details
+            // Fetch course details and major
             const courseData = await apiClient.getCourseById(courseId, token)
             setCourse(courseData)
 
-            // Fetch major details
             if (courseData.major_id) {
                 const majorData = await apiClient.getMajorById(courseData.major_id, token)
                 setMajor(majorData)
             }
 
-            // TODO: Fetch students enrolled in this course
-            // This would require a new API endpoint
-            // const studentsData = await apiClient.getStudentsByCourse(courseId, token)
-            // setStudents(studentsData)
+            // Fetch all students, then filter by same major and exclude those who passed this subject
+            const allStudents = await apiClient.getAllStudents(token)
+            const majorId = courseData.major_id ?? (courseData as any).major_id
+            if (!majorId) {
+                setStudents([])
+                return
+            }
 
+            const studentsInMajor = allStudents.filter((s: Student & { major_id?: string }) => {
+                const sid = s.major_id ?? (s as any).major_id
+                return sid === majorId
+            })
+
+            // For each student in major, check exam-grades/student/{student_id}; exclude if they have passed this subject
+            const studentsNotPassed = await Promise.all(
+                studentsInMajor.map(async (student) => {
+                    try {
+                        const grades = await apiClient.getAllExamGradesForStudent(student.id, token)
+                        const gradeList = Array.isArray(grades) ? grades : []
+                        const passedThisSubject = gradeList.some((g: any) => {
+                            const subId = g.subject_id ?? g.subjectId
+                            if (subId !== courseId) return false
+                            const passed = g.passed ?? g.Passed
+                            return passed === true || passed === "true" || passed === "passed" || String(passed).toLowerCase() === "true"
+                        })
+                        return passedThisSubject ? null : student
+                    } catch {
+                        return student
+                    }
+                })
+            )
+
+            setStudents(studentsNotPassed.filter((s): s is Student => s != null))
         } catch (error) {
             console.error("Error fetching course data:", error)
         } finally {
@@ -147,7 +174,7 @@ export default function CourseDetailPage() {
                                     Enrolled Students
                                 </CardTitle>
                                 <CardDescription>
-                                    Students currently enrolled in this course
+                                    Students in this major who have not yet passed this subject
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -155,7 +182,7 @@ export default function CourseDetailPage() {
                                     <div className="text-center py-8">
                                         <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                                         <p className="text-muted-foreground">
-                                            No students enrolled yet, or student data is not available.
+                                            No students in this major, or all have already passed this subject.
                                         </p>
                                     </div>
                                 ) : (
@@ -172,7 +199,7 @@ export default function CourseDetailPage() {
                                                     </div>
                                                 </div>
                                                 <Badge variant="outline">
-                                                    {student.major?.name || "Unknown Major"}
+                                                    {major?.name || (student as any).major?.name || "Same major"}
                                                 </Badge>
                                             </div>
                                         ))}
