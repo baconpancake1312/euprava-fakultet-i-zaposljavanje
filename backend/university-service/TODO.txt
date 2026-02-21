@@ -3,17 +3,15 @@ student
 	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu ✅
  	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd ✅
 	kaskadno brisanje
-	prikaz predmeta (polozenih/nepolozenih i po godini) i ocena na posebnoj strani
-	dostupnost ispita u zavisnosti od godine 
+	prikaz predmeta (polozenih/nepolozenih i po godini) i ocena na posebnoj strani✅
+	dostupnost ispita u zavisnosti od godine ✅
 	prebacivanje u sledecu godinu
 	zahtev za zavrsavanje fakulteta
 	?? semestri: predmet dobija field semestar,
 	?? prostorije na fakultetu: zauzimanje prostorija za ispit
 	?? ispitni rokovi: moze da se doda ispit samo za taj rok i ispit koji se podudara sa trenutnim semestrom:
 		student moze da vidi ispite po ispitnim rokovima
-
-
-
+	
 }
 
 profesor
@@ -24,8 +22,8 @@ profesor
 	prikaz ispita ✅
 	prikaz predmeta ✅
 	ako profesor predaje prdmet iz x departmana onda je on u staff od x departmana ✅
-	prikaz enrolled students
-	manage exams i grades dugme 
+	prikaz enrolled students✅
+	manage exams i grades dugme ✅
 	kaskadno brisanje
 }
 
