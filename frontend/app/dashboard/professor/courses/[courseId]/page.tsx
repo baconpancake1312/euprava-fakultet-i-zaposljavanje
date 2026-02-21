@@ -79,7 +79,7 @@ export default function CourseDetailPage() {
                             const subId = g.subject_id ?? g.subjectId
                             if (subId !== courseId) return false
                             const passed = g.passed ?? g.Passed
-                            return passed === true || passed === "true" || passed === "passed" || String(passed).toLowerCase() === "true"
+                            return passed === true || passed === "true" || passed === "passed"
                         })
                         return passedThisSubject ? null : student
                     } catch {
@@ -222,7 +222,7 @@ export default function CourseDetailPage() {
                                     variant="outline"
                                     onClick={() => {
                                         // Navigate to exam management for this course
-                                        router.push(`/dashboard/professor/exams?course=${course.id}`)
+                                        router.push(`/dashboard/professor/exam-sessions?course=${course.id}`)
                                     }}
                                 >
                                     <Calendar className="h-4 w-4 mr-2" />

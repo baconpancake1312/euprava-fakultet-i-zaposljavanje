@@ -1485,6 +1485,14 @@ class ApiClient {
     if (!response.ok) throw new Error("Failed to fetch exam registrations for session")
     return response.json()
   }
+
+  async deleteExamGrade(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to delete exam grade")
+  }
 }
 
 

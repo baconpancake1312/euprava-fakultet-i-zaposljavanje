@@ -14,7 +14,6 @@ export default function ProfessorDashboard() {
   const { user, token, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(true)
   const [professorData, setProfessorData] = useState<any>(null)
-  const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated || user?.user_type !== "PROFESSOR") {
@@ -32,15 +31,7 @@ export default function ProfessorDashboard() {
       const data = await apiClient.getProfessorById(user.id, token)
       setProfessorData(data)
 
-      // Check if profile needs completion
-      const missingFields = []
-      if (!data.office) missingFields.push("office")
-      if (!data.subjects || data.subjects.length === 0) missingFields.push("subjects")
-
-      setNeedsProfileCompletion(missingFields.length > 0)
     } catch (error) {
-      // Professor profile doesn't exist yet
-      setNeedsProfileCompletion(true)
     } finally {
       setLoading(false)
     }
@@ -63,15 +54,6 @@ export default function ProfessorDashboard() {
           <h2 className="text-3xl font-bold tracking-tight">Welcome, Prof. {user?.last_name}!</h2>
           <p className="text-muted-foreground">Manage your courses, exams, and students</p>
         </div>
-
-        {needsProfileCompletion && (
-          <ProfileCompletionPrompt
-            title="Complete Your Professor Profile"
-            description="To access all university services, please complete your professor profile."
-            missingFields={["Office Location", "Teaching Subjects"]}
-            onComplete={() => router.push("/dashboard/professor/complete-profile")}
-          />
-        )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card

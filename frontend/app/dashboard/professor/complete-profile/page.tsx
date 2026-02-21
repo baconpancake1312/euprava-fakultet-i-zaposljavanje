@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { apiClient } from "@/lib/api-client"
 
 export default function CompleteProfessorProfile() {
   const router = useRouter()
@@ -51,7 +52,9 @@ export default function CompleteProfessorProfile() {
       if (!token || !user?.id) throw new Error("Not authenticated")
 
       // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await apiClient.updateProfessor(user.id, {
+        office: formData.office,
+      }, token)
       router.push("/dashboard/professor")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile")
@@ -93,50 +96,9 @@ export default function CompleteProfessorProfile() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="subjects">Subjects *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="subjects"
-                    placeholder="e.g., Data Structures, Algorithms"
-                    value={formData.subjectInput}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, subjectInput: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addSubject()
-                      }
-                    }}
-                    disabled={loading}
-                  />
-                  <Button type="button" onClick={addSubject} disabled={loading}>
-                    Add
-                  </Button>
-                </div>
-                {formData.subjects.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.subjects.map((subject) => (
-                      <Badge key={subject} variant="secondary" className="gap-1">
-                        {subject}
-                        <button
-                          type="button"
-                          onClick={() => removeSubject(subject)}
-                          className="ml-1 hover:text-destructive"
-                          disabled={loading}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {formData.subjects.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Add at least one subject</p>
-                )}
-              </div>
 
               <div className="flex gap-3 pt-4">
-                <Button type="submit" disabled={loading || formData.subjects.length === 0}>
+                <Button type="submit" disabled={loading || !formData.office}>
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
