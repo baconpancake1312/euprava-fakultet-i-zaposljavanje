@@ -87,7 +87,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.GET("/exam-grades/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByStudent)
 		protected.GET("/exam-grades/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByExamSession)
 		protected.GET("/exam-grades/student/:studentId/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradeByStudentAndExam)
-		protected.DELETE("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteExamGrade)
+		protected.DELETE("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "PROFESSOR"}), ctrl.DeleteExamGrade)
 
 		// Admins
 		protected.POST("/administrators/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateAdministrator)

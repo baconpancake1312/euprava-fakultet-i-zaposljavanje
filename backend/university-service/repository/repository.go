@@ -1558,8 +1558,21 @@ func (r *Repository) CreateExamGrade(grade *ExamGrade) error {
 }
 
 func (r *Repository) UpdateExamGrade(grade *ExamGrade) error {
+	type UpdateExamGrade struct {
+		Grade    int    `bson:"grade" json:"grade"`
+		Passed   bool   `bson:"passed" json:"passed"`
+		Comments string `bson:"comments" json:"comments"`
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"grade":    grade.Grade,
+			"passed":   grade.Passed,
+			"comments": grade.Comments,
+		},
+	}
 	collection := r.getCollection("exam_grades")
-	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": grade.ID}, bson.M{"$set": grade})
+	filter := bson.M{"_id": grade.ID}
+	_, err := collection.UpdateOne(context.TODO(), filter, update)
 	return err
 }
 
