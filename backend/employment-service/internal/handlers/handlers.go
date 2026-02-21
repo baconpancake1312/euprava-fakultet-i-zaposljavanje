@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 
+	"employment-service/messaging"
 	"employment-service/internal/services"
 )
 
@@ -19,7 +20,7 @@ type Handlers struct {
 	Company     *CompanyHandler
 }
 
-func NewHandlers(services *services.Services, logger *log.Logger) *Handlers {
+func NewHandlers(services *services.Services, hub *messaging.Hub, logger *log.Logger) *Handlers {
 	return &Handlers{
 		User:        NewUserHandler(services.User, logger),
 		Employer:    NewEmployerHandler(services.Employer, logger),
@@ -28,7 +29,7 @@ func NewHandlers(services *services.Services, logger *log.Logger) *Handlers {
 		Application: NewApplicationHandler(services.Application, logger),
 		Admin:       NewAdminHandler(services.Admin, logger),
 		Search:      NewSearchHandler(services.Search, logger),
-		Messaging:   NewMessagingHandler(services.Messaging, logger),
+		Messaging:   NewMessagingHandler(services.Messaging, hub, logger),
 		Interview:   NewInterviewHandler(services.Interview, logger),
 		Company:     NewCompanyHandler(services.Company, logger),
 	}

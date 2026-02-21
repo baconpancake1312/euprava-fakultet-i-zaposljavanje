@@ -87,6 +87,8 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.DELETE("/unemployed-records/:id", ec.DeleteUnemployedRecord())
 
 		protected.POST("/messages", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.SendMessage())
+		protected.GET("/messages/inbox/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.GetInboxMessages())
+		protected.GET("/messages/sent/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.GetSentMessages())
 		protected.GET("/messages/:userAId/:userBId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.GetMessagesBetweenUsers())
 		protected.PUT("/messages/:senderId/:receiverId/read", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.MarkMessagesAsRead())
 

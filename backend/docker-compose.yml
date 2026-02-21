@@ -115,6 +115,27 @@ services:
     networks:
       - network
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    hostname: "rabbitmq"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   employment-service:
     build:
       context: ./employment-service
@@ -134,8 +155,11 @@ services:
       - KEYCLOAK_REALM=euprava
       - KEYCLOAK_CLIENT_ID=euprava-client
       - KEYCLOAK_CLIENT_SECRET=olp0SqcHvKGvUnonpemuc3nTigYyHqLQ
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       employment_data_base:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - network
@@ -188,6 +212,7 @@ volumes:
   university_data_base:
   employment_data_base:
   keycloak_db:
+  rabbitmq_data:
 
 networks:
   network:

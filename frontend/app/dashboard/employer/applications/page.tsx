@@ -251,15 +251,18 @@ export default function EmployerApplicationsPage() {
   }
 
   const downloadCV = (candidate: Candidate) => {
-    const base64 = candidate.cv_base64 || candidate.cv_file
-    if (!base64) {
+    const raw = candidate.cv_base64 || candidate.cv_file
+    if (!raw) {
       toast({ title: "No CV", description: "This candidate has not uploaded a CV.", variant: "destructive" })
       return
     }
     try {
+      // Strip data URI prefix if present (e.g. "data:application/pdf;base64,...")
+      const base64 = raw.includes(",") ? raw.split(",")[1] : raw
+      const mimeType = raw.startsWith("data:") ? raw.split(";")[0].replace("data:", "") : "application/pdf"
       const byteCharacters = atob(base64)
       const byteArray = new Uint8Array(Array.from(byteCharacters).map((c) => c.charCodeAt(0)))
-      const blob = new Blob([byteArray], { type: "application/pdf" })
+      const blob = new Blob([byteArray], { type: mimeType })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url

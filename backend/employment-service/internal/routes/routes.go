@@ -11,6 +11,9 @@ func SetupRoutes(router *gin.Engine, h *handlers.Handlers) {
 
 	router.GET("/health", handlers.HealthCheck())
 
+	// WebSocket endpoint – auth is handled inside the hub via query param
+	router.GET("/ws/messages", h.Messaging.WebSocketHandler())
+
 	setupPublicRoutes(router, h)
 
 	setupProtectedRoutes(router, h)
@@ -93,6 +96,7 @@ func setupProtectedRoutes(router *gin.Engine, h *handlers.Handlers) {
 
 		protected.POST("/messages", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.SendMessage())
 		protected.GET("/messages/inbox/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetInboxMessages())
+		protected.GET("/messages/sent/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetSentMessages())
 		protected.GET("/messages/:userAId/:userBId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetMessagesBetweenUsers())
 		protected.PUT("/messages/:senderId/:receiverId/read", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.MarkMessagesAsRead())
 

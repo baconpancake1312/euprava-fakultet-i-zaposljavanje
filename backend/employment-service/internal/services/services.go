@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"employment-service/data"
+	"employment-service/messaging"
 )
 
 type Services struct {
@@ -19,7 +20,7 @@ type Services struct {
 	Company     *CompanyService
 }
 
-func NewServices(repo *data.EmploymentRepo, logger *log.Logger) *Services {
+func NewServices(repo *data.EmploymentRepo, broker *messaging.Broker, hub *messaging.Hub, logger *log.Logger) *Services {
 	return &Services{
 		User:        NewUserService(repo, logger),
 		Employer:    NewEmployerService(repo, logger),
@@ -28,7 +29,7 @@ func NewServices(repo *data.EmploymentRepo, logger *log.Logger) *Services {
 		Application: NewApplicationService(repo, logger),
 		Admin:       NewAdminService(repo, logger),
 		Search:      NewSearchService(repo, logger),
-		Messaging:   NewMessagingService(repo, logger),
+		Messaging:   NewMessagingService(repo, broker, hub, logger),
 		Interview:   NewInterviewService(repo, logger),
 		Company:     NewCompanyService(repo, logger),
 	}

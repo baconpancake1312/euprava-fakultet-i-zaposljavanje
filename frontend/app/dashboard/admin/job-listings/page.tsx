@@ -22,6 +22,8 @@ interface JobListing {
   approval_status: string
   approved_at?: string
   approved_by?: string
+  // enriched
+  employer_name?: string
 }
 
 export default function AdminJobListingsPage() {
@@ -59,7 +61,28 @@ export default function AdminJobListingsPage() {
       console.log("[Admin] Loading job listings with user_type:", user?.user_type)
       const data = await apiClient.getJobListings(token!)
       console.log("[Admin] Loaded job listings:", data.length)
-      setListings(data)
+
+      // Fetch all employers once to enrich poster names
+      let allEmployers: any[] = []
+      try {
+        const empRes = await fetch(
+          `${process.env.NEXT_PUBLIC_EMPLOYMENT_API_URL || "http://localhost:8089"}/employers`,
+          { headers: { Authorization: `Bearer ${token!}` } }
+        )
+        if (empRes.ok) allEmployers = await empRes.json()
+        if (!Array.isArray(allEmployers)) allEmployers = []
+      } catch { /* ignore */ }
+
+      const enriched = data.map((listing: JobListing) => {
+        const pid = (listing.poster_id as any)?.toString?.() || listing.poster_id || ""
+        const emp = allEmployers.find((e: any) => (e.id || e._id || "") === pid) as any
+        const employer_name = emp
+          ? emp.firm_name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || undefined
+          : undefined
+        return { ...listing, employer_name }
+      })
+
+      setListings(enriched)
     } catch (error) {
       console.error("Failed to load job listings:", error)
       toast({
@@ -201,7 +224,7 @@ export default function AdminJobListingsPage() {
                     <div className="space-y-1">
                       <CardTitle>{listing.position}</CardTitle>
                       <CardDescription>
-                        Posted by: {listing.poster_id}
+                        Posted by: {listing.employer_name || listing.poster_id}
                         {listing.is_internship && " • Internship"}
                       </CardDescription>
                     </div>

@@ -25,11 +25,35 @@ func (ec *EmploymentController) SendMessage() gin.HandlerFunc {
 	}
 }
 
+func (ec *EmploymentController) GetInboxMessages() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userId := c.Param("userId")
+		messages, err := ec.repo.GetInboxMessages(userId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, messages)
+	}
+}
+
 func (ec *EmploymentController) GetMessagesBetweenUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userAId := c.Param("userAId")
 		userBId := c.Param("userBId")
 		messages, err := ec.repo.GetMessagesBetweenUsers(userAId, userBId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, messages)
+	}
+}
+
+func (ec *EmploymentController) GetSentMessages() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userId := c.Param("userId")
+		messages, err := ec.repo.GetSentMessages(userId)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

@@ -89,6 +89,13 @@ class ApiClient {
     return this.handleResponse(response)
   }
 
+  async getSentMessages(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/sent/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
   async getMessagesBetweenUsers(userAId: string, userBId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/messages/${userAId}/${userBId}`, {
       headers: this.getAuthHeaders(token),

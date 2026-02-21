@@ -13,6 +13,7 @@ import (
 	"employment-service/internal/handlers"
 	"employment-service/internal/routes"
 	"employment-service/internal/services"
+	"employment-service/messaging"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
@@ -21,7 +22,6 @@ import (
 
 func main() {
 	port := os.Getenv("PORT")
-
 	if port == "" {
 		port = "8089"
 	}
@@ -37,11 +37,13 @@ func main() {
 		Credentials:     true,
 		ValidateHeaders: false,
 	}))
+
 	timeoutContext, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 
 	logger := log.New(os.Stdout, "[employment-api] ", log.LstdFlags)
 	storeLogger := log.New(os.Stdout, "[employment-store] ", log.LstdFlags)
+
 	store, err := data.NewEmploymentRepo(timeoutContext, storeLogger)
 	if err != nil {
 		logger.Fatal(err)
@@ -51,11 +53,34 @@ func main() {
 
 	helper.InitializeTokenHelper(store.GetClient())
 
-	services := services.NewServices(store, logger)
+	// ── RabbitMQ broker ──────────────────────────────────────────────────────
+	broker, err := messaging.NewBroker(logger)
+	if err != nil {
+		logger.Printf("[main] RabbitMQ unavailable (%v) – chat will fall back to direct DB writes", err)
+		broker = nil
+	} else {
+		defer broker.Close()
+	}
 
-	handlers := handlers.NewHandlers(services, logger)
+	// ── WebSocket hub ─────────────────────────────────────────────────────────
+	hub := messaging.NewHub(logger)
 
-	routes.SetupRoutes(router, handlers)
+	// ── RabbitMQ consumer: persist → push via WebSocket ───────────────────────
+	if broker != nil {
+		broker.Consume(func(p messaging.MessagePayload) {
+			// 1. Persist to MongoDB
+			if dbErr := store.PersistMessagePayload(p); dbErr != nil {
+				logger.Printf("[consumer] persist error: %v", dbErr)
+			}
+			// 2. Push to receiver's WebSocket connection(s)
+			hub.Deliver(p)
+		})
+	}
+
+	// ── Wire services / handlers / routes ─────────────────────────────────────
+	svcs := services.NewServices(store, broker, hub, logger)
+	hdlrs := handlers.NewHandlers(svcs, hub, logger)
+	routes.SetupRoutes(router, hdlrs)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -74,8 +99,8 @@ func main() {
 	<-quit
 	logger.Println("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
 
 	if err := server.Shutdown(ctx); err != nil {
 		logger.Fatalf("Server shutdown failed: %v", err)

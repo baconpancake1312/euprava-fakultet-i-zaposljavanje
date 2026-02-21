@@ -99,8 +99,8 @@ func setupTestRouter() {
 		fmt.Printf("Warning: Could not connect to database: %v\n", err)
 	}
 
-	services := services.NewServices(store, nil)
-	testHandlers = handlers.NewHandlers(services, nil)
+	services := services.NewServices(store, nil, nil, nil)
+	testHandlers = handlers.NewHandlers(services, nil, nil)
 
 	testRouter = gin.New()
 	SetupRoutes(testRouter, testHandlers)

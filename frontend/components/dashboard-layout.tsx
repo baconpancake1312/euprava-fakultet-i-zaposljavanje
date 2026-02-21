@@ -159,6 +159,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/employer/job-listings", label: "Job Listings", icon: Briefcase },
           { href: "/dashboard/employer/applications", label: "Applications", icon: FileText },
           { href: "/dashboard/employer/candidates", label: "Candidates", icon: Users },
+          { href: "/dashboard/employer/messages", label: "Messages", icon: MessageSquare },
           { href: "/dashboard/employer/company", label: "Company", icon: Building },
         ]
       case "candidate":
