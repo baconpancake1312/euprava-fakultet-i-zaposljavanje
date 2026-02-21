@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	testRouter *gin.Engine
-	testHandlers *handlers.Handlers
-	keycloakURL = os.Getenv("KEYCLOAK_URL")
+	testRouter    *gin.Engine
+	testHandlers  *handlers.Handlers
+	keycloakURL   = os.Getenv("KEYCLOAK_URL")
 	keycloakRealm = os.Getenv("KEYCLOAK_REALM")
-	baseURL = "http://localhost:8089"
+	baseURL       = "http://localhost:8089"
 )
 
 // Test tokens - these should be obtained from Keycloak
@@ -45,7 +45,7 @@ func getKeycloakToken(username, password, clientID string) (string, error) {
 	}
 
 	url := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token", keycloakURL, keycloakRealm)
-	
+
 	data := map[string]string{
 		"grant_type": "password",
 		"client_id":  clientID,
@@ -201,8 +201,8 @@ func TestPublicRoutes(t *testing.T) {
 			w := httptest.NewRecorder()
 			testRouter.ServeHTTP(w, req)
 
-			assert.Equal(t, tt.expectedStatus, w.Code, 
-				"Expected status %d but got %d for %s %s. Response: %s", 
+			assert.Equal(t, tt.expectedStatus, w.Code,
+				"Expected status %d but got %d for %s %s. Response: %s",
 				tt.expectedStatus, w.Code, tt.method, tt.path, w.Body.String())
 		})
 	}
@@ -221,7 +221,7 @@ func TestProtectedRoutes(t *testing.T) {
 		employerToken, _ = getKeycloakToken("employer", "password", "euprava-client")
 		candidateToken, _ = getKeycloakToken("candidate", "password", "euprava-client")
 		studentToken, _ = getKeycloakToken("student", "password", "euprava-client")
-		
+
 		if err != nil {
 			t.Logf("Warning: Could not get Keycloak tokens: %v", err)
 		}
@@ -253,7 +253,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get user by ID - requires auth",
 		},
-		
+
 		// Employer routes
 		{
 			name:           "GET /employers (protected)",
@@ -271,7 +271,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get employer by ID - requires auth",
 		},
-		
+
 		// Candidate routes
 		{
 			name:           "GET /candidates (protected)",
@@ -289,7 +289,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get candidate by ID - requires auth",
 		},
-		
+
 		// Job listing routes (protected)
 		{
 			name:           "POST /job-listings (EMPLOYER/ADMIN)",
@@ -300,7 +300,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 			description:    "Create job listing - requires EMPLOYER or ADMIN",
 		},
-		
+
 		// Application routes
 		{
 			name:           "GET /applications (EMPLOYER/ADMIN)",
@@ -318,7 +318,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get application by ID - requires auth",
 		},
-		
+
 		// Saved jobs routes
 		{
 			name:           "GET /saved-jobs/candidate/:candidate_id (STUDENT/CANDIDATE)",
@@ -328,7 +328,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get saved jobs - requires STUDENT or CANDIDATE",
 		},
-		
+
 		// Job recommendations
 		{
 			name:           "GET /search/jobs/recommendations (STUDENT/CANDIDATE)",
@@ -338,7 +338,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get job recommendations - requires STUDENT or CANDIDATE",
 		},
-		
+
 		// Company routes
 		{
 			name:           "GET /companies (protected)",
@@ -356,7 +356,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get company by ID - requires auth",
 		},
-		
+
 		// Interview routes
 		{
 			name:           "GET /interviews/candidate/:id (CANDIDATE/STUDENT)",
@@ -374,7 +374,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get interviews by employer - requires EMPLOYER",
 		},
-		
+
 		// Messaging routes
 		{
 			name:           "GET /messages/:userAId/:userBId (EMPLOYER/CANDIDATE)",
@@ -384,7 +384,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get messages between users - requires EMPLOYER or CANDIDATE",
 		},
-		
+
 		// Application search
 		{
 			name:           "GET /search/applications/status (ADMIN/EMPLOYER)",
@@ -394,7 +394,7 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Search applications by status - requires ADMIN or EMPLOYER",
 		},
-		
+
 		// Internships
 		{
 			name:           "GET /internships (STUDENT/CANDIDATE)",
@@ -530,10 +530,8 @@ func TestAdminRoutes(t *testing.T) {
 				validStatuses = append(validStatuses, http.StatusInternalServerError)
 			}
 
-			isValidStatus := false
 			for _, status := range validStatuses {
 				if w.Code == status {
-					isValidStatus = true
 					break
 				}
 			}

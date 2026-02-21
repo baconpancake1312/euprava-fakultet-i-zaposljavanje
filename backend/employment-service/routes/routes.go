@@ -13,33 +13,34 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		c.JSON(200, gin.H{"status": "ok", "service": "employment-service"})
 	})
 
-	// Public routes (no authentication required)
-	public := routes.Group("/")
-	{
-		// Job listings - public access
-		public.GET("/job-listings", ec.GetAllJobListings())
-		public.GET("/job-listings/:id", ec.GetJobListing())
+	   public := routes.Group("/")
+	   {
 
-		// Registration endpoints - public access (no auth required)
-		public.POST("/users", ec.CreateUser())
-		public.POST("/employers", ec.CreateEmployer())
-		public.POST("/candidates", ec.CreateCandidate())
+		   public.GET("/job-listings", ec.GetAllJobListings())
+		   public.GET("/job-listings/:id", ec.GetJobListing())
 
-		// Search endpoints - public access
-		public.GET("/search/jobs/text", ec.SearchJobsByText())
-		public.GET("/search/jobs/internship", ec.SearchJobsByInternship())
-		public.GET("/search/jobs/active", ec.GetActiveJobs())
-		public.GET("/search/jobs/trending", ec.GetTrendingJobs())
-		public.GET("/search/users/text", ec.SearchUsersByText())
-		public.GET("/search/employers/text", ec.SearchEmployersByText())
-		public.GET("/search/candidates/text", ec.SearchCandidatesByText())
-	}
+		   public.POST("/users", ec.CreateUser())
+		   public.POST("/employers", ec.CreateEmployer())
+		   public.POST("/candidates", ec.CreateCandidate())
 
-	// Protected routes (authentication required)
-	protected := routes.Group("/")
-	protected.Use(middleware.Authentication())
-	{
-		// User management (read, update, delete only - create is public)
+		   public.GET("/search/jobs/text", ec.SearchJobsByText())
+		   public.GET("/search/jobs/internship", ec.SearchJobsByInternship())
+		   public.GET("/search/jobs/active", ec.GetActiveJobs())
+		   public.GET("/search/jobs/trending", ec.GetTrendingJobs())
+		   public.GET("/search/users/text", ec.SearchUsersByText())
+		   public.GET("/search/employers/text", ec.SearchEmployersByText())
+		   public.GET("/search/candidates/text", ec.SearchCandidatesByText())
+	   }
+
+	   protected := routes.Group("/")
+	   protected.Use(middleware.Authentication())
+	   {
+
+		   protected.POST("/interviews", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.CreateInterview())
+		   protected.GET("/interviews/candidate/:id", middleware.AuthorizeRoles([]string{"CANDIDATE", "STUDENT"}), ec.GetInterviewsByCandidate())
+		   protected.GET("/interviews/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetInterviewsByEmployer())
+		   protected.PUT("/interviews/:id/status", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.UpdateInterviewStatus())
+
 		protected.GET("/users", ec.GetAllUsers())
 		protected.GET("/users/:id", ec.GetUser())
 		protected.PUT("/users/:id", ec.UpdateUser())
@@ -85,7 +86,12 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.PUT("/unemployed-records/:id", ec.UpdateUnemployedRecord())
 		protected.DELETE("/unemployed-records/:id", ec.DeleteUnemployedRecord())
 
-		// Protected search endpoints
+		protected.POST("/messages", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.SendMessage())
+		protected.GET("/messages/inbox/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.GetInboxMessages())
+		protected.GET("/messages/sent/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.GetSentMessages())
+		protected.GET("/messages/:userAId/:userBId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.GetMessagesBetweenUsers())
+		protected.PUT("/messages/:senderId/:receiverId/read", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.MarkMessagesAsRead())
+
 		protected.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.SearchApplicationsByStatus())
 
 		protected.GET("/companies", ec.GetAllCompanies())
