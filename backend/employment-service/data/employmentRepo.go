@@ -46,7 +46,6 @@ func NewEmploymentRepo(ctx context.Context, logger *log.Logger) (*EmploymentRepo
 		},
 	}
 
-	// Return repository with logger and DB client
 	return &EmploymentRepo{
 		logger: logger,
 		cli:    client,
@@ -54,7 +53,6 @@ func NewEmploymentRepo(ctx context.Context, logger *log.Logger) (*EmploymentRepo
 	}, nil
 }
 
-// Disconnect from database
 func (er *EmploymentRepo) DisconnectMongo(ctx context.Context) error {
 	err := er.cli.Disconnect(ctx)
 	if err != nil {
@@ -63,18 +61,15 @@ func (er *EmploymentRepo) DisconnectMongo(ctx context.Context) error {
 	return nil
 }
 
-// Check database connection
 func (er *EmploymentRepo) Ping() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Check connection -> if no error, connection is established
 	err := er.cli.Ping(ctx, readpref.Primary())
 	if err != nil {
 		er.logger.Println(err)
 	}
 
-	// Print available databases
 	databases, err := er.cli.ListDatabaseNames(ctx, bson.M{})
 	if err != nil {
 		er.logger.Println(err)
@@ -89,7 +84,7 @@ func (er *EmploymentRepo) GetClient() *mongo.Client {
 func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
 	dbName := os.Getenv("EMPLOYMENT_DB_HOST")
 	if dbName == "" {
-		dbName = "employmentDB" // fallback
+		dbName = "employmentDB"
 	}
 	var collection *mongo.Collection = client.Database(dbName).Collection(collectionName)
 	return collection

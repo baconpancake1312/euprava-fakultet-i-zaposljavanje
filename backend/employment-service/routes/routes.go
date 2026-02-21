@@ -8,7 +8,7 @@ import (
 )
 
 func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
-	// Health check endpoint
+
 	routes.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "service": "employment-service"})
 	})
@@ -45,23 +45,22 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.PUT("/users/:id", ec.UpdateUser())
 		protected.DELETE("/users/:id", ec.DeleteUser())
 
-		// Employer management (read, update, delete only - create is public)
 		protected.GET("/employers", ec.GetAllEmployers())
 		protected.GET("/employers/:id", ec.GetEmployer())
+		protected.GET("/employers/user/:user_id", ec.GetEmployerByUserID())
 		protected.PUT("/employers/:id", ec.UpdateEmployer())
 		protected.DELETE("/employers/:id", ec.DeleteEmployer())
 
-		// Candidate management (read, update, delete only - create is public)
 		protected.GET("/candidates", ec.GetAllCandidates())
 		protected.GET("/candidates/:id", ec.GetCandidate())
 		protected.GET("/candidates/user/:user_id", ec.GetCandidateByUserID())
 		protected.PUT("/candidates/:id", ec.UpdateCandidate())
 		protected.DELETE("/candidates/:id", ec.DeleteCandidate())
 
-		// Application management
 		protected.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.CreateApplication())
 		protected.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetAllApplications())
 		protected.GET("/applications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetApplicationsByCandidate())
+		protected.GET("/applications/candidate/:id/stats", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetCandidateApplicationStats())
 		protected.GET("/applications/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetApplicationsByEmployer())
 		protected.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER", "STUDENT", "CANDIDATE"}), ec.GetApplication())
 		protected.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateApplication())
@@ -69,20 +68,17 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.PUT("/applications/:id/reject", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN"}), ec.RejectApplication())
 		protected.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteApplication())
 
-		// Job listing management (protected)
 		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.CreateJobListing())
 		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateJobListing())
 		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteJobListing())
 		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetApplicationsForJob())
 
-		// Document management
 		protected.POST("/documents", ec.CreateDocument())
 		protected.GET("/documents", ec.GetAllDocuments())
 		protected.GET("/documents/:id", ec.GetDocument())
 		protected.PUT("/documents/:id", ec.UpdateDocument())
 		protected.DELETE("/documents/:id", ec.DeleteDocument())
 
-		// Unemployed records management
 		protected.POST("/unemployed-records", ec.CreateUnemployedRecord())
 		protected.GET("/unemployed-records", ec.GetAllUnemployedRecords())
 		protected.GET("/unemployed-records/:id", ec.GetUnemployedRecord())
@@ -92,13 +88,11 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		// Protected search endpoints
 		protected.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.SearchApplicationsByStatus())
 
-		// Company management
 		protected.GET("/companies", ec.GetAllCompanies())
 		protected.GET("/companies/:id", ec.GetCompanyById())
 		protected.GET("/companies/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetCompanyProfile())
 		protected.PUT("/companies/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.UpdateCompanyProfile())
 
-		// Admin endpoints
 		protected.PUT("/admin/employers/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.ApproveEmployer())
 		protected.PUT("/admin/employers/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.RejectEmployer())
 		protected.GET("/admin/employers/pending", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetPendingEmployers())
@@ -110,6 +104,16 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 
 		protected.GET("/internships", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternships())
 		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternshipsForStudent())
+
+		protected.GET("/search/jobs/recommendations", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetJobRecommendations())
+
+		protected.POST("/saved-jobs", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.SaveJob())
+		protected.GET("/saved-jobs/candidate/:candidate_id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetSavedJobs())
+		protected.DELETE("/saved-jobs/candidate/:candidate_id/job/:job_id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.UnsaveJob())
+
+		protected.POST("/candidates/:candidateId/save-job/:jobId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.SaveJob())
+		protected.DELETE("/candidates/:candidateId/save-job/:jobId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.UnsaveJob())
+		protected.GET("/candidates/:candidateId/saved-jobs", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetSavedJobs())
 
 	}
 }

@@ -1242,13 +1242,20 @@ func (ctrl *Controllers) GetNotificationByIDHandler(c *gin.Context) {
 func (ctrl *Controllers) GetNotificationByUserIDHandler(c *gin.Context) {
 	userID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
 		return
 	}
+	
 	notifications, err := ctrl.Repo.GetNotificationsByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Notifications not found"})
+		// Return empty array instead of error if no notifications found
+		c.JSON(http.StatusOK, []repositories.Notification{})
 		return
+	}
+
+	// Return empty array if nil
+	if notifications == nil {
+		notifications = []repositories.Notification{}
 	}
 
 	c.JSON(http.StatusOK, notifications)

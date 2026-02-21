@@ -7,8 +7,9 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface JobListing {
   id: string
@@ -21,10 +22,12 @@ interface JobListing {
   approval_status: string
   approved_at?: string
   approved_by?: string
+  // enriched
+  employer_name?: string
 }
 
 export default function AdminJobListingsPage() {
-  const { user, token } = useAuth()
+  const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<JobListing[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
@@ -32,17 +35,61 @@ export default function AdminJobListingsPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    if (token) {
-      loadListings()
+    const loadData = async () => {
+      if (authLoading) return
+
+      if (!isAuthenticated || !token || !user) {
+        setLoading(false)
+        return
+      }
+
+      // Check if user is admin
+      if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+        setLoading(false)
+        return
+      }
+
+      await loadListings()
     }
-  }, [token])
+
+    loadData()
+  }, [token, authLoading, isAuthenticated, user])
 
   const loadListings = async () => {
+    setLoading(true)
     try {
+      console.log("[Admin] Loading job listings with user_type:", user?.user_type)
       const data = await apiClient.getJobListings(token!)
-      setListings(data)
+      console.log("[Admin] Loaded job listings:", data.length)
+
+      // Fetch all employers once to enrich poster names
+      let allEmployers: any[] = []
+      try {
+        const empRes = await fetch(
+          `${process.env.NEXT_PUBLIC_EMPLOYMENT_API_URL || "http://localhost:8089"}/employers`,
+          { headers: { Authorization: `Bearer ${token!}` } }
+        )
+        if (empRes.ok) allEmployers = await empRes.json()
+        if (!Array.isArray(allEmployers)) allEmployers = []
+      } catch { /* ignore */ }
+
+      const enriched = data.map((listing: JobListing) => {
+        const pid = (listing.poster_id as any)?.toString?.() || listing.poster_id || ""
+        const emp = allEmployers.find((e: any) => (e.id || e._id || "") === pid) as any
+        const employer_name = emp
+          ? emp.firm_name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || undefined
+          : undefined
+        return { ...listing, employer_name }
+      })
+
+      setListings(enriched)
     } catch (error) {
       console.error("Failed to load job listings:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load job listings",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -51,12 +98,13 @@ export default function AdminJobListingsPage() {
   const handleApprove = async (listingId: string) => {
     setProcessingId(listingId)
     try {
+      console.log("[Admin] Approving job listing:", listingId)
       await apiClient.approveJobListing(listingId, token!)
       toast({
         title: "Job Listing Approved",
         description: "The job listing is now visible to candidates and students.",
       })
-      loadListings()
+      await loadListings()
     } catch (error) {
       console.error("Failed to approve listing:", error)
       toast({
@@ -72,12 +120,13 @@ export default function AdminJobListingsPage() {
   const handleReject = async (listingId: string) => {
     setProcessingId(listingId)
     try {
+      console.log("[Admin] Rejecting job listing:", listingId)
       await apiClient.rejectJobListing(listingId, token!)
       toast({
         title: "Job Listing Rejected",
         description: "The job listing has been rejected and will not be visible to users.",
       })
-      loadListings()
+      await loadListings()
     } catch (error) {
       console.error("Failed to reject listing:", error)
       toast({
@@ -88,6 +137,32 @@ export default function AdminJobListingsPage() {
     } finally {
       setProcessingId(null)
     }
+  }
+
+  // Show loading while auth loads
+  if (authLoading) {
+    return (
+      <DashboardLayout title="Job Listings Management">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated or not admin
+  if (!isAuthenticated || !token || !user || (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA")) {
+    return (
+      <DashboardLayout title="Job Listings Management">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Access Denied: Admin privileges required. Your role: {user?.user_type || "Not logged in"}
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   const filteredListings = listings.filter((listing) => {
@@ -149,7 +224,7 @@ export default function AdminJobListingsPage() {
                     <div className="space-y-1">
                       <CardTitle>{listing.position}</CardTitle>
                       <CardDescription>
-                        Posted by: {listing.poster_id}
+                        Posted by: {listing.employer_name || listing.poster_id}
                         {listing.is_internship && " • Internship"}
                       </CardDescription>
                     </div>

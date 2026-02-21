@@ -342,10 +342,6 @@ export default function ExamSessionDetailPage() {
                                         <CardDescription>
                                             {filteredRegistrations?.length || 0} of {registrations?.length || 0} registrations
                                         </CardDescription>
-                                        {/* Debug info */}
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Debug: Filter={gradingFilter}, Total={registrations?.length || 0}, Filtered={filteredRegistrations?.length || 0}
-                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Filter className="h-4 w-4" />

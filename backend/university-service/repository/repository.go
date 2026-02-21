@@ -1154,15 +1154,23 @@ func (r *Repository) GetNotificationsByUserID(userID primitive.ObjectID) ([]Noti
 	filter := bson.M{"recipient_id": userID}
 	cursor, err := collection.Find(context.TODO(), filter, opts)
 	if err != nil {
-		return nil, err
+		// Return empty slice instead of error if query fails
+		return []Notification{}, nil
 	}
 	defer cursor.Close(context.TODO())
 
 	var notifications []Notification
 	err = cursor.All(context.TODO(), &notifications)
 	if err != nil {
-		return nil, err
+		// Return empty slice instead of error
+		return []Notification{}, nil
 	}
+	
+	// Return empty slice if nil
+	if notifications == nil {
+		return []Notification{}, nil
+	}
+	
 	return notifications, nil
 }
 

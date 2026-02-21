@@ -1,53 +1,209 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Briefcase, Building, Calendar, Search } from "lucide-react"
+import { Loader2, Briefcase, Building, Calendar, Search, Filter, Bookmark, BookmarkCheck, Star, ArrowRight, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function CandidateJobSearchPage() {
-  const { token, user } = useAuth()
+  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<any[]>([])
-  const [filteredListings, setFilteredListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [jobType, setJobType] = useState<"all" | "internship" | "fulltime">("all")
   const [applying, setApplying] = useState<string | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set())
+  const [totalResults, setTotalResults] = useState(0)
   const { toast } = useToast()
 
-  useEffect(() => {
-    loadListings()
-  }, [])
+  const [matchScoresLoaded, setMatchScoresLoaded] = useState(false)
 
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = listings.filter(
-        (listing) =>
-          listing.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          listing.description.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-      setFilteredListings(filtered)
-    } else {
-      setFilteredListings(listings)
-    }
-  }, [searchTerm, listings])
+  const performSearch = useCallback(async () => {
+    if (!token) return
 
-  const loadListings = async () => {
+    setSearching(true)
+    setError("")
+
     try {
-      if (!token) throw new Error("Not authenticated")
+      let results: any[] = []
+      let total = 0
+
+      if (searchTerm.trim()) {
+        // Use text search if there's a search term
+        const searchResult = await apiClient.searchJobsByText(searchTerm.trim(), 1, 50)
+        results = searchResult.jobs || []
+        total = searchResult.total || 0
+
+        // Apply job type filter if specified
+        if (jobType !== "all") {
+          const isInternship = jobType === "internship"
+          results = results.filter((listing: any) => listing.is_internship === isInternship)
+          total = results.length
+        }
+      } else if (jobType !== "all") {
+        // Use internship filter if job type is specified (no text search)
+        const isInternship = jobType === "internship"
+        const searchResult = await apiClient.searchJobsByInternship(isInternship, 1, 50)
+        results = searchResult.jobs || []
+        total = searchResult.total || 0
+      } else {
+        // Load all approved jobs (no filters)
+        const data = await apiClient.getJobListings(token)
+        results = data.filter((listing: any) => listing.approval_status?.toLowerCase() === "approved")
+        total = results.length
+      }
+
+      setListings(results)
+      setTotalResults(total)
+      setMatchScoresLoaded(false) // Reset when new search happens
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to search job listings")
+      setListings([])
+      setTotalResults(0)
+    } finally {
+      setSearching(false)
+      setLoading(false)
+    }
+  }, [searchTerm, jobType, token])
+
+  useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return
+    }
+
+    // If not authenticated, don't load data
+    if (!isAuthenticated || !token || !user) {
+      setLoading(false)
+      setError("Please log in to view job listings")
+      return
+    }
+
+    loadInitialListings()
+    loadSavedJobs()
+    loadAppliedJobs()
+  }, [token, user, authLoading, isAuthenticated])
+
+  const loadSavedJobs = async () => {
+    if (!token || !user) return
+    try {
+      // Find candidate ID by email match (same as profile page)
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        // No candidate profile yet - that's okay, just skip saved jobs
+        return
+      }
+
+      const data = await apiClient.getSavedJobs(candidate.id, token)
+      // Handle different response structures
+      let jobs: any[] = []
+      if (Array.isArray(data)) {
+        jobs = data
+      } else if (data && typeof data === 'object') {
+        jobs = data.saved_jobs || data.jobs || data.data || []
+      }
+      const savedIds = new Set(jobs.map((job: any) => {
+        const jobObj = job.job || job.job_listing || job
+        return jobObj?.id || jobObj?.job_id || job.id || job.job_id
+      }))
+      setSavedJobIds(savedIds)
+    } catch (err) {
+      // Silently fail - saved jobs are optional
+      console.log("Failed to load saved jobs:", err)
+    }
+  }
+
+  const loadAppliedJobs = async () => {
+    if (!token || !user) return
+    try {
+      // Find candidate ID by email match
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        // No candidate profile yet - that's okay, just skip applied jobs
+        console.log("No candidate found for applied jobs")
+        return
+      }
+
+      console.log("Loading applied jobs for candidate:", candidate.id)
+      const applications = await apiClient.getApplicationsByCandidate(candidate.id, token)
+      const applicationsData = Array.isArray(applications) ? applications : []
+      
+      console.log("Applications received:", applicationsData.length)
+      if (applicationsData.length > 0) {
+        console.log("Sample application:", JSON.stringify(applicationsData[0], null, 2))
+      }
+      
+      // Extract job listing IDs from applications
+      // Normalize all IDs to strings for comparison
+      const normalizeId = (id: any): string | null => {
+        if (!id) return null
+        if (typeof id === 'string') return id
+        if (typeof id === 'object' && id.toString) return id.toString()
+        return String(id)
+      }
+      
+      const appliedIds = new Set(
+        applicationsData
+          .map((app: any) => {
+            // Try different possible field names
+            const listingId = normalizeId(
+              app.listing_id || 
+              app.job_listing_id || 
+              app.job_listing?.id ||
+              app.listing?.id
+            )
+            if (listingId) {
+              console.log("Found listing_id:", listingId, "from app ID:", app.id)
+            }
+            return listingId
+          })
+          .filter(Boolean) as string[]
+      )
+      
+      console.log("Applied job IDs set:", Array.from(appliedIds))
+      setAppliedJobIds(appliedIds)
+    } catch (err) {
+      // Log error for debugging
+      console.error("Failed to load applied jobs:", err)
+    }
+  }
+
+  const loadInitialListings = async () => {
+    setLoading(true)
+    setMatchScoresLoaded(false) // Reset flag for new load
+    try {
+      if (!token) {
+        setError("Not authenticated")
+        return
+      }
       const data = await apiClient.getJobListings(token)
-      console.log("[v0] Total listings fetched:", data.length)
       const approved = data.filter((listing: any) => listing.approval_status?.toLowerCase() === "approved")
-      console.log("[v0] Approved listings:", approved.length)
       setListings(approved)
-      setFilteredListings(approved)
+      setTotalResults(approved.length)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load job listings")
     } finally {
@@ -55,11 +211,52 @@ export default function CandidateJobSearchPage() {
     }
   }
 
+  const handleSearch = () => {
+    performSearch()
+  }
+
+  // Auto-search when job type filter changes
+  useEffect(() => {
+    if (!loading && token && !authLoading && isAuthenticated) {
+      performSearch()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobType])
+
   const handleApply = async (listingId: string) => {
-    setApplying(listingId)
+    // Normalize ID for comparison
+    const normalizedId = String(listingId)
+    
+    if (appliedJobIds.has(normalizedId)) {
+      toast({
+        title: "Already Applied",
+        description: "You have already applied to this job.",
+        variant: "default",
+      })
+      return
+    }
+
+    setApplying(normalizedId)
     try {
-      if (!token || !user?.id) throw new Error("Not authenticated")
-      await apiClient.applyToJob(listingId, { applicant_id: user.id }, token)
+      if (!token || !user) throw new Error("Not authenticated")
+      
+      // Find candidate ID by email match
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        throw new Error("Please complete your profile first")
+      }
+
+      await apiClient.applyToJob(normalizedId, { applicant_id: candidate.id }, token)
+      
+      // Add to applied jobs set (use normalized ID)
+      setAppliedJobIds((prev) => new Set(prev).add(normalizedId))
+      
       toast({
         title: "Application Submitted",
         description: "Your application has been successfully submitted to the employer.",
@@ -78,84 +275,335 @@ export default function CandidateJobSearchPage() {
     }
   }
 
+  const handleSaveJob = async (jobId: string) => {
+    if (!token || !user) return
+    setSaving(jobId)
+    try {
+      // Find candidate ID by email match
+      const candidates = await apiClient.getAllCandidates(token) as any[]
+      const candidate = candidates.find((c: any) => 
+        c.email === user.email || 
+        c.id === user.id ||
+        c.user_id === user.id
+      )
+
+      if (!candidate || !candidate.id) {
+        toast({
+          title: "Error",
+          description: "Please complete your profile first",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (savedJobIds.has(jobId)) {
+        await apiClient.unsaveJob(candidate.id, jobId, token)
+        setSavedJobIds((prev) => {
+          const next = new Set(prev)
+          next.delete(jobId)
+          return next
+        })
+        toast({
+          title: "Job Removed",
+          description: "Job removed from your saved jobs.",
+        })
+      } else {
+        await apiClient.saveJob(candidate.id, jobId, token)
+        setSavedJobIds((prev) => new Set(prev).add(jobId))
+        toast({
+          title: "Job Saved",
+          description: "Job saved to your favorites.",
+        })
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to save/unsave job",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  useEffect(() => {
+    // Load match scores for displayed listings if user is a candidate
+    // Only load once per search result set
+    if (!loading && !searching && listings.length > 0 && !matchScoresLoaded && token && user?.user_type === "CANDIDATE") {
+      loadMatchScores()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listings.length, loading, searching, matchScoresLoaded])
+
+  const loadMatchScores = async () => {
+    if (!token || !user?.id || matchScoresLoaded) return
+    
+    try {
+      // Get recommendations which include match scores
+      const recommendations = await apiClient.getJobRecommendations(token, 50)
+      const recommendationsMap = new Map()
+      
+      // Handle both formats: { recommendations: [...] } or just array
+      const recs = Array.isArray(recommendations) 
+        ? recommendations 
+        : (recommendations.recommendations || [])
+      
+      if (Array.isArray(recs)) {
+        recs.forEach((rec: any) => {
+          // Recommendations can be in format { job: {...}, match_score: ... } or just job objects
+          const job = rec.job || rec
+          const score = rec.match_score || rec.matchScore
+          if (job && job.id) {
+            recommendationsMap.set(job.id, score)
+          }
+        })
+      }
+      
+      // Update listings with match scores
+      setListings(prev => prev.map(listing => ({
+        ...listing,
+        match_score: recommendationsMap.get(listing.id) || listing.match_score
+      })))
+      
+      setMatchScoresLoaded(true) // Mark as loaded to prevent re-fetch
+    } catch (err) {
+      // Silently fail - match scores are optional
+      console.error("Failed to load match scores:", err)
+      setMatchScoresLoaded(true) // Still mark as loaded to prevent infinite retries
+    }
+  }
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <DashboardLayout title="Job Search">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated || !token || !user) {
+    return (
+      <DashboardLayout title="Job Search">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Please log in to view job listings
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout title="Job Search">
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fadeIn">
         <div>
-          <h2 className="text-2xl font-bold">Job Search</h2>
-          <p className="text-muted-foreground">Find your next career opportunity</p>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Job Search
+          </h2>
+          <p className="text-muted-foreground mt-1">Find your next career opportunity</p>
         </div>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search jobs by title or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+        {/* Search and Filter Section */}
+        <Card className="border-2 shadow-lg">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  placeholder="Search jobs by title, description, or company..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSearch()
+                    }
+                  }}
+                  className="pl-10 h-12 text-base"
+                />
+              </div>
+              <Select value={jobType} onValueChange={(value: "all" | "internship" | "fulltime") => setJobType(value)}>
+                <SelectTrigger className="w-full md:w-[200px] h-12">
+                  <Filter className="mr-2 h-5 w-5" />
+                  <SelectValue placeholder="Job Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Jobs</SelectItem>
+                  <SelectItem value="internship">Internships</SelectItem>
+                  <SelectItem value="fulltime">Full-time</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleSearch} 
+                disabled={searching}
+                className="h-12 px-6 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30"
+              >
+                {searching ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-5 w-5" />
+                    Search
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Results Count */}
+        {totalResults > 0 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Found <span className="font-semibold text-foreground">{totalResults}</span> {totalResults === 1 ? "job" : "jobs"}
+              {searchTerm && <> matching <span className="font-semibold text-foreground">"{searchTerm}"</span></>}
+              {jobType !== "all" && <> ({jobType === "internship" ? "Internships" : "Full-time"})</>}
+            </p>
           </div>
-        </div>
+        )}
 
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="border-destructive/50">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {loading || searching ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+              <p className="text-muted-foreground">Loading opportunities...</p>
+            </div>
           </div>
-        ) : filteredListings.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Briefcase className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                {searchTerm ? "No jobs found matching your search" : "No approved job listings available at the moment"}
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">Check back later for new opportunities</p>
+        ) : listings.length === 0 ? (
+          <Card className="border-2">
+            <CardContent className="py-20 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+                  <Briefcase className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-lg font-semibold">
+                    {searchTerm ? "No jobs found matching your search" : "No approved job listings available"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm ? "Try adjusting your search terms or filters" : "Check back later for new opportunities"}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {filteredListings.map((listing) => (
-              <Card key={listing.id} className="hover:border-primary/50 transition-colors">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <Briefcase className="h-5 w-5 text-primary" />
-                        {listing.position}
-                      </CardTitle>
-                      <CardDescription className="flex items-center gap-2 mt-1">
+            {listings.map((listing) => {
+              // Normalize listing ID for comparison
+              const listingId = String(listing.id || listing._id || '')
+              const isApplied = appliedJobIds.has(listingId)
+              
+              return (
+              <Card key={listing.id} className="border-2 hover:border-primary/50 transition-all hover:shadow-xl group relative overflow-hidden">
+                {/* Gradient accent */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary to-primary/60" />
+                
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
+                          <Briefcase className="h-5 w-5 text-primary" />
+                        </div>
+                        <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                          {listing.position}
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="flex items-center gap-2">
                         <Building className="h-4 w-4" />
-                        Company
+                        <span className="font-medium">{listing.poster_name || "Company"}</span>
                       </CardDescription>
                     </div>
-                    {listing.is_internship && <Badge variant="secondary">Internship</Badge>}
+                    <div className="flex items-center gap-2">
+                      {isApplied && (
+                        <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Applied
+                        </Badge>
+                      )}
+                      {listing.match_score !== undefined && (
+                        <Badge variant="outline" className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 border-yellow-500/20">
+                          <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                          <span className="font-semibold">{listing.match_score}%</span>
+                        </Badge>
+                      )}
+                      {listing.is_internship && (
+                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                          Internship
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSaveJob(listingId)}
+                        disabled={saving === listingId}
+                        className="h-9 w-9 hover:bg-primary/10"
+                      >
+                        {saving === listingId ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : savedJobIds.has(listingId) ? (
+                          <BookmarkCheck className="h-5 w-5 text-primary fill-primary" />
+                        ) : (
+                          <Bookmark className="h-5 w-5" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
+                
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3">{listing.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                    {listing.description}
+                  </p>
+                  
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
                     <span>Posted {new Date(listing.created_at).toLocaleDateString()}</span>
                   </div>
-                  <Button onClick={() => handleApply(listing.id)} disabled={applying === listing.id} className="w-full">
-                    {applying === listing.id ? (
+                  
+                  <Button
+                    onClick={() => handleApply(listingId)}
+                    disabled={applying === listingId || isApplied}
+                    className={`w-full h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 group-hover:scale-[1.02] transition-all ${
+                      isApplied ? 'bg-green-500 hover:bg-green-600' : ''
+                    }`}
+                  >
+                    {applying === listingId ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Applying...
                       </>
+                    ) : isApplied ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Applied
+                      </>
                     ) : (
-                      "Apply Now"
+                      <>
+                        Apply Now
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </>
                     )}
                   </Button>
                 </CardContent>
               </Card>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

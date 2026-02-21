@@ -21,6 +21,8 @@ import {
   Bell,
   CheckCheck,
   Trash2,
+  Bookmark,
+  MessageSquare,
 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 import {
@@ -156,13 +158,17 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/employer", label: "Dashboard", icon: Home },
           { href: "/dashboard/employer/job-listings", label: "Job Listings", icon: Briefcase },
           { href: "/dashboard/employer/applications", label: "Applications", icon: FileText },
+          { href: "/dashboard/employer/candidates", label: "Candidates", icon: Users },
+          { href: "/dashboard/employer/messages", label: "Messages", icon: MessageSquare },
           { href: "/dashboard/employer/company", label: "Company", icon: Building },
         ]
       case "candidate":
         return [
           { href: "/dashboard/candidate", label: "Dashboard", icon: Home },
           { href: "/dashboard/candidate/job-search", label: "Job Search", icon: Briefcase },
+          { href: "/dashboard/candidate/saved-jobs", label: "Saved Jobs", icon: Bookmark },
           { href: "/dashboard/candidate/applications", label: "My Applications", icon: FileText },
+          { href: "/dashboard/candidate/messages", label: "Messages", icon: MessageSquare },
           { href: "/dashboard/candidate/profile", label: "Profile", icon: User },
         ]
       case "professor":

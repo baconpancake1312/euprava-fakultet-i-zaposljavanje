@@ -115,7 +115,36 @@ func Register() gin.HandlerFunc {
 			return
 		}
 
-		// Hash password
+		// Create user in Keycloak first
+		keycloakUser := helper.KeycloakUser{
+			Username:      *user.Email,
+			Email:         *user.Email,
+			FirstName:     *user.First_name,
+			LastName:      *user.Last_name,
+			Enabled:       true,
+			EmailVerified: false,
+			Credentials: []helper.KeycloakCredential{
+				{
+					Type:      "password",
+					Value:     *user.Password,
+					Temporary: false,
+				},
+			},
+			Attributes: map[string]interface{}{
+				"user_type": []string{string(user.User_type)},
+				"phone":     []string{*user.Phone},
+				"jmbg":      []string{*user.JMBG},
+			},
+		}
+
+		keycloakUserID, err := helper.CreateUserInKeycloak(keycloakUser)
+		if err != nil {
+			l.Printf("Error creating user in Keycloak: %v", err)
+			// Continue with MongoDB registration even if Keycloak fails
+			// This allows the system to work if Keycloak is unavailable
+		}
+
+		// Hash password for MongoDB storage
 		password := HashPassword(*user.Password)
 		user.Password = &password
 
@@ -125,7 +154,13 @@ func Register() gin.HandlerFunc {
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		// Generate tokens
+		// Store Keycloak user ID if available
+		if keycloakUserID != "" {
+			// Store in a field or as metadata - you may want to add a KeycloakID field to User model
+			l.Printf("User created in Keycloak with ID: %s", keycloakUserID)
+		}
+
+		// Generate tokens (for backward compatibility, but prefer Keycloak tokens)
 		token, refreshToken, err := helper.GenerateAllTokens(
 			*user.Email,
 			*user.First_name,
@@ -142,7 +177,7 @@ func Register() gin.HandlerFunc {
 		user.Token = &token
 		user.Refresh_token = &refreshToken
 
-		// Insert user into auth service
+		// Insert user into MongoDB (our database)
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
 			l.Println("Error inserting user:", insertErr.Error())
@@ -351,6 +386,7 @@ func Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fmt.Println("Request headers:", c.Errors)
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var user models.User
 		var foundUser models.User
 
@@ -359,15 +395,39 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
+		// Try Keycloak authentication first
+		keycloakTokenResp, keycloakErr := helper.LoginWithKeycloak(*user.Email, *user.Password)
+		if keycloakErr == nil && keycloakTokenResp != nil {
+			// Keycloak authentication successful, get user from MongoDB
+			err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found in database"})
+				return
+			}
+
+			fmt.Printf("[Login - Keycloak] User: %s, User_type: %s, User_id: %s\n", *foundUser.Email, string(foundUser.User_type), foundUser.User_id)
+
+			token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
+			helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
+			
+			fmt.Printf("[Login - Keycloak] Generated token with User_type: %s\n", string(foundUser.User_type))
+
+			c.JSON(http.StatusOK, gin.H{
+				"user":          foundUser,
+				"token":         token,
+				"refresh_token": refreshToken,
+			})
+			return
+		}
+
+		// Fallback to MongoDB authentication if Keycloak fails
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-		defer cancel()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
 			return
 		}
 
 		passwordIsValid, _ := VerifyPassword(*foundUser.Password, *user.Password)
-		defer cancel()
 		if !passwordIsValid {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect password"})
 			return
@@ -378,6 +438,10 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
+		// Log user info for debugging
+		fmt.Printf("[Login] User: %s, User_type: %s, User_id: %s\n", *foundUser.Email, string(foundUser.User_type), foundUser.User_id)
+
+		// Generate legacy tokens for backward compatibility
 		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)

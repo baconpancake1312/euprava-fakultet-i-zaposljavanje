@@ -7,8 +7,10 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, Building2 } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Building2, Loader2, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 interface Employer {
   id: string
@@ -28,7 +30,8 @@ interface Employer {
 }
 
 export default function AdminEmployersPage() {
-  const { user, token } = useAuth()
+  const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
   const [employers, setEmployers] = useState<Employer[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
@@ -36,31 +39,105 @@ export default function AdminEmployersPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    if (token) {
-      loadEmployers()
+    const loadData = async () => {
+      if (authLoading) return
+
+      if (!isAuthenticated || !token || !user) {
+        setLoading(false)
+        return
+      }
+
+      // Check if user is admin
+      if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+        setLoading(false)
+        toast({
+          title: "Access Denied",
+          description: "You need admin privileges to access this page.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      await loadEmployers()
     }
-  }, [token])
+
+    loadData()
+  }, [token, authLoading, isAuthenticated, user])
 
   const loadEmployers = async () => {
+    setLoading(true)
     try {
+      console.log("[Admin] Loading employers with user_type:", user?.user_type)
       const data = await apiClient.getEmployers(token!)
-      setEmployers(data)
+      console.log("[Admin] Loaded employers:", data)
+      
+      // Remove duplicates by ID
+      const uniqueEmployers = data.reduce((acc: Employer[], current: Employer) => {
+        const exists = acc.find(item => item.id === current.id)
+        if (!exists) {
+          acc.push(current)
+        } else {
+          console.warn("[Admin] Duplicate employer found:", current.id)
+        }
+        return acc
+      }, [])
+      
+      console.log("[Admin] Unique employers:", uniqueEmployers.length)
+      setEmployers(uniqueEmployers)
     } catch (error) {
       console.error("Failed to load employers:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load employers",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Helper function to decode JWT token
+  const decodeJWT = (token: string) => {
+    try {
+      const base64Url = token.split('.')[1]
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      )
+      return JSON.parse(jsonPayload)
+    } catch (e) {
+      console.error('Failed to decode JWT:', e)
+      return null
     }
   }
 
   const handleApprove = async (employerId: string) => {
     setProcessingId(employerId)
     try {
-      await apiClient.approveEmployer(employerId, token!)
+      console.log("[Admin] Approving employer:", employerId)
+      console.log("[Admin] User object:", user)
+      console.log("[Admin] Token:", token?.substring(0, 50) + "...")
+      
+      // Use the token from user object if available (has user_type)
+      const adminToken = (user as any)?.token || token
+      console.log("[Admin] Using token:", adminToken?.substring(0, 50) + "...")
+      
+      // Decode and log the token contents
+      if (adminToken) {
+        const decoded = decodeJWT(adminToken)
+        console.log("[Admin] Decoded token:", decoded)
+        console.log("[Admin] Token User_type:", decoded?.User_type || decoded?.user_type || 'NOT FOUND')
+      }
+      
+      await apiClient.approveEmployer(employerId, adminToken!)
       toast({
         title: "Employer Approved",
         description: "The employer has been successfully approved and can now post job listings.",
       })
-      loadEmployers()
+      await loadEmployers()
     } catch (error) {
       console.error("Failed to approve employer:", error)
       toast({
@@ -76,12 +153,17 @@ export default function AdminEmployersPage() {
   const handleReject = async (employerId: string) => {
     setProcessingId(employerId)
     try {
-      await apiClient.rejectEmployer(employerId, token!)
+      console.log("[Admin] Rejecting employer:", employerId)
+      
+      // Use the token from user object if available
+      const adminToken = (user as any)?.token || token
+      
+      await apiClient.rejectEmployer(employerId, adminToken!)
       toast({
         title: "Employer Rejected",
         description: "The employer registration has been rejected.",
       })
-      loadEmployers()
+      await loadEmployers()
     } catch (error) {
       console.error("Failed to reject employer:", error)
       toast({
@@ -94,29 +176,10 @@ export default function AdminEmployersPage() {
     }
   }
 
-  const handleClearTestData = async () => {
-    try {
-      await apiClient.clearTestData(token!)
-      toast({
-        title: "Test Data Cleared",
-        description: "All test companies and job listings have been removed.",
-      })
-      loadEmployers()
-    } catch (error) {
-      console.error("Failed to clear test data:", error)
-      toast({
-        title: "Clear Failed",
-        description: error instanceof Error ? error.message : "Failed to clear test data. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
   const filteredEmployers = (employers ?? []).filter((employer) => {
     if (filter === "all") return true
     return employer.approval_status?.toLowerCase() === filter
   })
-
 
   const getStatusBadge = (status?: string) => {
     if (!status) return <Badge className="bg-yellow-500">Pending</Badge>
@@ -132,6 +195,44 @@ export default function AdminEmployersPage() {
     }
   }
 
+  // Show loading while auth loads
+  if (authLoading) {
+    return (
+      <DashboardLayout title="Employer Management">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated or not admin
+  if (!isAuthenticated || !token || !user) {
+    return (
+      <DashboardLayout title="Employer Management">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>Please log in to access this page</AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+    return (
+      <DashboardLayout title="Employer Management">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Access Denied: You need admin privileges. Your role: {user.user_type}
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout title="Employer Management">
       <div className="space-y-6">
@@ -139,14 +240,8 @@ export default function AdminEmployersPage() {
           <div>
             <h1 className="text-3xl font-bold">Employer Management</h1>
             <p className="text-muted-foreground">Review and approve employer registrations</p>
+            <p className="text-xs text-muted-foreground mt-1">Logged in as: {user.user_type}</p>
           </div>
-          <Button
-            variant="destructive"
-            onClick={handleClearTestData}
-            disabled={loading}
-          >
-            Clear Test Data
-          </Button>
         </div>
 
         <div className="flex gap-2">
@@ -169,7 +264,9 @@ export default function AdminEmployersPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">Loading...</div>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
         ) : filteredEmployers.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">No employers found</CardContent>
@@ -222,8 +319,17 @@ export default function AdminEmployersPage() {
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                         disabled={processingId === employer.id}
                       >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        {processingId === employer.id ? "Approving..." : "Approve"}
+                        {processingId === employer.id ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Approving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Approve
+                          </>
+                        )}
                       </Button>
                       <Button
                         onClick={() => handleReject(employer.id)}
@@ -231,10 +337,29 @@ export default function AdminEmployersPage() {
                         className="flex-1"
                         disabled={processingId === employer.id}
                       >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        {processingId === employer.id ? "Rejecting..." : "Reject"}
+                        {processingId === employer.id ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Rejecting...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Reject
+                          </>
+                        )}
                       </Button>
                     </div>
+                  )}
+                  {employer.approval_status?.toLowerCase() === "approved" && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push(`/dashboard/admin/employers/${employer.id}`)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Applications & Candidates
+                    </Button>
                   )}
                   {employer.approved_at && (
                     <p className="text-xs text-muted-foreground">

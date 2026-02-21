@@ -35,6 +35,8 @@ var SECRET_KEY string = os.Getenv("SECRET_KEY")
 
 // GenerateAllTokens generates both teh detailed token and refresh token
 func GenerateAllTokens(email string, firstName string, lastName string, userType string, uid string) (signedToken string, signedRefreshToken string, err error) {
+	fmt.Printf("[GenerateAllTokens] Creating token for: Email=%s, User_type=%s, Uid=%s\n", email, userType, uid)
+	
 	claims := &SignedDetails{
 		Email:      email,
 		First_name: firstName,
