@@ -41,6 +41,7 @@ interface Conversation {
   otherUserId: string
   otherUserName: string
   otherUserFirmName?: string
+  otherUserProfilePic?: string
   lastMessage: Message
   unreadCount: number
   job_position?: string
@@ -189,19 +190,33 @@ export default function CandidateMessagesPage() {
         convMap.get(otherId)!.msgs.push(msg)
       }
 
-      const convs: Conversation[] = Array.from(convMap.entries()).map(([otherId, { msgs }]) => {
-        const sorted = [...msgs].sort((a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime())
-        const last = sorted[sorted.length - 1]
-        const otherUserName = (last.is_sent ? last.receiver_name : last.sender_name) || "Unknown"
-        const unreadCount = sorted.filter(m => !m.read && !m.is_sent).length
-        const job_position = sorted.find(m => m.job_position)?.job_position
+      const convs: Conversation[] = await Promise.all(
+        Array.from(convMap.entries()).map(async ([otherId, { msgs }]) => {
+          const sorted = [...msgs].sort((a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime())
+          const last = sorted[sorted.length - 1]
+          const otherUserName = (last.is_sent ? last.receiver_name : last.sender_name) || "Unknown"
+          const unreadCount = sorted.filter(m => !m.read && !m.is_sent).length
+          const job_position = sorted.find(m => m.job_position)?.job_position
 
-        // Use cached info from the enrichment step above
-        const cachedInfo = userInfoCache.get(otherId)
-        const otherUserFirmName = cachedInfo?.firmName
+          // Use cached info from the enrichment step above
+          const cachedInfo = userInfoCache.get(otherId)
+          const otherUserFirmName = cachedInfo?.firmName
 
-        return { otherUserId: otherId, otherUserName, otherUserFirmName, lastMessage: last, unreadCount, job_position, messages: sorted }
-      })
+          // Fetch profile picture
+          let otherUserProfilePic: string | undefined
+          const empMatch = allEmployers.find((e: any) => (e.id || e._id || "") === otherId) as any
+          if (empMatch?.profile_pic_base64) {
+            otherUserProfilePic = empMatch.profile_pic_base64
+          } else {
+            const cMatch = allCandidates.find((c: any) => (c.id || c._id || "") === otherId) as any
+            if (cMatch?.profile_pic_base64) {
+              otherUserProfilePic = cMatch.profile_pic_base64
+            }
+          }
+
+          return { otherUserId: otherId, otherUserName, otherUserFirmName, otherUserProfilePic, lastMessage: last, unreadCount, job_position, messages: sorted }
+        })
+      )
 
       convs.sort((a, b) => new Date(b.lastMessage.sent_at).getTime() - new Date(a.lastMessage.sent_at).getTime())
       setConversations(convs)
@@ -368,12 +383,20 @@ export default function CandidateMessagesPage() {
                     onClick={() => handleSelectConv(conv)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        {conv.otherUserFirmName
-                          ? <Building2 className="h-4 w-4 text-primary" />
-                          : <User className="h-4 w-4 text-primary" />
-                        }
-                      </div>
+                      {conv.otherUserProfilePic ? (
+                        <img
+                          src={conv.otherUserProfilePic}
+                          alt={conv.otherUserName}
+                          className="h-9 w-9 rounded-full object-cover border border-primary/20 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          {conv.otherUserFirmName
+                            ? <Building2 className="h-4 w-4 text-primary" />
+                            : <User className="h-4 w-4 text-primary" />
+                          }
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className={`text-sm truncate ${conv.unreadCount > 0 ? "font-semibold" : "font-medium"}`}>
@@ -413,12 +436,20 @@ export default function CandidateMessagesPage() {
                 <>
                   {/* Chat header */}
                   <div className="p-4 border-b bg-background flex items-center gap-3 shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      {selectedConv.otherUserFirmName
-                        ? <Building2 className="h-5 w-5 text-primary" />
-                        : <User className="h-5 w-5 text-primary" />
-                      }
-                    </div>
+                    {selectedConv.otherUserProfilePic ? (
+                      <img
+                        src={selectedConv.otherUserProfilePic}
+                        alt={selectedConv.otherUserName}
+                        className="h-10 w-10 rounded-full object-cover border border-primary/20 shrink-0"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        {selectedConv.otherUserFirmName
+                          ? <Building2 className="h-5 w-5 text-primary" />
+                          : <User className="h-5 w-5 text-primary" />
+                        }
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm">{selectedConv.otherUserName}</p>
                       {selectedConv.otherUserFirmName && selectedConv.otherUserFirmName !== selectedConv.otherUserName && (

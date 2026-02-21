@@ -49,6 +49,7 @@ interface Candidate {
   skills?: string[]
   cv_base64?: string
   cv_file?: string
+  profile_pic_base64?: string
 }
 
 interface Application {
@@ -393,9 +394,17 @@ export default function EmployerApplicationsPage() {
                               <div key={application.id} className="border rounded-lg p-4 space-y-3 bg-muted/20">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-center gap-2">
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                      <User className="h-4 w-4 text-primary" />
-                                    </div>
+                                    {candidate?.profile_pic_base64 ? (
+                                      <img
+                                        src={candidate.profile_pic_base64}
+                                        alt={candidateName}
+                                        className="h-8 w-8 rounded-full object-cover border border-primary/20 shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <User className="h-4 w-4 text-primary" />
+                                      </div>
+                                    )}
                                     <div>
                                       <p className="font-semibold text-sm">{candidateName}</p>
                                       {candidate?.email && (
@@ -506,7 +515,15 @@ export default function EmployerApplicationsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
+              {selectedCandidate?.profile_pic_base64 ? (
+                <img
+                  src={selectedCandidate.profile_pic_base64}
+                  alt={`${selectedCandidate.first_name} ${selectedCandidate.last_name}`}
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+              ) : (
+                <User className="h-5 w-5" />
+              )}
               Candidate Profile
             </DialogTitle>
           </DialogHeader>

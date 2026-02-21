@@ -59,6 +59,7 @@ type Employer struct {
 	ApprovalStatus string    `bson:"approval_status" json:"approval_status"`
 	ApprovedAt     time.Time `bson:"approved_at" json:"approved_at"`
 	ApprovedBy     string    `bson:"approved_by" json:"approved_by"`
+	ProfilePicBase64 string  `bson:"profile_pic_base64,omitempty" json:"profile_pic_base64,omitempty"`
 }
 
 type Company struct {
@@ -92,6 +93,7 @@ type Candidate struct {
 	CVFile        string             `json:"cv_file,omitempty"`
 	CVBase64      string             `json:"cv_base64,omitempty"`
 	Skills        []string           `json:"skills,omitempty"`
+	ProfilePicBase64 string          `bson:"profile_pic_base64,omitempty" json:"profile_pic_base64,omitempty"`
 }
 
 type JobListing struct {

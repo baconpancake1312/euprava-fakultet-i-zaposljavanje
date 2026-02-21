@@ -53,6 +53,7 @@ interface Conversation {
   otherUserId: string
   otherUserName: string
   candidateProfile?: CandidateProfile
+  otherUserProfilePic?: string
   lastMessage: Message
   unreadCount: number
   job_position?: string
@@ -196,6 +197,7 @@ export default function EmployerMessagesPage() {
 
           // Try to get candidate profile
           let candidateProfile: CandidateProfile | undefined
+          let otherUserProfilePic: string | undefined
           const cMatch = allCandidates.find((c: any) => (c.id || c._id || "") === otherId) as any
           if (cMatch) {
             candidateProfile = {
@@ -206,9 +208,12 @@ export default function EmployerMessagesPage() {
               city: cMatch.city,
               country: cMatch.country,
             }
+            if (cMatch.profile_pic_base64) {
+              otherUserProfilePic = cMatch.profile_pic_base64
+            }
           }
 
-          return { otherUserId: otherId, otherUserName, candidateProfile, lastMessage: last, unreadCount, job_position, messages: sorted }
+          return { otherUserId: otherId, otherUserName, candidateProfile, otherUserProfilePic, lastMessage: last, unreadCount, job_position, messages: sorted }
         })
       )
 
@@ -376,9 +381,17 @@ export default function EmployerMessagesPage() {
                     onClick={() => handleSelectConv(conv)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="h-4 w-4 text-primary" />
-                      </div>
+                      {conv.otherUserProfilePic ? (
+                        <img
+                          src={conv.otherUserProfilePic}
+                          alt={conv.otherUserName}
+                          className="h-9 w-9 rounded-full object-cover border border-primary/20 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className={`text-sm truncate ${conv.unreadCount > 0 ? "font-semibold" : "font-medium"}`}>
@@ -420,9 +433,17 @@ export default function EmployerMessagesPage() {
                   <div className="flex-1 flex flex-col overflow-hidden">
                     {/* Chat header */}
                     <div className="p-4 border-b bg-background flex items-center gap-3 shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="h-5 w-5 text-primary" />
-                      </div>
+                      {selectedConv.otherUserProfilePic ? (
+                        <img
+                          src={selectedConv.otherUserProfilePic}
+                          alt={selectedConv.otherUserName}
+                          className="h-10 w-10 rounded-full object-cover border border-primary/20 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
                       <div>
                         <p className="font-semibold text-sm">{selectedConv.otherUserName}</p>
                         {selectedConv.job_position && (
@@ -493,9 +514,17 @@ export default function EmployerMessagesPage() {
                       </div>
                       <div className="p-4 space-y-3">
                         <div className="flex flex-col items-center gap-2 pb-3 border-b">
-                          <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-7 w-7 text-primary" />
-                          </div>
+                          {selectedConv.otherUserProfilePic ? (
+                            <img
+                              src={selectedConv.otherUserProfilePic}
+                              alt={selectedConv.otherUserName}
+                              className="h-14 w-14 rounded-full object-cover border-2 border-primary/20"
+                            />
+                          ) : (
+                            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-7 w-7 text-primary" />
+                            </div>
+                          )}
                           <p className="font-semibold text-sm text-center">{selectedConv.otherUserName}</p>
                         </div>
                         {selectedConv.candidateProfile.email && (

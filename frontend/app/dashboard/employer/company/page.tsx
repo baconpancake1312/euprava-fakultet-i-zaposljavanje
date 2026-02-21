@@ -47,6 +47,7 @@ interface EmployerData {
   firm_address?: string
   firm_phone?: string
   approval_status?: string
+  profile_pic_base64?: string
 }
 
 interface CompanyData {
@@ -89,6 +90,7 @@ export default function CompanyProfilePage() {
     email: "",
     pib: "",
     maticni_broj: "",
+    profile_pic_base64: "",
   })
 
   const loadData = useCallback(async () => {
@@ -124,6 +126,7 @@ export default function CompanyProfilePage() {
         email: comp?.email || emp.email || user?.email || "",
         pib: comp?.pib || emp.pib || "",
         maticni_broj: comp?.maticni_broj || emp.maticni_broj || "",
+        profile_pic_base64: emp.profile_pic_base64 || "",
       })
     } catch (err) {
       setError("Failed to load company data. Please complete your employer profile first.")
@@ -163,6 +166,7 @@ export default function CompanyProfilePage() {
           delatnost: formData.description,
           firm_address: formData.address,
           firm_phone: formData.phone,
+          profile_pic_base64: formData.profile_pic_base64,
         }, token)
       }
 
@@ -174,6 +178,28 @@ export default function CompanyProfilePage() {
       setError(err instanceof Error ? err.message : "Failed to update company profile")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type (images only)
+      if (!file.type.startsWith('image/')) {
+        setError("Please select an image file")
+        return
+      }
+      // Validate file size (max 2MB for profile pics)
+      if (file.size > 2 * 1024 * 1024) {
+        setError("Profile picture must be less than 2MB")
+        return
+      }
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64 = reader.result as string
+        setFormData((prev) => ({ ...prev, profile_pic_base64: base64 }))
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -208,9 +234,17 @@ export default function CompanyProfilePage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
+            {formData.profile_pic_base64 || employer?.profile_pic_base64 ? (
+              <img
+                src={formData.profile_pic_base64 || employer?.profile_pic_base64}
+                alt="Profile"
+                className="h-16 w-16 rounded-2xl object-cover border-2 border-primary/20 shrink-0"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Building2 className="h-8 w-8 text-primary" />
+              </div>
+            )}
             <div>
               <h2 className="text-2xl font-bold">{displayName}</h2>
               <div className="flex items-center gap-2 mt-1">
@@ -251,6 +285,38 @@ export default function CompanyProfilePage() {
                 <CardDescription>Update your company details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Profile Picture</Label>
+                  <div className="flex items-center gap-4">
+                    {formData.profile_pic_base64 ? (
+                      <img
+                        src={formData.profile_pic_base64}
+                        alt="Profile"
+                        className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                        <Building2 className="h-10 w-10 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <Label htmlFor="profile-pic" className="cursor-pointer">
+                        <Button type="button" variant="outline" asChild disabled={saving}>
+                          <span>Change Picture</span>
+                        </Button>
+                      </Label>
+                      <input
+                        id="profile-pic"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePicChange}
+                        className="hidden"
+                        disabled={saving}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB.</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Company Name</Label>
                   <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={saving} />

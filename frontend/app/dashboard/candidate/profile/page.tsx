@@ -42,6 +42,7 @@ export default function CandidateProfilePage() {
     gpa: 0,
     esbp: 0,
     cv_base64: "",
+    profile_pic_base64: "",
     skills: [] as string[],
     skillInput: "",
   })
@@ -92,6 +93,7 @@ export default function CandidateProfilePage() {
             gpa: candidate.gpa || 0,
             esbp: candidate.esbp || 0,
             cv_base64: candidate.cv_base64 || "",
+            profile_pic_base64: candidate.profile_pic_base64 || "",
             skills: Array.isArray(candidate.skills) ? candidate.skills : [],
             skillInput: "",
           })
@@ -125,6 +127,28 @@ export default function CandidateProfilePage() {
       reader.onloadend = () => {
         const base64 = reader.result as string
         setFormData((prev) => ({ ...prev, cv_base64: base64 }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type (images only)
+      if (!file.type.startsWith('image/')) {
+        setError("Please select an image file")
+        return
+      }
+      // Validate file size (max 2MB for profile pics)
+      if (file.size > 2 * 1024 * 1024) {
+        setError("Profile picture must be less than 2MB")
+        return
+      }
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64 = reader.result as string
+        setFormData((prev) => ({ ...prev, profile_pic_base64: base64 }))
       }
       reader.readAsDataURL(file)
     }
@@ -208,6 +232,7 @@ export default function CandidateProfilePage() {
         gpa: formData.gpa,
         esbp: formData.esbp,
         cv_base64: formData.cv_base64,
+        profile_pic_base64: formData.profile_pic_base64,
         skills: formData.skills,
       }
 
@@ -295,6 +320,53 @@ export default function CandidateProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Profile Picture Card */}
+        <Card className="border-2 shadow-lg">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              <CardTitle>Profile Picture</CardTitle>
+            </div>
+            <CardDescription>Upload a professional profile picture</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                {formData.profile_pic_base64 ? (
+                  <img
+                    src={formData.profile_pic_base64}
+                    alt="Profile"
+                    className="h-24 w-24 rounded-full object-cover border-2 border-primary/20"
+                  />
+                ) : (
+                  <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                    <User className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              {isEditing || isCreating ? (
+                <div className="flex-1">
+                  <Label htmlFor="profile-pic" className="cursor-pointer">
+                    <Button type="button" variant="outline" asChild>
+                      <span>Change Picture</span>
+                    </Button>
+                  </Label>
+                  <input
+                    id="profile-pic"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePicChange}
+                    className="hidden"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB.</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Edit profile to change picture</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Personal Information Card (Read-only from Auth Service) */}
         {user && (

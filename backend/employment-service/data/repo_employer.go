@@ -131,6 +131,7 @@ func (er *EmploymentRepo) UpdateEmployer(employerId string, employer *models.Emp
 			"delatnost":    employer.Delatnost,
 			"firm_address": employer.FirmAddress,
 			"firm_phone":   employer.FirmPhone,
+			"profile_pic_base64": employer.ProfilePicBase64,
 		},
 	}
 

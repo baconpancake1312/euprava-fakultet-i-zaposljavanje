@@ -159,6 +159,7 @@ func (er *EmploymentRepo) UpdateCandidate(candidateId string, candidate *models.
 			"cv_file":       candidate.CVFile,
 			"cv_base64":     candidate.CVBase64,
 			"skills":        candidate.Skills,
+			"profile_pic_base64": candidate.ProfilePicBase64,
 		},
 	}
 
