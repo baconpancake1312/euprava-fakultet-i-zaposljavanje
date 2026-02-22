@@ -66,26 +66,56 @@ export default function EmployerCandidatesPage() {
   const [sendingMessage, setSendingMessage] = useState(false)
 
   const loadCandidates = useCallback(async () => {
-    if (!token) return
+    if (!token || !user?.id) return
     setLoading(true)
     try {
-      const data = await apiClient.getAllCandidates(token)
-      const list = Array.isArray(data) ? data : []
-      const mapped: Candidate[] = list.map((c: any) => ({
-        id: c.id || c._id,
-        first_name: c.first_name || c.user?.first_name,
-        last_name: c.last_name || c.user?.last_name,
-        email: c.email || c.user?.email,
-        major: c.major,
-        year: c.year,
-        gpa: c.gpa,
-        highschool_gpa: c.highschool_gpa,
-        esbp: c.esbp,
-        scholarship: c.scholarship,
-        skills: c.skills,
-        cv_base64: c.cv_base64,
-        cv_file: c.cv_file,
-      }))
+      // Get employer ID from user
+      const employer = await apiClient.getEmployerByUserId(user.id, token) as any
+      const employerId = employer.id || employer._id || user.id
+
+      // Get applications for this employer
+      const applications = await apiClient.getApplicationsByEmployer(employerId, token) as any[]
+      
+      // Extract unique candidate IDs from applications
+      const candidateIds = new Set<string>()
+      applications.forEach((app: any) => {
+        const candidateId = app.applicant_id || app.applicantId || app.candidate_id
+        if (candidateId) {
+          candidateIds.add(String(candidateId))
+        }
+      })
+
+      // If no applications, show empty list
+      if (candidateIds.size === 0) {
+        setCandidates([])
+        setFiltered([])
+        return
+      }
+
+      // Get all candidates and filter to only those who applied
+      const allCandidates = await apiClient.getAllCandidates(token)
+      const list = Array.isArray(allCandidates) ? allCandidates : []
+      const mapped: Candidate[] = list
+        .map((c: any) => ({
+          id: c.id || c._id,
+          first_name: c.first_name || c.user?.first_name,
+          last_name: c.last_name || c.user?.last_name,
+          email: c.email || c.user?.email,
+          major: c.major,
+          year: c.year,
+          gpa: c.gpa,
+          highschool_gpa: c.highschool_gpa,
+          esbp: c.esbp,
+          scholarship: c.scholarship,
+          skills: c.skills,
+          cv_base64: c.cv_base64,
+          cv_file: c.cv_file,
+        }))
+        .filter((c: Candidate) => {
+          const candidateId = String(c.id)
+          return candidateIds.has(candidateId)
+        })
+      
       setCandidates(mapped)
       setFiltered(mapped)
     } catch (error) {
@@ -97,7 +127,7 @@ export default function EmployerCandidatesPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, toast])
+  }, [token, user, toast])
 
   useEffect(() => {
     if (authLoading) return

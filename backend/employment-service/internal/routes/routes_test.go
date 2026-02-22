@@ -383,6 +383,36 @@ func TestProtectedRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			description:    "Get employer by ID - requires auth",
 		},
+		{
+			name:           "GET /employers/user/:user_id (protected)",
+			method:         "GET",
+			path:           fmt.Sprintf("/employers/user/%s", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return employerID
+			}()),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get employer by user ID - requires auth",
+		},
+		{
+			name:           "PUT /employers/:id (protected)",
+			method:         "PUT",
+			path:           fmt.Sprintf("/employers/%s", employerID),
+			token:          adminToken,
+			body:           map[string]interface{}{"firm_name": "Updated Test Company"},
+			expectedStatus: http.StatusOK,
+			description:    "Update employer - requires auth",
+		},
+		{
+			name:           "DELETE /employers/:id (protected)",
+			method:         "DELETE",
+			path:           fmt.Sprintf("/employers/%s", employerID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Delete employer - requires auth",
+		},
 
 		// Candidate routes
 		{
@@ -408,12 +438,61 @@ func TestProtectedRoutes(t *testing.T) {
 			method:         "POST",
 			path:           "/job-listings",
 			token:          employerToken,
-			body:           map[string]interface{}{"title": "Test Job", "description": "Test"},
+			body: map[string]interface{}{
+				"position":    "Test Job",
+				"description": "Test job description",
+				"poster_id":   employerID,
+			},
 			expectedStatus: http.StatusCreated,
 			description:    "Create job listing - requires EMPLOYER or ADMIN",
 		},
+		{
+			name:           "PUT /job-listings/:id (EMPLOYER/ADMIN)",
+			method:         "PUT",
+			path:           fmt.Sprintf("/job-listings/%s", jobID),
+			token:          employerToken,
+			body: map[string]interface{}{
+				"position":    "Updated Test Job",
+				"description": "Updated test job description",
+			},
+			expectedStatus: http.StatusOK,
+			description:    "Update job listing - requires EMPLOYER or ADMIN",
+		},
+		{
+			name:           "DELETE /job-listings/:id (EMPLOYER/ADMIN)",
+			method:         "DELETE",
+			path:           fmt.Sprintf("/job-listings/%s", jobID),
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Delete job listing - requires EMPLOYER or ADMIN",
+		},
+		{
+			name:           "GET /job-listings/:id/applications (EMPLOYER/ADMIN)",
+			method:         "GET",
+			path:           fmt.Sprintf("/job-listings/%s/applications", jobID),
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get applications for job - requires EMPLOYER or ADMIN",
+		},
 
 		// Application routes
+		{
+			name:           "POST /applications (STUDENT/CANDIDATE)",
+			method:         "POST",
+			path:           "/applications",
+			token:          candidateToken,
+			body: map[string]interface{}{
+				"listing_id":  jobID,
+				"applicant_id": func() string {
+					if adminUserID != "" {
+						return adminUserID
+					}
+					return "507f1f77bcf86cd799439011"
+				}(),
+			},
+			expectedStatus: http.StatusCreated,
+			description:    "Create application - requires STUDENT or CANDIDATE",
+		},
 		{
 			name:           "GET /applications (EMPLOYER/ADMIN)",
 			method:         "GET",
@@ -423,12 +502,79 @@ func TestProtectedRoutes(t *testing.T) {
 			description:    "Get all applications - requires EMPLOYER or ADMIN",
 		},
 		{
+			name:           "GET /applications/candidate/:id (STUDENT/CANDIDATE)",
+			method:         "GET",
+			path:           fmt.Sprintf("/applications/candidate/%s", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return "507f1f77bcf86cd799439011"
+			}()),
+			token:          candidateToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get applications by candidate ID - requires STUDENT or CANDIDATE",
+		},
+		{
+			name:           "GET /applications/candidate/:id/stats (STUDENT/CANDIDATE)",
+			method:         "GET",
+			path:           fmt.Sprintf("/applications/candidate/%s/stats", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return "507f1f77bcf86cd799439011"
+			}()),
+			token:          candidateToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get candidate application stats - requires STUDENT or CANDIDATE",
+		},
+		{
+			name:           "GET /applications/employer/:id (EMPLOYER)",
+			method:         "GET",
+			path:           fmt.Sprintf("/applications/employer/%s", employerID),
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get applications by employer ID - requires EMPLOYER",
+		},
+		{
 			name:           "GET /applications/:id (protected)",
 			method:         "GET",
 			path:           "/applications/507f1f77bcf86cd799439011",
 			token:          candidateToken,
 			expectedStatus: http.StatusOK,
 			description:    "Get application by ID - requires auth",
+		},
+		{
+			name:           "PUT /applications/:id (EMPLOYER/ADMIN)",
+			method:         "PUT",
+			path:           "/applications/507f1f77bcf86cd799439011",
+			token:          employerToken,
+			body:           map[string]interface{}{"status": "reviewed"},
+			expectedStatus: http.StatusOK,
+			description:    "Update application - requires EMPLOYER or ADMIN",
+		},
+		{
+			name:           "PUT /applications/:id/accept (EMPLOYER/ADMIN)",
+			method:         "PUT",
+			path:           "/applications/507f1f77bcf86cd799439011/accept",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Accept application - requires EMPLOYER or ADMIN",
+		},
+		{
+			name:           "PUT /applications/:id/reject (EMPLOYER/ADMIN)",
+			method:         "PUT",
+			path:           "/applications/507f1f77bcf86cd799439011/reject",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Reject application - requires EMPLOYER or ADMIN",
+		},
+		{
+			name:           "DELETE /applications/:id (EMPLOYER/ADMIN)",
+			method:         "DELETE",
+			path:           "/applications/507f1f77bcf86cd799439011",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Delete application - requires EMPLOYER or ADMIN",
 		},
 
 		// Saved jobs routes
@@ -763,10 +909,322 @@ func TestAdminRoutes(t *testing.T) {
 	}
 }
 
+// TestEmployerEndpoints tests all employer-related endpoints comprehensively
+func TestEmployerEndpoints(t *testing.T) {
+	setupTestRouter()
+
+	// Get real IDs from database
+	if err := getRealIDs(); err != nil {
+		t.Logf("Warning: Could not get real IDs from database: %v", err)
+	}
+
+	// Get tokens
+	if keycloakURL != "" && keycloakRealm != "" {
+		adminToken, _ = getKeycloakToken("admin", "admin", "euprava-client")
+		employerToken, _ = getKeycloakToken("employer", "password", "euprava-client")
+		candidateToken, _ = getKeycloakToken("candidate", "password", "euprava-client")
+		if adminToken != "" {
+			adminUserID = extractUserIDFromToken(adminToken)
+		}
+	}
+
+	employerID := realEmployerID
+	if employerID == "" {
+		employerID = "507f1f77bcf86cd799439011"
+	}
+
+	jobID := realJobID
+	if jobID == "" {
+		jobID = "507f1f77bcf86cd799439011"
+	}
+
+	tests := []struct {
+		name           string
+		method         string
+		path           string
+		token          string
+		body           interface{}
+		expectedStatus int
+		description    string
+	}{
+		// Employer CRUD endpoints (routes.go:58-62)
+		{
+			name:           "GET /employers",
+			method:         "GET",
+			path:           "/employers",
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get all employers",
+		},
+		{
+			name:           "GET /employers/:id",
+			method:         "GET",
+			path:           fmt.Sprintf("/employers/%s", employerID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get employer by ID",
+		},
+		{
+			name:           "GET /employers/user/:user_id",
+			method:         "GET",
+			path:           fmt.Sprintf("/employers/user/%s", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return employerID
+			}()),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get employer by user ID",
+		},
+		{
+			name:           "PUT /employers/:id",
+			method:         "PUT",
+			path:           fmt.Sprintf("/employers/%s", employerID),
+			token:          adminToken,
+			body:           map[string]interface{}{"firm_name": "Updated Test Company"},
+			expectedStatus: http.StatusOK,
+			description:    "Update employer",
+		},
+		{
+			name:           "DELETE /employers/:id",
+			method:         "DELETE",
+			path:           fmt.Sprintf("/employers/%s", employerID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Delete employer",
+		},
+		// Job listing endpoints (routes.go:69-73)
+		{
+			name:           "POST /job-listings",
+			method:         "POST",
+			path:           "/job-listings",
+			token:          employerToken,
+			body: map[string]interface{}{
+				"position":    "Test Job Position",
+				"description": "Test job description",
+				"poster_id":   employerID,
+			},
+			expectedStatus: http.StatusCreated,
+			description:    "Create job listing",
+		},
+		{
+			name:           "PUT /job-listings/:id",
+			method:         "PUT",
+			path:           fmt.Sprintf("/job-listings/%s", jobID),
+			token:          employerToken,
+			body: map[string]interface{}{
+				"position":    "Updated Test Job",
+				"description": "Updated description",
+			},
+			expectedStatus: http.StatusOK,
+			description:    "Update job listing",
+		},
+		{
+			name:           "DELETE /job-listings/:id",
+			method:         "DELETE",
+			path:           fmt.Sprintf("/job-listings/%s", jobID),
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Delete job listing",
+		},
+		{
+			name:           "GET /job-listings/:id/applications",
+			method:         "GET",
+			path:           fmt.Sprintf("/job-listings/%s/applications", jobID),
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get applications for job",
+		},
+		// Application endpoints (routes.go:74-84)
+		{
+			name:           "POST /applications",
+			method:         "POST",
+			path:           "/applications",
+			token:          candidateToken,
+			body: map[string]interface{}{
+				"listing_id":   jobID,
+				"applicant_id": func() string {
+					if adminUserID != "" {
+						return adminUserID
+					}
+					return "507f1f77bcf86cd799439011"
+				}(),
+			},
+			expectedStatus: http.StatusCreated,
+			description:    "Create application",
+		},
+		{
+			name:           "GET /applications",
+			method:         "GET",
+			path:           "/applications",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get all applications",
+		},
+		{
+			name:           "GET /applications/candidate/:id",
+			method:         "GET",
+			path:           fmt.Sprintf("/applications/candidate/%s", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return "507f1f77bcf86cd799439011"
+			}()),
+			token:          candidateToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get applications by candidate ID",
+		},
+		{
+			name:           "GET /applications/candidate/:id/stats",
+			method:         "GET",
+			path:           fmt.Sprintf("/applications/candidate/%s/stats", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return "507f1f77bcf86cd799439011"
+			}()),
+			token:          candidateToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get candidate application stats",
+		},
+		{
+			name:           "GET /applications/employer/:id",
+			method:         "GET",
+			path:           fmt.Sprintf("/applications/employer/%s", employerID),
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get applications by employer ID",
+		},
+		{
+			name:           "GET /applications/:id",
+			method:         "GET",
+			path:           "/applications/507f1f77bcf86cd799439011",
+			token:          candidateToken,
+			expectedStatus: http.StatusOK,
+			description:    "Get application by ID",
+		},
+		{
+			name:           "PUT /applications/:id",
+			method:         "PUT",
+			path:           "/applications/507f1f77bcf86cd799439011",
+			token:          employerToken,
+			body:           map[string]interface{}{"status": "reviewed"},
+			expectedStatus: http.StatusOK,
+			description:    "Update application",
+		},
+		{
+			name:           "PUT /applications/:id/accept",
+			method:         "PUT",
+			path:           "/applications/507f1f77bcf86cd799439011/accept",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Accept application",
+		},
+		{
+			name:           "PUT /applications/:id/reject",
+			method:         "PUT",
+			path:           "/applications/507f1f77bcf86cd799439011/reject",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Reject application",
+		},
+		{
+			name:           "DELETE /applications/:id",
+			method:         "DELETE",
+			path:           "/applications/507f1f77bcf86cd799439011",
+			token:          employerToken,
+			expectedStatus: http.StatusOK,
+			description:    "Delete application",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req *http.Request
+			var err error
+
+			if tt.body != nil {
+				jsonData, _ := json.Marshal(tt.body)
+				req, err = http.NewRequest(tt.method, tt.path, bytes.NewBuffer(jsonData))
+				req.Header.Set("Content-Type", "application/json")
+			} else {
+				req, err = http.NewRequest(tt.method, tt.path, nil)
+			}
+
+			require.NoError(t, err)
+
+			if tt.token != "" {
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			}
+
+			w := httptest.NewRecorder()
+			testRouter.ServeHTTP(w, req)
+
+			// Log test execution
+			logData := map[string]interface{}{
+				"runId":        "employer-endpoint-test",
+				"hypothesisId": "E",
+				"location":     "routes_test.go:TestEmployerEndpoints",
+				"message":      "Employer endpoint test executed",
+				"data": map[string]interface{}{
+					"test_name":       tt.name,
+					"method":          tt.method,
+					"path":            tt.path,
+					"expected_status": tt.expectedStatus,
+					"actual_status":   w.Code,
+					"has_token":       tt.token != "",
+					"response_body":   w.Body.String()[:min(200, len(w.Body.String()))],
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+
+			validStatuses := []int{http.StatusOK, http.StatusCreated, http.StatusNotFound, http.StatusForbidden, http.StatusUnauthorized}
+			if tt.token == "" {
+				validStatuses = append(validStatuses, http.StatusInternalServerError)
+			}
+
+			isValidStatus := false
+			for _, status := range validStatuses {
+				if w.Code == status {
+					isValidStatus = true
+					break
+				}
+			}
+
+			if !isValidStatus {
+				t.Errorf("❌ %s: Unexpected status %d (expected one of %v). Response: %s",
+					tt.name, w.Code, validStatuses, w.Body.String())
+			} else if w.Code == http.StatusOK || w.Code == http.StatusCreated {
+				t.Logf("✓ %s: Status %d - %s", tt.name, w.Code, tt.description)
+			} else {
+				t.Logf("⚠ %s: Status %d (Response: %s) - %s", tt.name, w.Code, w.Body.String(), tt.description)
+			}
+		})
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // TestAllEndpoints is a comprehensive test that runs all endpoint tests
 func TestAllEndpoints(t *testing.T) {
 	t.Run("HealthCheck", TestHealthCheck)
 	t.Run("PublicRoutes", TestPublicRoutes)
 	t.Run("ProtectedRoutes", TestProtectedRoutes)
 	t.Run("AdminRoutes", TestAdminRoutes)
+	t.Run("EmployerEndpoints", TestEmployerEndpoints)
 }

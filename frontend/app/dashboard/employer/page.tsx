@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileCompletionPrompt } from "@/components/profile-completion-prompt"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Briefcase, Users, FileText, Building, Loader2 } from "lucide-react"
+import { Briefcase, Users, FileText, Building, Loader2, MessageSquare, BarChart3 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
 export default function EmployerDashboard() {
@@ -211,7 +211,7 @@ export default function EmployerDashboard() {
 
           <Card
             className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
-            onClick={() => router.push("/dashboard/employer/internships")}
+            onClick={() => router.push("/dashboard/employer/candidates")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -219,13 +219,13 @@ export default function EmployerDashboard() {
                   <Users className="h-7 w-7 text-green-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl">Internships</CardTitle>
-                  <CardDescription>Post opportunities</CardDescription>
+                  <CardTitle className="text-xl">Candidates</CardTitle>
+                  <CardDescription>Browse applicants</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Create internship positions for students</p>
+              <p className="text-sm text-muted-foreground">View candidates who applied to your positions</p>
             </CardContent>
           </Card>
 
@@ -246,6 +246,69 @@ export default function EmployerDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Update company information and settings</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional Options */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card
+            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            onClick={() => router.push("/dashboard/employer/messages")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-500/10 group-hover:scale-110 transition-transform">
+                  <MessageSquare className="h-7 w-7 text-orange-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Messages</CardTitle>
+                  <CardDescription>Communicate</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Chat with candidates and manage conversations</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            onClick={() => router.push("/dashboard/employer/internships")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-500/10 group-hover:scale-110 transition-transform">
+                  <Users className="h-7 w-7 text-teal-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Internships</CardTitle>
+                  <CardDescription>Post opportunities</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Create internship positions for students</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            onClick={() => router.push("/dashboard/employer/analytics")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-500/10 group-hover:scale-110 transition-transform">
+                  <BarChart3 className="h-7 w-7 text-indigo-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Analytics</CardTitle>
+                  <CardDescription>View insights</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Track job performance and candidate metrics</p>
             </CardContent>
           </Card>
         </div>

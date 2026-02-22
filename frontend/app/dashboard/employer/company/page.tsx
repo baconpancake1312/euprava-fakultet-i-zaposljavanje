@@ -94,23 +94,47 @@ export default function CompanyProfilePage() {
   })
 
   const loadData = useCallback(async () => {
-    if (!token || !user?.id) { setDataLoading(false); return }
+    if (!token || !user?.id) { 
+      setDataLoading(false)
+      return 
+    }
     setDataLoading(true)
     setError("")
     try {
       // Resolve employer document (flat embed: _id = auth user id)
       const emp = await apiClient.getEmployerByUserId(user.id, token) as any
+      if (!emp) {
+        setError("Employer profile not found. Please complete your employer profile first.")
+        setDataLoading(false)
+        return
+      }
       setEmployer(emp)
 
       const employerId = emp.id || emp._id || user.id
+      if (!employerId) {
+        setError("Invalid employer ID")
+        setDataLoading(false)
+        return
+      }
 
-      // Try to load company profile
+      // Only try to load company profile if employer is approved
       let comp: CompanyData | null = null
-      try {
-        comp = await apiClient.getCompanyByEmployer(employerId, token) as any
-        setCompany(comp)
-      } catch {
-        // No company yet — use employer data as defaults
+      if (emp.approval_status?.toLowerCase() === "approved") {
+        try {
+          comp = await apiClient.getCompanyByEmployer(employerId, token) as any
+          if (comp) {
+            setCompany(comp)
+            console.log("[Company] Loaded company profile:", comp)
+          } else {
+            console.log("[Company] No company profile found yet - this is normal for new employers")
+          }
+        } catch (err: any) {
+          // Error loading company - log but don't fail the whole page
+          console.error("[Company] Error loading company:", err)
+          // Don't set error here - we'll use employer data as fallback
+        }
+      } else {
+        console.log("[Company] Employer not approved yet, skipping company profile load")
       }
 
       // Populate form with company data if available, else employer data
@@ -128,8 +152,14 @@ export default function CompanyProfilePage() {
         maticni_broj: comp?.maticni_broj || emp.maticni_broj || "",
         profile_pic_base64: emp.profile_pic_base64 || "",
       })
-    } catch (err) {
-      setError("Failed to load company data. Please complete your employer profile first.")
+    } catch (err: any) {
+      console.error("[Company] Error loading data:", err)
+      const errorMessage = err?.message || "Failed to load company data"
+      if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+        setError("Employer profile not found. Please complete your employer profile first.")
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setDataLoading(false)
     }
@@ -273,6 +303,16 @@ export default function CompanyProfilePage() {
         {success && (
           <Alert>
             <AlertDescription>Company profile updated successfully!</AlertDescription>
+          </Alert>
+        )}
+        {employer && employer.approval_status?.toLowerCase() !== "approved" && (
+          <Alert>
+            <AlertDescription>
+              Your employer profile is {employer.approval_status || "pending"} approval. 
+              {employer.approval_status?.toLowerCase() === "pending" 
+                ? " Once approved, your company profile will be available here." 
+                : " Please contact an administrator if you believe this is an error."}
+            </AlertDescription>
           </Alert>
         )}
 

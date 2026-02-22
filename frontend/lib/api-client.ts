@@ -1155,6 +1155,10 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/companies/employer/${employerId}`, {
       headers: this.getAuthHeaders(token),
     })
+    // 404 is expected if company doesn't exist yet - don't throw error
+    if (response.status === 404) {
+      return null
+    }
     return this.handleResponse(response)
   }
 

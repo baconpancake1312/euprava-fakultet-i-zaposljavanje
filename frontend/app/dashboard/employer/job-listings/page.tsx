@@ -42,14 +42,30 @@ export default function EmployerJobListingsPage() {
       if (!token || !user?.id) throw new Error("Not authenticated")
       
       // Get employer profile to find employer ID
-      const employer = await apiClient.getEmployerByUserId(user.id, token)
-      setEmployerId(employer.id)
+      let employer
+      try {
+        employer = await apiClient.getEmployerByUserId(user.id, token)
+        if (!employer || !employer.id) {
+          throw new Error("Employer profile not found")
+        }
+        setEmployerId(employer.id || employer._id)
+      } catch (err: any) {
+        console.error("Error loading employer profile:", err)
+        if (err?.status === 404 || err?.message?.includes("not found")) {
+          setError("Employer profile not found. Please complete your employer profile first.")
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load employer profile")
+        }
+        return
+      }
       
       // Get all job listings and filter by employer ID
       const data = await apiClient.getJobListings(token)
-      const myListings = data.filter((listing: any) => 
-        listing.poster_id === employer.id || listing.poster_id === user.id
-      )
+      const employerId = employer.id || employer._id || user.id
+      const myListings = data.filter((listing: any) => {
+        const posterId = listing.poster_id?.toString() || listing.poster_id
+        return posterId === employerId || posterId === user.id
+      })
       setListings(myListings)
     } catch (err) {
       console.error("Error loading job listings:", err)
