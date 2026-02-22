@@ -117,42 +117,61 @@ func (h *EmployerHandler) GetEmployerByUserID() gin.HandlerFunc {
 			
 			// If employer not found and user is EMPLOYER type, try to auto-create
 			userType, _ := c.Get("user_type")
-			if userType == "EMPLOYER" {
+			if userType == "EMPLOYER" || userType == "employer" {
 				h.logger.Printf("[GetEmployerByUserID] User is EMPLOYER type, attempting to auto-create profile")
 				
-				// Get user info from context
+				// Parse userID to ObjectID
+				objectId, parseErr := primitive.ObjectIDFromHex(userID)
+				if parseErr != nil {
+					h.logger.Printf("[GetEmployerByUserID] Invalid user_id format: %v", parseErr)
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id format"})
+					return
+				}
+				
+				// Get user info from context with safe defaults
 				email, _ := c.Get("email")
 				firstName, _ := c.Get("first_name")
 				lastName, _ := c.Get("last_name")
 				
+				// Create safe string pointers
+				emailStr := ""
+				if email != nil {
+					if s, ok := email.(string); ok {
+						emailStr = s
+					}
+				}
+				if emailStr == "" {
+					emailStr = "unknown@example.com"
+				}
+				
+				firstNameStr := ""
+				if firstName != nil {
+					if s, ok := firstName.(string); ok {
+						firstNameStr = s
+					}
+				}
+				if firstNameStr == "" {
+					firstNameStr = "Unknown"
+				}
+				
+				lastNameStr := ""
+				if lastName != nil {
+					if s, ok := lastName.(string); ok {
+						lastNameStr = s
+					}
+				}
+				if lastNameStr == "" {
+					lastNameStr = "User"
+				}
+				
 				// Try to create a minimal employer profile
 				newEmployer := models.Employer{
 					User: models.User{
-						ID: func() primitive.ObjectID {
-							if objectId, err := primitive.ObjectIDFromHex(userID); err == nil {
-								return objectId
-							}
-							return primitive.NewObjectID()
-						}(),
-						Email: func() *string {
-							if emailStr, ok := email.(string); ok {
-								return &emailStr
-							}
-							return nil
-						}(),
-						FirstName: func() *string {
-							if fn, ok := firstName.(string); ok {
-								return &fn
-							}
-							return nil
-						}(),
-						LastName: func() *string {
-							if ln, ok := lastName.(string); ok {
-								return &ln
-							}
-							return nil
-						}(),
-						UserType: models.EmployerType,
+						ID:        objectId,
+						Email:     &emailStr,
+						FirstName: &firstNameStr,
+						LastName:  &lastNameStr,
+						UserType:  models.EmployerType,
 					},
 					ApprovalStatus: "pending",
 				}
@@ -161,17 +180,14 @@ func (h *EmployerHandler) GetEmployerByUserID() gin.HandlerFunc {
 				employerId, createErr := h.service.CreateEmployer(&newEmployer)
 				if createErr != nil {
 					h.logger.Printf("[GetEmployerByUserID] Failed to auto-create employer: %v", createErr)
-					c.JSON(http.StatusNotFound, gin.H{"error": "Employer not found and could not be auto-created"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to auto-create employer profile"})
 					return
 				}
 				
 				h.logger.Printf("[GetEmployerByUserID] Auto-created employer with ID: %s", employerId.Hex())
-				// Fetch the newly created employer
-				employer, err = h.service.GetEmployerByUserID(userID)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve auto-created employer"})
-					return
-				}
+				// Use the employer we just created instead of fetching again
+				newEmployer.ID = employerId
+				employer = &newEmployer
 			} else {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Employer not found"})
 				return
