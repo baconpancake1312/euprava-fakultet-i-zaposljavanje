@@ -118,6 +118,7 @@ func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
 		admin.PUT("/employers/:id/reject", h.Admin.RejectEmployer())
 		admin.GET("/employers/pending", h.Admin.GetPendingEmployers())
 		admin.GET("/employers/stats", h.Admin.GetEmployerStats())
+		admin.GET("/debug/auth", h.Admin.DebugAuthInfo()) // Debug endpoint
 
 		admin.PUT("/jobs/:id/approve", h.Admin.ApproveJobListing())
 		admin.PUT("/jobs/:id/reject", h.Admin.RejectJobListing())

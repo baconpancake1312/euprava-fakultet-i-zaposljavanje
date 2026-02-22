@@ -24,11 +24,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if token is expired (strict check - only return true if actually expired)
   const isTokenExpired = useCallback((token: string): boolean => {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (!token || token.length === 0) return true
+      const parts = token.split('.')
+      if (parts.length !== 3) {
+        console.warn("Invalid JWT format - not 3 parts")
+        return true // Invalid JWT format
+      }
+      const payload = JSON.parse(atob(parts[1]))
+      if (!payload.exp) {
+        console.warn("Token has no expiration claim")
+        return false // If no expiration, assume it's valid (some tokens don't expire)
+      }
       const expirationTime = payload.exp * 1000 // Convert to milliseconds
       // Token is only expired if current time is past the expiration time
-      return Date.now() >= expirationTime
-    } catch {
+      const isExpired = Date.now() >= expirationTime
+      if (isExpired) {
+        console.log("Token expired at:", new Date(expirationTime).toISOString())
+      }
+      return isExpired
+    } catch (error) {
+      console.warn("Token expiration check failed:", error)
+      // If we can't parse the token, be conservative and assume it's invalid
       return true
     }
   }, [])
@@ -93,18 +109,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error("Failed to parse stored user data:", error)
-        // Don't clear on parse error - might be temporary
-        // Only clear if it's a critical error
+        // Try to recover - if we can parse user, use it even if there was an error
         try {
           const parsedUser = JSON.parse(storedUser)
           setUser(parsedUser)
           setToken(storedToken)
         } catch {
+          // Only clear if we can't parse at all
           localStorage.removeItem("user")
           localStorage.removeItem("token")
         }
       }
     }
+    // Always set loading to false after checking localStorage
     setIsLoading(false)
   }, [isTokenExpired])
 

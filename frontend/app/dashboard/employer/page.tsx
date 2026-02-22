@@ -81,7 +81,7 @@ export default function EmployerDashboard() {
         </div>
 
         {/* Only show profile completion prompt if profile is NOT approved */}
-        {needsProfileCompletion && !isApproved && (
+        {needsProfileCompletion && employerData?.approval_status?.toLowerCase() !== 'approved' && (
           <div className="animate-slideIn">
             <ProfileCompletionPrompt
               title="Complete Your Employer Profile"

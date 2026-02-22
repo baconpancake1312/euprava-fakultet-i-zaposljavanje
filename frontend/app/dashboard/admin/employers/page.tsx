@@ -71,8 +71,25 @@ export default function AdminEmployersPage() {
       const data = await apiClient.getEmployers(token!)
       console.log("[Admin] Loaded employers:", data)
       
+      // Normalize employer data - handle both 'id' and '_id' fields
+      const normalizedData = data.map((emp: any) => {
+        // Ensure we have an 'id' field - use '_id' if 'id' is missing
+        const normalizedId = emp.id || emp._id || emp.ID
+        if (!normalizedId) {
+          console.warn("[Admin] Employer missing ID field:", emp)
+        }
+        return {
+          ...emp,
+          id: normalizedId,
+        }
+      })
+      
       // Remove duplicates by ID
-      const uniqueEmployers = data.reduce((acc: Employer[], current: Employer) => {
+      const uniqueEmployers = normalizedData.reduce((acc: Employer[], current: Employer) => {
+        if (!current.id) {
+          console.warn("[Admin] Skipping employer without ID:", current)
+          return acc
+        }
         const exists = acc.find(item => item.id === current.id)
         if (!exists) {
           acc.push(current)
@@ -83,6 +100,7 @@ export default function AdminEmployersPage() {
       }, [])
       
       console.log("[Admin] Unique employers:", uniqueEmployers.length)
+      console.log("[Admin] Sample employer IDs:", uniqueEmployers.slice(0, 3).map(e => e.id))
       setEmployers(uniqueEmployers)
     } catch (error) {
       console.error("Failed to load employers:", error)
@@ -117,19 +135,48 @@ export default function AdminEmployersPage() {
   const handleApprove = async (employerId: string) => {
     setProcessingId(employerId)
     try {
-      console.log("[Admin] Approving employer:", employerId)
+      console.log("[Admin] Approving employer with ID:", employerId)
+      console.log("[Admin] ID type:", typeof employerId)
+      console.log("[Admin] ID length:", employerId?.length)
+      
+      // Validate the ID format (should be 24 hex characters for MongoDB ObjectID)
+      if (!employerId || employerId.length !== 24) {
+        console.error("[Admin] Invalid employer ID format:", employerId)
+        throw new Error(`Invalid employer ID format: ${employerId}`)
+      }
+      
       console.log("[Admin] User object:", user)
       console.log("[Admin] Token:", token?.substring(0, 50) + "...")
       
       // Use the token from user object if available (has user_type)
       const adminToken = (user as any)?.token || token
       console.log("[Admin] Using token:", adminToken?.substring(0, 50) + "...")
+      console.log("[Admin] Token length:", adminToken?.length)
+      console.log("[Admin] Token exists:", !!adminToken)
+      
+      if (!adminToken) {
+        throw new Error("No authentication token available. Please log in again.")
+      }
       
       // Decode and log the token contents
       if (adminToken) {
         const decoded = decodeJWT(adminToken)
         console.log("[Admin] Decoded token:", decoded)
         console.log("[Admin] Token User_type:", decoded?.User_type || decoded?.user_type || 'NOT FOUND')
+        console.log("[Admin] Token Uid:", decoded?.Uid || decoded?.uid || decoded?.sub || 'NOT FOUND')
+        console.log("[Admin] Token Email:", decoded?.Email || decoded?.email || 'NOT FOUND')
+        
+        // Check if token is expired
+        if (decoded?.exp) {
+          const expDate = new Date(decoded.exp * 1000)
+          const now = new Date()
+          console.log("[Admin] Token expires at:", expDate.toISOString())
+          console.log("[Admin] Current time:", now.toISOString())
+          console.log("[Admin] Token expired:", expDate < now)
+          if (expDate < now) {
+            throw new Error("Your session has expired. Please log in again.")
+          }
+        }
       }
       
       await apiClient.approveEmployer(employerId, adminToken!)
@@ -315,7 +362,21 @@ export default function AdminEmployersPage() {
                   {(!employer.approval_status || employer.approval_status.toLowerCase() === "pending") && (
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => handleApprove(employer.id)}
+                        onClick={() => {
+                          console.log("[Admin] Approve button clicked for employer:", employer)
+                          console.log("[Admin] Employer ID:", employer.id)
+                          console.log("[Admin] Full employer object:", JSON.stringify(employer, null, 2))
+                          if (!employer.id) {
+                            console.error("[Admin] Employer missing ID field!")
+                            toast({
+                              title: "Error",
+                              description: "Employer ID is missing. Please refresh the page.",
+                              variant: "destructive",
+                            })
+                            return
+                          }
+                          handleApprove(employer.id)
+                        }}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                         disabled={processingId === employer.id}
                       >
