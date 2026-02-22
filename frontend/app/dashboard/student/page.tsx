@@ -6,7 +6,9 @@ import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileCompletionPrompt } from "@/components/profile-completion-prompt"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, Calendar, GraduationCap, Briefcase, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { BookOpen, Calendar, GraduationCap, Briefcase, Loader2, ChevronRight } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { apiClient } from "@/lib/api-client"
 
 export default function StudentDashboard() {
@@ -15,6 +17,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [studentData, setStudentData] = useState<any>(null)
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
+  const [canAdvanceYear, setCanAdvanceYear] = useState(false)
+  const [advancing, setAdvancing] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated || user?.user_type !== "STUDENT") {
@@ -37,7 +41,6 @@ export default function StudentDashboard() {
           data.major = await apiClient.getMajorById(data.major_id, token)
         } catch (majorError) {
           console.error("Failed to fetch major data:", majorError)
-          // Keep the major_id for reference even if we can't fetch the full major object
         }
       }
 
@@ -48,12 +51,47 @@ export default function StudentDashboard() {
       if (!data.major_id) missingFields.push("major")
       if (!data.year) missingFields.push("year")
 
-      setNeedsProfileCompletion(missingFields.length > 0)
+      // Check if student can advance: all subjects of current year must be passed
+      const studentYear = data.year != null ? Number(data.year) : null
+      if (!data.major_id || studentYear == null) {
+        setCanAdvanceYear(false)
+        return
+      }
+      try {
+        const [subjectsRes, passedRes] = await Promise.all([
+          apiClient.getSubjectsByMajor(data.major_id, token),
+          apiClient.getPassedCorusesForStudent(user.id, token),
+        ])
+        const subjects = Array.isArray(subjectsRes) ? subjectsRes : []
+        const passed = Array.isArray(passedRes) ? passedRes : []
+        const passedSubjectIds = new Set(
+          passed.map((p: any) => p.id ?? p.subject_id ?? p.course_id).filter(Boolean)
+        )
+        const currentYearSubjects = subjects.filter((s: any) => Number(s.year) === studentYear)
+        const allPassed =
+          currentYearSubjects.length > 0 &&
+          currentYearSubjects.every((s: any) => passedSubjectIds.has(s.id))
+        setCanAdvanceYear(!!allPassed)
+      } catch {
+        setCanAdvanceYear(false)
+      }
     } catch (error) {
-      // Student profile doesn't exist yet
       setNeedsProfileCompletion(true)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAdvanceYear = async () => {
+    if (!token || !user?.id || advancing) return
+    setAdvancing(true)
+    try {
+      await apiClient.advanceStudent(user.id, token)
+      await checkStudentProfile()
+    } catch (err) {
+      console.error("Failed to advance year:", err)
+    } finally {
+      setAdvancing(false)
     }
   }
 
@@ -82,6 +120,29 @@ export default function StudentDashboard() {
             missingFields={["Major/Program", "Current Year"]}
             onComplete={() => router.push("/dashboard/student/complete-profile")}
           />
+        )}
+
+        {!needsProfileCompletion && canAdvanceYear && (
+          <Alert className="border-primary/50 bg-primary/5">
+            <GraduationCap className="h-4 w-4" />
+            <AlertTitle>Ready for next year</AlertTitle>
+            <AlertDescription className="mt-2 space-y-2">
+              <p>You have passed all subjects for your current year (Year {studentData?.year}). You can advance to the next year.</p>
+              <Button onClick={handleAdvanceYear} size="sm" className="mt-2" disabled={advancing}>
+                {advancing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating…
+                  </>
+                ) : (
+                  <>
+                    Advance to Year {studentData?.year != null ? Number(studentData.year) + 1 : "—"}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

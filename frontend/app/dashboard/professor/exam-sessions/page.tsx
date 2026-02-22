@@ -68,12 +68,12 @@ export default function ExamSessionsPage() {
             // Fetch exam sessions for this professor
             const sessionsData = await apiClient.getExamSessionsByProfessor(user.id, token)
             console.log("Fetched exam sessions:", sessionsData)
-            setExamSessions(sessionsData || [])
+            setExamSessions(sessionsData as ExamSession[] || [])
 
             // Fetch courses for this professor
             const coursesData = await apiClient.getCoursesByProfessor(user.id, token)
             console.log("Fetched courses:", coursesData)
-            setCourses(coursesData || [])
+            setCourses(coursesData as Subject[] || [])
         } catch (error) {
             console.error("Error fetching data:", error)
             setExamSessions([]) // Ensure we always have an empty array

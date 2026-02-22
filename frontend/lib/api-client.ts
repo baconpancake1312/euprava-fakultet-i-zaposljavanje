@@ -170,6 +170,15 @@ class ApiClient {
     return response.json()
   }
 
+  async advanceStudent(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${id}/advance`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to advance to next year")
+    return response.json()
+  }
+
   async deleteStudent(id: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/students/${id}`, {
       method: "DELETE",
@@ -432,32 +441,6 @@ class ApiClient {
   }
 
   // University Service APIs - Exam Sessions (Updated from deprecated exams API)
-  async getAllExamSessions(token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to fetch exam sessions")
-    return response.json()
-  }
-
-  async getAllExamSessionsForStudent(studentId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/student/${studentId}`, {
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to fetch exam sessions for student id: " + studentId)
-    return response.json()
-  }
-
-  async getExamSessionById(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to fetch exam session")
-    return response.json()
-  }
 
   async createExamSession(data: any, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/create`, {
@@ -548,42 +531,12 @@ class ApiClient {
     })
     return this.handleResponse(response)
   }
-
-  async getExamSessionsByProfessor(professorId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/professor/${professorId}`, {
-      headers: this.getAuthHeaders(token),
-    })
-    return this.handleResponse(response)
-  }
-
   async getAllExamSessionsForStudent(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/student/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
     return this.handleResponse(response)
   }
-
-  async getExamRegistrationsBySession(examSessionId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/exam-session/${examSessionId}`, {
-      headers: this.getAuthHeaders(token),
-    })
-    return this.handleResponse(response)
-  }
-
-  async getExamGradesForExamSession(examSessionId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/exam-session/${examSessionId}`, {
-      headers: this.getAuthHeaders(token),
-    })
-    return this.handleResponse(response)
-  }
-
-  async getCoursesByProfessor(professorId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/subjects/professor/${professorId}`, {
-      headers: this.getAuthHeaders(token),
-    })
-    return this.handleResponse(response)
-  }
-
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)

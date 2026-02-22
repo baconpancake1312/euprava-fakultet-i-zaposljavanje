@@ -73,7 +73,7 @@ export default function StudentAcademicPage() {
   const loadCompletedCourses = async (studentId: string) => {
     try {
       const courses = await apiClient.getPassedCorusesForStudent(studentId, token!)
-      setCompletedCourses(courses)
+      setCompletedCourses(courses as any[])
     } catch (err) {
       console.error("Failed to load completed courses:", err)
     }
