@@ -1,6 +1,11 @@
 package routes
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"time"
+
 	"employment-service/internal/handlers"
 	"employment-service/middleware"
 
@@ -110,6 +115,29 @@ func setupProtectedRoutes(router *gin.Engine, h *handlers.Handlers) {
 }
 
 func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
+	// #region agent log
+	func() {
+		logData := map[string]interface{}{
+			"runId":        "route-setup",
+			"hypothesisId": "E",
+			"location":     "routes.go:112",
+			"message":      "Setting up admin routes",
+			"data": map[string]interface{}{
+				"admin_handler_nil": h.Admin == nil,
+			},
+			"timestamp": time.Now().UnixMilli(),
+		}
+		if logJSON, err := json.Marshal(logData); err == nil {
+			if wd, err := os.Getwd(); err == nil {
+				logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+				if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					f.WriteString(string(logJSON) + "\n")
+					f.Close()
+				}
+			}
+		}
+	}()
+	// #endregion
 	admin := router.Group("/admin")
 	admin.Use(middleware.AuthorizeRoles([]string{"ADMIN"}))
 	{
@@ -124,4 +152,27 @@ func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
 		admin.PUT("/jobs/:id/reject", h.Admin.RejectJobListing())
 		admin.GET("/jobs/pending", h.Admin.GetPendingJobListings())
 	}
+	// #region agent log
+	func() {
+		logData := map[string]interface{}{
+			"runId":        "route-setup",
+			"hypothesisId": "E",
+			"location":     "routes.go:127",
+			"message":      "Admin routes registered",
+			"data": map[string]interface{}{
+				"routes_count": 8,
+			},
+			"timestamp": time.Now().UnixMilli(),
+		}
+		if logJSON, err := json.Marshal(logData); err == nil {
+			if wd, err := os.Getwd(); err == nil {
+				logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+				if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					f.WriteString(string(logJSON) + "\n")
+					f.Close()
+				}
+			}
+		}
+	}()
+	// #endregion
 }

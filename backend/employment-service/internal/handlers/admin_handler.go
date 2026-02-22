@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"time"
 
 	"employment-service/internal/services"
 	helper "employment-service/helpers"
@@ -70,8 +74,15 @@ func (h *AdminHandler) ApproveEmployer() gin.HandlerFunc {
 		h.logger.Printf("[ApproveEmployer] Calling service.ApproveEmployer with employerId: %s, adminId: %s", employerId, adminId)
 		err := h.service.ApproveEmployer(employerId, adminId)
 		if err != nil {
+			h.logger.Printf("[ApproveEmployer] Error from service: %v", err)
 			if isNotFoundError(err) {
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				// Return detailed error with available IDs if present
+				errorMsg := err.Error()
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": errorMsg,
+					"employer_id_requested": employerId,
+					"admin_id": adminId,
+				})
 			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			}
@@ -135,11 +146,81 @@ func (h *AdminHandler) RejectEmployer() gin.HandlerFunc {
 
 func (h *AdminHandler) GetPendingEmployers() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "admin_handler.go:143",
+				"message":      "GetPendingEmployers handler called",
+				"data": map[string]interface{}{
+					"path":   c.Request.URL.Path,
+					"method": c.Request.Method,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		employers, err := h.service.GetPendingEmployers()
 		if err != nil {
+			// #region agent log
+			func() {
+				logData := map[string]interface{}{
+					"runId":        "handler-exec",
+					"hypothesisId": "C",
+					"location":     "admin_handler.go:147",
+					"message":      "GetPendingEmployers error",
+					"data": map[string]interface{}{
+						"error": err.Error(),
+					},
+					"timestamp": time.Now().UnixMilli(),
+				}
+				if logJSON, err := json.Marshal(logData); err == nil {
+					if wd, err := os.Getwd(); err == nil {
+						logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+						if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+							f.WriteString(string(logJSON) + "\n")
+							f.Close()
+						}
+					}
+				}
+			}()
+			// #endregion
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "admin_handler.go:151",
+				"message":      "GetPendingEmployers success",
+				"data": map[string]interface{}{
+					"employers_count": len(employers),
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		c.JSON(http.StatusOK, employers)
 	}
 }
@@ -196,6 +277,31 @@ func (h *AdminHandler) DebugAuthInfo() gin.HandlerFunc {
 
 func (h *AdminHandler) ApproveJobListing() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "admin_handler.go:195",
+				"message":      "ApproveJobListing handler called",
+				"data": map[string]interface{}{
+					"path":   c.Request.URL.Path,
+					"method": c.Request.Method,
+					"job_id": c.Param("id"),
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		jobId := c.Param("id")
 		adminIdValue, exists := c.Get("user_id")
 		if !exists {
@@ -221,6 +327,30 @@ func (h *AdminHandler) ApproveJobListing() gin.HandlerFunc {
 
 		err := h.service.ApproveJobListing(jobId, adminId)
 		if err != nil {
+			// #region agent log
+			func() {
+				logData := map[string]interface{}{
+					"runId":        "handler-exec",
+					"hypothesisId": "C",
+					"location":     "admin_handler.go:230",
+					"message":      "ApproveJobListing error",
+					"data": map[string]interface{}{
+						"error": err.Error(),
+						"job_id": jobId,
+					},
+					"timestamp": time.Now().UnixMilli(),
+				}
+				if logJSON, err := json.Marshal(logData); err == nil {
+					if wd, err := os.Getwd(); err == nil {
+						logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+						if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+							f.WriteString(string(logJSON) + "\n")
+							f.Close()
+						}
+					}
+				}
+			}()
+			// #endregion
 			if isNotFoundError(err) {
 				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			} else {
@@ -274,11 +404,81 @@ func (h *AdminHandler) RejectJobListing() gin.HandlerFunc {
 
 func (h *AdminHandler) GetPendingJobListings() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "admin_handler.go:405",
+				"message":      "GetPendingJobListings handler called",
+				"data": map[string]interface{}{
+					"path":   c.Request.URL.Path,
+					"method": c.Request.Method,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		jobs, err := h.service.GetPendingJobListings()
 		if err != nil {
+			// #region agent log
+			func() {
+				logData := map[string]interface{}{
+					"runId":        "handler-exec",
+					"hypothesisId": "C",
+					"location":     "admin_handler.go:409",
+					"message":      "GetPendingJobListings error",
+					"data": map[string]interface{}{
+						"error": err.Error(),
+					},
+					"timestamp": time.Now().UnixMilli(),
+				}
+				if logJSON, err := json.Marshal(logData); err == nil {
+					if wd, err := os.Getwd(); err == nil {
+						logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+						if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+							f.WriteString(string(logJSON) + "\n")
+							f.Close()
+						}
+					}
+				}
+			}()
+			// #endregion
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "admin_handler.go:412",
+				"message":      "GetPendingJobListings success",
+				"data": map[string]interface{}{
+					"jobs_count": len(jobs),
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		c.JSON(http.StatusOK, jobs)
 	}
 }

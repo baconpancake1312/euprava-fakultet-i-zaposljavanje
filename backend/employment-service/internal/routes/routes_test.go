@@ -2,12 +2,16 @@ package routes
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"employment-service/data"
 	"employment-service/internal/handlers"
@@ -21,6 +25,7 @@ import (
 var (
 	testRouter    *gin.Engine
 	testHandlers  *handlers.Handlers
+	testStore     *data.EmploymentRepo
 	keycloakURL   = os.Getenv("KEYCLOAK_URL")
 	keycloakRealm = os.Getenv("KEYCLOAK_REALM")
 	baseURL       = "http://localhost:8089"
@@ -32,6 +37,13 @@ var (
 	employerToken  string
 	candidateToken string
 	studentToken   string
+	adminUserID    string // Admin user_id from employment service
+)
+
+// Test data IDs from database
+var (
+	realEmployerID string // Real employer ID from database
+	realJobID      string // Real job ID from database
 )
 
 func init() {
@@ -98,12 +110,87 @@ func setupTestRouter() {
 		// but some tests might fail
 		fmt.Printf("Warning: Could not connect to database: %v\n", err)
 	}
+	testStore = store
 
 	services := services.NewServices(store, nil, nil, nil)
 	testHandlers = handlers.NewHandlers(services, nil, nil)
 
 	testRouter = gin.New()
 	SetupRoutes(testRouter, testHandlers)
+}
+
+// getRealIDs fetches real IDs from the database for testing
+func getRealIDs() error {
+	if testStore == nil {
+		return fmt.Errorf("test store not initialized")
+	}
+
+	// Get real employer ID
+	employers, err := testStore.GetAllEmployers()
+	if err == nil && len(employers) > 0 {
+		realEmployerID = employers[0].ID.Hex()
+		fmt.Printf("Using real employer ID: %s\n", realEmployerID)
+	}
+
+	// Get real job ID
+	jobs, err := testStore.GetAllJobListings()
+	if err == nil && len(jobs) > 0 {
+		realJobID = jobs[0].ID.Hex()
+		fmt.Printf("Using real job ID: %s\n", realJobID)
+	}
+
+	return nil
+}
+
+// extractUserIDFromToken extracts the Uid from a JWT token
+func extractUserIDFromToken(token string) string {
+	if token == "" {
+		return ""
+	}
+
+	// Decode JWT token (without verification for testing)
+	// JWT format: header.payload.signature
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+
+	// Decode payload (base64)
+	payload := parts[1]
+	// Add padding if needed
+	if len(payload)%4 != 0 {
+		payload += strings.Repeat("=", 4-len(payload)%4)
+	}
+
+	decoded, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		// Try standard base64
+		decoded, err = base64.StdEncoding.DecodeString(payload)
+		if err != nil {
+			return ""
+		}
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(decoded, &claims); err != nil {
+		return ""
+	}
+
+	// Try different possible fields for user ID
+	if uid, ok := claims["Uid"].(string); ok {
+		return uid
+	}
+	if uid, ok := claims["uid"].(string); ok {
+		return uid
+	}
+	if uid, ok := claims["user_id"].(string); ok {
+		return uid
+	}
+	if uid, ok := claims["sub"].(string); ok {
+		return uid
+	}
+
+	return ""
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -212,6 +299,22 @@ func TestPublicRoutes(t *testing.T) {
 func TestProtectedRoutes(t *testing.T) {
 	setupTestRouter()
 
+	// Get real IDs from database
+	if err := getRealIDs(); err != nil {
+		t.Logf("Warning: Could not get real IDs from database: %v", err)
+	}
+
+	// Use real IDs if available, otherwise use placeholder
+	employerID := realEmployerID
+	if employerID == "" {
+		employerID = "507f1f77bcf86cd799439011"
+	}
+
+	jobID := realJobID
+	if jobID == "" {
+		jobID = "507f1f77bcf86cd799439011"
+	}
+
 	// Try to get tokens from Keycloak if available
 	// If not available, tests will check for 401/403 which is expected
 	if keycloakURL != "" && keycloakRealm != "" {
@@ -221,6 +324,10 @@ func TestProtectedRoutes(t *testing.T) {
 		employerToken, _ = getKeycloakToken("employer", "password", "euprava-client")
 		candidateToken, _ = getKeycloakToken("candidate", "password", "euprava-client")
 		studentToken, _ = getKeycloakToken("student", "password", "euprava-client")
+
+		if adminToken != "" {
+			adminUserID = extractUserIDFromToken(adminToken)
+		}
 
 		if err != nil {
 			t.Logf("Warning: Could not get Keycloak tokens: %v", err)
@@ -248,7 +355,12 @@ func TestProtectedRoutes(t *testing.T) {
 		{
 			name:           "GET /users/:id (protected)",
 			method:         "GET",
-			path:           "/users/507f1f77bcf86cd799439011",
+			path:           fmt.Sprintf("/users/%s", func() string {
+				if adminUserID != "" {
+					return adminUserID
+				}
+				return "507f1f77bcf86cd799439011"
+			}()),
 			token:          adminToken,
 			expectedStatus: http.StatusOK,
 			description:    "Get user by ID - requires auth",
@@ -266,7 +378,7 @@ func TestProtectedRoutes(t *testing.T) {
 		{
 			name:           "GET /employers/:id (protected)",
 			method:         "GET",
-			path:           "/employers/507f1f77bcf86cd799439011",
+			path:           fmt.Sprintf("/employers/%s", employerID),
 			token:          adminToken,
 			expectedStatus: http.StatusOK,
 			description:    "Get employer by ID - requires auth",
@@ -464,12 +576,37 @@ func TestProtectedRoutes(t *testing.T) {
 func TestAdminRoutes(t *testing.T) {
 	setupTestRouter()
 
+	// Get admin token from Keycloak
 	if adminToken == "" && keycloakURL != "" {
 		var err error
 		adminToken, err = getKeycloakToken("admin", "admin", "euprava-client")
 		if err != nil {
 			t.Logf("Warning: Could not get admin token: %v", err)
+		} else {
+			// Extract admin user_id from token
+			adminUserID = extractUserIDFromToken(adminToken)
+			if adminUserID != "" {
+				t.Logf("Extracted admin user_id from token: %s", adminUserID)
+			}
 		}
+	}
+
+	// Get real IDs from database
+	if err := getRealIDs(); err != nil {
+		t.Logf("Warning: Could not get real IDs from database: %v", err)
+	}
+
+	// Use real IDs if available, otherwise use placeholder
+	employerID := realEmployerID
+	if employerID == "" {
+		employerID = "507f1f77bcf86cd799439011"
+		t.Logf("Using placeholder employer ID: %s", employerID)
+	}
+
+	jobID := realJobID
+	if jobID == "" {
+		jobID = "507f1f77bcf86cd799439011"
+		t.Logf("Using placeholder job ID: %s", jobID)
 	}
 
 	tests := []struct {
@@ -479,6 +616,7 @@ func TestAdminRoutes(t *testing.T) {
 		token          string
 		body           interface{}
 		expectedStatus int
+		description    string
 	}{
 		{
 			name:           "GET /admin/employers/pending",
@@ -486,6 +624,7 @@ func TestAdminRoutes(t *testing.T) {
 			path:           "/admin/employers/pending",
 			token:          adminToken,
 			expectedStatus: http.StatusOK,
+			description:    "Get pending employers - requires ADMIN role",
 		},
 		{
 			name:           "GET /admin/employers/stats",
@@ -493,6 +632,7 @@ func TestAdminRoutes(t *testing.T) {
 			path:           "/admin/employers/stats",
 			token:          adminToken,
 			expectedStatus: http.StatusOK,
+			description:    "Get employer statistics - requires ADMIN role",
 		},
 		{
 			name:           "GET /admin/jobs/pending",
@@ -500,6 +640,47 @@ func TestAdminRoutes(t *testing.T) {
 			path:           "/admin/jobs/pending",
 			token:          adminToken,
 			expectedStatus: http.StatusOK,
+			description:    "Get pending job listings - requires ADMIN role",
+		},
+		{
+			name:           "PUT /admin/employers/:id/approve",
+			method:         "PUT",
+			path:           fmt.Sprintf("/admin/employers/%s/approve", employerID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Approve employer - requires ADMIN role",
+		},
+		{
+			name:           "PUT /admin/employers/:id/reject",
+			method:         "PUT",
+			path:           fmt.Sprintf("/admin/employers/%s/reject", employerID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Reject employer - requires ADMIN role",
+		},
+		{
+			name:           "PUT /admin/jobs/:id/approve",
+			method:         "PUT",
+			path:           fmt.Sprintf("/admin/jobs/%s/approve", jobID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Approve job listing - requires ADMIN role",
+		},
+		{
+			name:           "PUT /admin/jobs/:id/reject",
+			method:         "PUT",
+			path:           fmt.Sprintf("/admin/jobs/%s/reject", jobID),
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Reject job listing - requires ADMIN role",
+		},
+		{
+			name:           "GET /admin/debug/auth",
+			method:         "GET",
+			path:           "/admin/debug/auth",
+			token:          adminToken,
+			expectedStatus: http.StatusOK,
+			description:    "Debug auth info - requires ADMIN role",
 		},
 	}
 
@@ -525,21 +706,58 @@ func TestAdminRoutes(t *testing.T) {
 			w := httptest.NewRecorder()
 			testRouter.ServeHTTP(w, req)
 
-			validStatuses := []int{http.StatusOK, http.StatusNotFound, http.StatusForbidden}
+			// #region agent log
+			logData := map[string]interface{}{
+				"runId":        "route-test",
+				"hypothesisId": "D",
+				"location":     "routes_test.go:525",
+				"message":      "Admin route test executed",
+				"data": map[string]interface{}{
+					"test_name":        tt.name,
+					"method":           tt.method,
+					"path":             tt.path,
+					"expected_status":  tt.expectedStatus,
+					"actual_status":    w.Code,
+					"has_token":        tt.token != "",
+					"response_body":    w.Body.String(),
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+			// #endregion
+
+			validStatuses := []int{http.StatusOK, http.StatusNotFound, http.StatusForbidden, http.StatusUnauthorized}
 			if tt.token == "" {
 				validStatuses = append(validStatuses, http.StatusInternalServerError)
 			}
 
+			isValidStatus := false
 			for _, status := range validStatuses {
 				if w.Code == status {
+					isValidStatus = true
 					break
 				}
 			}
 
-			if w.Code == http.StatusOK {
-				t.Logf("✓ %s: Status %d", tt.name, w.Code)
+			if !isValidStatus {
+				t.Errorf("❌ %s: Unexpected status %d (expected one of %v). Response: %s", 
+					tt.name, w.Code, validStatuses, w.Body.String())
+			} else if w.Code == http.StatusOK {
+				t.Logf("✓ %s: Status %d - %s", tt.name, w.Code, tt.description)
+			} else if w.Code == http.StatusForbidden {
+				t.Logf("⚠ %s: Status %d (Forbidden - check token/role) - %s", tt.name, w.Code, tt.description)
+			} else if w.Code == http.StatusUnauthorized {
+				t.Logf("⚠ %s: Status %d (Unauthorized - check token) - %s", tt.name, w.Code, tt.description)
 			} else {
-				t.Logf("⚠ %s: Status %d (Response: %s)", tt.name, w.Code, w.Body.String())
+				t.Logf("⚠ %s: Status %d (Response: %s) - %s", tt.name, w.Code, w.Body.String(), tt.description)
 			}
 		})
 	}

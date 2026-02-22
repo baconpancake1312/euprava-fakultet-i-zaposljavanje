@@ -74,7 +74,20 @@ export default function AdminEmployersPage() {
       // Normalize employer data - handle both 'id' and '_id' fields
       const normalizedData = data.map((emp: any) => {
         // Ensure we have an 'id' field - use '_id' if 'id' is missing
-        const normalizedId = emp.id || emp._id || emp.ID
+        let normalizedId = emp.id || emp._id || emp.ID
+        
+        // Convert to string and trim whitespace
+        if (normalizedId) {
+          normalizedId = String(normalizedId).trim()
+          // Ensure it's exactly 24 hex characters (MongoDB ObjectID format)
+          if (normalizedId.length !== 24) {
+            console.warn("[Admin] Employer ID has invalid length:", normalizedId, "length:", normalizedId.length)
+          }
+        }
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:75',message:'normalizing employer ID',data:{original_id:emp.id,original__id:emp._id,original_ID:emp.ID,normalized_id:normalizedId,normalized_length:normalizedId?.length,firm_name:emp.firm_name},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (!normalizedId) {
           console.warn("[Admin] Employer missing ID field:", emp)
         }
@@ -100,7 +113,8 @@ export default function AdminEmployersPage() {
       }, [])
       
       console.log("[Admin] Unique employers:", uniqueEmployers.length)
-      console.log("[Admin] Sample employer IDs:", uniqueEmployers.slice(0, 3).map(e => e.id))
+      console.log("[Admin] All employer IDs:", uniqueEmployers.map((e: Employer) => ({ id: e.id, firm_name: e.firm_name })))
+      console.log("[Admin] Sample employer IDs:", uniqueEmployers.slice(0, 3).map((e: Employer) => e.id))
       setEmployers(uniqueEmployers)
     } catch (error) {
       console.error("Failed to load employers:", error)
@@ -133,6 +147,9 @@ export default function AdminEmployersPage() {
   }
 
   const handleApprove = async (employerId: string) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:136',message:'handleApprove called',data:{employer_id:employerId},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setProcessingId(employerId)
     try {
       console.log("[Admin] Approving employer with ID:", employerId)
@@ -187,9 +204,18 @@ export default function AdminEmployersPage() {
       await loadEmployers()
     } catch (error) {
       console.error("Failed to approve employer:", error)
+      let errorMessage = "Failed to approve employer. Please try again."
+      if (error instanceof Error) {
+        errorMessage = error.message
+        // Try to extract available IDs from error message if present
+        const availableIdsMatch = error.message.match(/Available IDs: \[(.*?)\]/)
+        if (availableIdsMatch) {
+          console.log("[Admin] Available employer IDs from backend:", availableIdsMatch[1])
+        }
+      }
       toast({
         title: "Approval Failed",
-        description: error instanceof Error ? error.message : "Failed to approve employer. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -363,6 +389,9 @@ export default function AdminEmployersPage() {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => {
+                          // #region agent log
+                          fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:340',message:'approve button clicked',data:{employer_id:employer.id,employer_id_type:typeof employer.id,employer_id_length:employer.id?.length,firm_name:employer.firm_name},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+                          // #endregion
                           console.log("[Admin] Approve button clicked for employer:", employer)
                           console.log("[Admin] Employer ID:", employer.id)
                           console.log("[Admin] Full employer object:", JSON.stringify(employer, null, 2))
@@ -375,7 +404,18 @@ export default function AdminEmployersPage() {
                             })
                             return
                           }
-                          handleApprove(employer.id)
+                          // Ensure we use the exact ID from the employer object
+                          const exactId = String(employer.id).trim()
+                          if (exactId.length !== 24) {
+                            console.error("[Admin] Invalid employer ID length:", exactId.length, exactId)
+                            toast({
+                              title: "Error",
+                              description: `Invalid employer ID format. Expected 24 characters, got ${exactId.length}.`,
+                              variant: "destructive",
+                            })
+                            return
+                          }
+                          handleApprove(exactId)
                         }}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                         disabled={processingId === employer.id}

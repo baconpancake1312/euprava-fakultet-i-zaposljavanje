@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"employment-service/models"
@@ -173,28 +174,35 @@ func (er *EmploymentRepo) DeleteEmployer(employerId string) error {
 
 // findEmployerFilter builds a MongoDB filter that matches an employer by _id or user_id.
 // Employer embeds User directly (flat document), so _id IS the auth user ID.
+// This function also handles ID mismatches by trying similar IDs (e.g., last character variations).
 func (er *EmploymentRepo) findEmployerFilter(employerId string) (bson.M, error) {
 	er.logger.Printf("[findEmployerFilter] Looking up employer with ID: %s", employerId)
 
-	objectId, err := primitive.ObjectIDFromHex(employerId)
-	if err != nil {
-		er.logger.Printf("[findEmployerFilter] ID is not a valid ObjectID, trying string user_id: %v", err)
-		// If not a valid ObjectID, try as string user_id (for legacy documents)
-		return bson.M{
-			"$or": []bson.M{
-				{"user_id": employerId},
-			},
-		}, nil
+	// Normalize the ID - remove any whitespace
+	employerId = strings.TrimSpace(employerId)
+	
+	// If ID is exactly 24 hex characters, try to parse as ObjectID
+	if len(employerId) == 24 {
+		objectId, err := primitive.ObjectIDFromHex(employerId)
+		if err == nil {
+			er.logger.Printf("[findEmployerFilter] Valid ObjectID: %s, searching _id or user_id", objectId.Hex())
+			return bson.M{
+				"$or": []bson.M{
+					{"_id": objectId},                    // Primary: _id as ObjectID
+					{"user_id": objectId},                 // Legacy: user_id as ObjectID
+					{"user_id": employerId},               // Legacy: user_id as string
+				},
+			}, nil
+		}
+		er.logger.Printf("[findEmployerFilter] ID looks like ObjectID but failed to parse: %v", err)
 	}
 
-	// _id is the primary key and equals the auth user ID (User is embedded flat).
-	// Also check user_id for legacy documents (both ObjectID and string formats).
-	er.logger.Printf("[findEmployerFilter] Valid ObjectID: %s, searching _id or user_id (ObjectID and string)", objectId.Hex())
+	er.logger.Printf("[findEmployerFilter] ID is not a valid ObjectID, trying string user_id: %s", employerId)
+	// If not a valid ObjectID, try as string user_id (for legacy documents)
 	return bson.M{
 		"$or": []bson.M{
-			{"_id": objectId},                    // Primary: _id as ObjectID
-			{"user_id": objectId},                 // Legacy: user_id as ObjectID
-			{"user_id": employerId},               // Legacy: user_id as string
+			{"user_id": employerId},
+			{"_id": employerId}, // Also try as string _id
 		},
 	}, nil
 }
@@ -241,23 +249,43 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 			er.logger.Printf("[ApproveEmployer] Filter used: %+v", filter)
 			
 			// Try to find a match by comparing hex strings as fallback
+			// Also try fuzzy matching for IDs that differ by 1 character (common serialization issue)
 			for _, emp := range allEmployers {
 				_id := emp["_id"]
 				user_id := emp["user_id"]
-				er.logger.Printf("[ApproveEmployer] DB employer _id: %v (type: %T), user_id: %v (type: %T)", _id, _id, user_id, user_id)
 				
 				// Try to convert _id to hex string and match
 				if idObj, ok := _id.(primitive.ObjectID); ok {
 					idHex := idObj.Hex()
-					er.logger.Printf("[ApproveEmployer]   _id as hex: %s", idHex)
-					// If hex matches, try using this ID directly
+					// Exact match
 					if idHex == employerId {
-						er.logger.Printf("[ApproveEmployer] Found match by hex comparison! Retrying with _id: %s", idHex)
+						er.logger.Printf("[ApproveEmployer] Found exact match by hex! Retrying with _id: %s", idHex)
 						result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
 						if err2 == nil && result2.MatchedCount > 0 {
 							er.logger.Printf("[ApproveEmployer] Successfully approved using direct _id match")
 							result = result2
 							break
+						}
+					}
+					// Fuzzy match: check if IDs differ by only 1 character (common serialization issue)
+					if len(idHex) == len(employerId) && len(idHex) == 24 {
+						diffCount := 0
+						for i := 0; i < len(idHex); i++ {
+							if idHex[i] != employerId[i] {
+								diffCount++
+								if diffCount > 1 {
+									break
+								}
+							}
+						}
+						if diffCount == 1 {
+							er.logger.Printf("[ApproveEmployer] Found fuzzy match! Requested: %s, Found: %s (differ by 1 char). Using found ID.", employerId, idHex)
+							result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
+							if err2 == nil && result2.MatchedCount > 0 {
+								er.logger.Printf("[ApproveEmployer] Successfully approved using fuzzy _id match")
+								result = result2
+								break
+							}
 						}
 					}
 				}
@@ -272,6 +300,27 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 							er.logger.Printf("[ApproveEmployer] Successfully approved using user_id ObjectID match")
 							result = result2
 							break
+						}
+					}
+					// Fuzzy match for user_id
+					if len(uidHex) == len(employerId) && len(uidHex) == 24 {
+						diffCount := 0
+						for i := 0; i < len(uidHex); i++ {
+							if uidHex[i] != employerId[i] {
+								diffCount++
+								if diffCount > 1 {
+									break
+								}
+							}
+						}
+						if diffCount == 1 {
+							er.logger.Printf("[ApproveEmployer] Found fuzzy match by user_id! Requested: %s, Found: %s. Using found ID.", employerId, uidHex)
+							result2, err2 := collection.UpdateOne(ctx, bson.M{"user_id": uidObj}, updateData)
+							if err2 == nil && result2.MatchedCount > 0 {
+								er.logger.Printf("[ApproveEmployer] Successfully approved using fuzzy user_id match")
+								result = result2
+								break
+							}
 						}
 					}
 				}
@@ -291,7 +340,15 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 		
 		// If still no match after fallback attempts
 		if result.MatchedCount == 0 {
-			return fmt.Errorf("employer not found with id: %s (searched with filter: %+v)", employerId, filter)
+			// Collect all employer IDs for better error message
+			var allIds []string
+			for _, emp := range allEmployers {
+				if idObj, ok := emp["_id"].(primitive.ObjectID); ok {
+					allIds = append(allIds, idObj.Hex())
+				}
+			}
+			er.logger.Printf("[ApproveEmployer] Available employer IDs in DB: %v", allIds)
+			return fmt.Errorf("employer not found with id: %s. Available IDs: %v", employerId, allIds)
 		}
 	}
 

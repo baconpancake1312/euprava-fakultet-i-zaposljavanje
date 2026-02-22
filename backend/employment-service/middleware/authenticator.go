@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -327,8 +328,36 @@ func isServiceAccountType(userType string) bool {
 }
 func AuthorizeRoles(roles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "auth-check",
+				"hypothesisId": "A",
+				"location":     "authenticator.go:329",
+				"message":      "AuthorizeRoles middleware entry",
+				"data": map[string]interface{}{
+					"path":          c.Request.URL.Path,
+					"method":        c.Request.Method,
+					"required_roles": roles,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		user_type, _ := c.Get("user_type")
-		userRole := user_type.(string)
+		var userRole string
+		if user_type != nil {
+			userRole = user_type.(string)
+		}
 		
 		// Log the authorization check
 		fmt.Printf("[AuthorizeRoles] Required roles: %v, User role: %s\n", roles, userRole)
@@ -346,11 +375,62 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 		}
 
 		if !authorized {
+			// #region agent log
+			func() {
+				logData := map[string]interface{}{
+					"runId":        "auth-check",
+					"hypothesisId": "A",
+					"location":     "authenticator.go:350",
+					"message":      "Authorization FAILED",
+					"data": map[string]interface{}{
+						"path":          c.Request.URL.Path,
+						"method":        c.Request.Method,
+						"required_roles": roles,
+						"user_role":     userRole,
+					},
+					"timestamp": time.Now().UnixMilli(),
+				}
+				if logJSON, err := json.Marshal(logData); err == nil {
+					if wd, err := os.Getwd(); err == nil {
+						logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+						if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+							f.WriteString(string(logJSON) + "\n")
+							f.Close()
+						}
+					}
+				}
+			}()
+			// #endregion
 			fmt.Printf("[AuthorizeRoles] FORBIDDEN - Required roles: %v, User role: %s\n", roles, userRole)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 			return
 		}
 		
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "auth-check",
+				"hypothesisId": "A",
+				"location":     "authenticator.go:355",
+				"message":      "Authorization PASSED",
+				"data": map[string]interface{}{
+					"path":      c.Request.URL.Path,
+					"method":    c.Request.Method,
+					"user_role": userRole,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		fmt.Printf("[AuthorizeRoles] AUTHORIZED - User role: %s\n", userRole)
 		c.Next()
 	}

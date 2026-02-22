@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"time"
 
 	"employment-service/models"
 	"employment-service/internal/services"
@@ -67,11 +71,81 @@ func (h *EmployerHandler) GetEmployerByUserID() gin.HandlerFunc {
 
 func (h *EmployerHandler) GetAllEmployers() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "employer_handler.go:68",
+				"message":      "GetAllEmployers handler called",
+				"data": map[string]interface{}{
+					"path":   c.Request.URL.Path,
+					"method": c.Request.Method,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		employers, err := h.service.GetAllEmployers()
 		if err != nil {
+			// #region agent log
+			func() {
+				logData := map[string]interface{}{
+					"runId":        "handler-exec",
+					"hypothesisId": "C",
+					"location":     "employer_handler.go:72",
+					"message":      "GetAllEmployers error",
+					"data": map[string]interface{}{
+						"error": err.Error(),
+					},
+					"timestamp": time.Now().UnixMilli(),
+				}
+				if logJSON, err := json.Marshal(logData); err == nil {
+					if wd, err := os.Getwd(); err == nil {
+						logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+						if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+							f.WriteString(string(logJSON) + "\n")
+							f.Close()
+						}
+					}
+				}
+			}()
+			// #endregion
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "handler-exec",
+				"hypothesisId": "B",
+				"location":     "employer_handler.go:76",
+				"message":      "GetAllEmployers success",
+				"data": map[string]interface{}{
+					"employers_count": len(employers),
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		c.JSON(http.StatusOK, employers)
 	}
 }

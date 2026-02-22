@@ -1075,10 +1075,16 @@ class ApiClient {
 
   // Employment Service APIs - Employers
   async getEmployers(token: string): Promise<Employer[]> {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1077',message:'getEmployers called',data:{url:`${EMPLOYMENT_API_URL}/employers`,token_present:!!token},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers`, {
       headers: this.getAuthHeaders(token),
     })
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1082',message:'getEmployers response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!response.ok) {
       await ApiErrorHandler.handleResponse(response)
     }
@@ -1089,6 +1095,9 @@ class ApiClient {
       return []
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1092',message:'getEmployers success',data:{employers_count:data.length},runId:'frontend-api',hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return data
   }
 
@@ -1334,6 +1343,9 @@ class ApiClient {
 
   // Employment Service APIs - Admin Approve/Reject
   async approveJobListing(id: string, token: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1336',message:'approveJobListing called',data:{job_id:id,token_present:!!token,url:`${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.log(`[API] Approving job listing: ${id}`)
     console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`)
     console.log(`[API] Token present:`, !!token)
@@ -1341,6 +1353,9 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1344',message:'approveJobListing response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const data = await this.handleResponse(response)
     console.log(`[API] Approve job response:`, data)
     return data
@@ -1356,6 +1371,9 @@ class ApiClient {
   }
 
   async approveEmployer(id: string, token: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1358',message:'approveEmployer called',data:{employer_id:id,token_present:!!token,url:`${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.log(`[API] Approving employer: ${id}`)
     console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`)
     console.log(`[API] Token present:`, !!token)
@@ -1366,11 +1384,17 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
     })
     
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1372',message:'approveEmployer response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.log(`[API] Response status:`, response.status)
     console.log(`[API] Response ok:`, response.ok)
     
     if (!response.ok) {
       const errorText = await response.text()
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1376',message:'approveEmployer error',data:{status:response.status,error:errorText},runId:'frontend-api',hypothesisId:'C',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error(`[API] Error response:`, errorText)
       throw new Error(`HTTP ${response.status}: ${errorText}`)
     }
@@ -1410,9 +1434,15 @@ class ApiClient {
   }
 
   async getPendingEmployers(token: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1421',message:'getPendingEmployers called',data:{url:`${EMPLOYMENT_API_URL}/admin/employers/pending`,token_present:!!token},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/pending`, {
       headers: this.getAuthHeaders(token),
     })
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1425',message:'getPendingEmployers response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return this.handleResponse(response)
   }
 
