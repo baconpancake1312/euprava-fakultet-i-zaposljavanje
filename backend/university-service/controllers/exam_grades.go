@@ -64,6 +64,17 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	for i, subject := range fetchedStudent.Subjects {
+		if subject.ID == examSession.Subject.ID {
+			fetchedStudent.Subjects[i].HasPassed = grade.Passed
+			break
+		}
+	}
+	err = ctrl.Repo.UpdateStudent(fetchedStudent)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	if grade.Passed {
 		fetchedStudent.GPA = (fetchedStudent.GPA + float64(grade.Grade)) / 2
 
