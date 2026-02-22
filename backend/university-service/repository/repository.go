@@ -1165,12 +1165,12 @@ func (r *Repository) GetNotificationsByUserID(userID primitive.ObjectID) ([]Noti
 		// Return empty slice instead of error
 		return []Notification{}, nil
 	}
-	
+
 	// Return empty slice if nil
 	if notifications == nil {
 		return []Notification{}, nil
 	}
-	
+
 	return notifications, nil
 }
 
@@ -1593,6 +1593,16 @@ func (r *Repository) DeleteExamGrade(id primitive.ObjectID) error {
 		return err
 	}
 	return nil
+}
+
+func (r *Repository) GetExamGradeByID(id primitive.ObjectID) (*ExamGrade, error) {
+	collection := r.getCollection("exam_grades")
+	var grade ExamGrade
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&grade)
+	if err != nil {
+		return nil, err
+	}
+	return &grade, nil
 }
 
 func (r *Repository) GetExamGradesByStudent(studentID primitive.ObjectID) ([]ExamGrade, error) {

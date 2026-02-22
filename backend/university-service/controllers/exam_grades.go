@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	repositories "university-service/repository"
@@ -64,25 +65,7 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	for i, subject := range fetchedStudent.Subjects {
-		if subject.ID == examSession.Subject.ID {
-			fetchedStudent.Subjects[i].HasPassed = grade.Passed
-			break
-		}
-	}
-	err = ctrl.Repo.UpdateStudent(fetchedStudent)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 	if grade.Passed {
-		fetchedStudent.GPA = (fetchedStudent.GPA + float64(grade.Grade)) / 2
-
-		err := ctrl.Repo.UpdateStudent(fetchedStudent)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
 		_, _ = ctrl.CreateNotificationByRecipient(repositories.Notification{
 			RecipientID:    grade.Student.ID,
 			RecipientType:  "id",
@@ -90,6 +73,19 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 			Title:          "You have passed the " + examSession.Subject.Name + " exam",
 			Content:        "You have passed the " + examSession.Subject.Name + " exam with a grade of " + strconv.Itoa(grade.Grade) + ". \nHere is the comment from professor " + *grade.GradedBy.FirstName + " " + *grade.GradedBy.LastName + ": " + grade.Comments,
 		})
+
+		for i, subject := range fetchedStudent.Subjects {
+			if subject.ID == examSession.Subject.ID {
+				fetchedStudent.Subjects[i].HasPassed = grade.Passed
+				fetchedStudent.Subjects[i].ExamGrade = grade
+				break
+			}
+		}
+		err = ctrl.UpdateStudentGPA(fetchedStudent)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	} else {
 		_, _ = ctrl.CreateNotificationByRecipient(repositories.Notification{
 			RecipientID:    grade.Student.ID,
@@ -103,6 +99,23 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 	c.JSON(http.StatusCreated, grade)
 }
 
+func (ctrl *Controllers) UpdateStudentGPA(student *repositories.Student) error {
+	student.GPA = 0.0
+	passedSubjects := 0
+	for _, subject := range student.Subjects {
+		if subject.HasPassed {
+			student.GPA += float64(subject.ExamGrade.Grade)
+			passedSubjects++
+		}
+	}
+	student.GPA /= float64(passedSubjects)
+	err := ctrl.Repo.UpdateStudent(student)
+	if err != nil {
+		return fmt.Errorf("error updating student GPA: %s", err.Error())
+	}
+	return nil
+}
+
 func (ctrl *Controllers) UpdateExamGrade(c *gin.Context) {
 	id := c.Param("id")
 	var grade repositories.ExamGrade
@@ -110,14 +123,30 @@ func (ctrl *Controllers) UpdateExamGrade(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	if grade.Grade < 5 || grade.Grade > 10 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Grade must be between 5 and 10"})
+		return
+	}
+	fetchedStudent, err := ctrl.Repo.GetStudentByID(grade.Student.ID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
 		return
 	}
 
 	grade.Passed = grade.Grade >= 6
 
+	for i, subject := range fetchedStudent.Subjects {
+		if subject.ID == grade.SubjectId {
+			fetchedStudent.Subjects[i].HasPassed = grade.Passed
+			fetchedStudent.Subjects[i].ExamGrade = grade
+			break
+		}
+	}
+	err = ctrl.UpdateStudentGPA(fetchedStudent)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
@@ -141,11 +170,35 @@ func (ctrl *Controllers) DeleteExamGrade(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid grade ID"})
 		return
 	}
+	grade, err := ctrl.Repo.GetExamGradeByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Grade not found"})
+		return
+	}
 
 	err = ctrl.Repo.DeleteExamGrade(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	fetchedStudent, err := ctrl.Repo.GetStudentByID(grade.Student.ID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+	if grade.Passed {
+		for i, subject := range fetchedStudent.Subjects {
+			if subject.ID == grade.SubjectId {
+				fetchedStudent.Subjects[i].HasPassed = false
+				fetchedStudent.Subjects[i].ExamGrade = repositories.ExamGrade{}
+				break
+			}
+		}
+		err = ctrl.UpdateStudentGPA(fetchedStudent)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusNoContent, nil)

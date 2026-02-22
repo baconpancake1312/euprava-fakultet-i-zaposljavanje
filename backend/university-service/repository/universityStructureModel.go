@@ -37,4 +37,5 @@ type Subject struct {
 	ProfessorIDs []primitive.ObjectID `bson:"professor_ids,omitempty" json:"professor_ids,omitempty"`
 	Year         int                  `bson:"year" json:"year"`
 	HasPassed    bool                 `bson:"has_passed,omitempty" json:"has_passed,omitempty"`
+	ExamGrade    ExamGrade            `bson:"grade,omitempty" json:"grade,omitempty"`
 }
