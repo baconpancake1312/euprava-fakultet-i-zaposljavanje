@@ -273,3 +273,45 @@ func (ctrl *Controllers) DeleteStudent(c *gin.Context) {
 
 	c.JSON(http.StatusNoContent, nil)
 }
+
+func (ctrl *Controllers) HasStudentPassedAllSubjects(student *repositories.Student) bool {
+	for _, subject := range student.Subjects {
+		if !subject.HasPassed {
+			return false
+		}
+	}
+	return true
+}
+func (ctrl *Controllers) HasStudentPassedAllSubjectsForCurrentYear(student *repositories.Student) bool {
+	for _, subject := range student.Subjects {
+		if subject.Year == student.Year && !subject.HasPassed {
+			return false
+		}
+	}
+	return true
+}
+
+func (ctrl *Controllers) AdvanceToNextYear(c *gin.Context) {
+	id := c.Param("id")
+
+	student, err := ctrl.Repo.GetStudentByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	if !ctrl.HasStudentPassedAllSubjectsForCurrentYear(student) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Student has not passed all subjects for current year"})
+		return
+	}
+
+	student.Year++
+
+	err = ctrl.Repo.UpdateStudent(student)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, student)
+}

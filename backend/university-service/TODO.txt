@@ -6,11 +6,13 @@ student
 	prikaz predmeta (polozenih/nepolozenih i po godini) i ocena na posebnoj strani✅
 	dostupnost ispita u zavisnosti od godine ✅
 	prebacivanje u sledecu godinu
+	prebacivanje predmeta u sl godinu
 	zahtev za zavrsavanje fakulteta
 	?? semestri: predmet dobija field semestar,
 	?? prostorije na fakultetu: zauzimanje prostorija za ispit
 	?? ispitni rokovi: moze da se doda ispit samo za taj rok i ispit koji se podudara sa trenutnim semestrom:
 		student moze da vidi ispite po ispitnim rokovima
+
 	
 }
 
