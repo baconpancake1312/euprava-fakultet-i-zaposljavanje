@@ -88,8 +88,8 @@ class ApiClient {
   async logout(token: string): Promise<void> {
     const response = await fetch(`${AUTH_API_URL}/users/logout`, {
       method: "POST",
-      headers: this.getAuthHeaders(token),
-    })
+        headers: this.getAuthHeaders(token),
+      })
 
     if (!response.ok) {
       throw new Error("Logout failed")
@@ -733,7 +733,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
     });
 
-   if (!response.ok) {
+    if (!response.ok) {
       // Fallback to legacy endpoint
       const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/saved-jobs`, {
         headers: this.getAuthHeaders(token),
@@ -954,7 +954,7 @@ class ApiClient {
 
     if (!Array.isArray(data)) {
       return []
-    }
+  }
 
     return data
   }
