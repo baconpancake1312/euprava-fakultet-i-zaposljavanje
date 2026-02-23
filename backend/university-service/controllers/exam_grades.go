@@ -96,6 +96,19 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 				break
 			}
 		}
+		for i, subject := range fetchedStudent.Subjects {
+			if subject.ID == examSession.Subject.ID {
+				fetchedStudent.Subjects[i].HasPassed = grade.Passed
+				fetchedStudent.Subjects[i].ExamGrade = grade
+				break
+			}
+		}
+		err = ctrl.Repo.UpdateStudent(fetchedStudent)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
 		err = ctrl.UpdateStudentGPA(fetchedStudent)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -115,18 +128,23 @@ func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 }
 
 func (ctrl *Controllers) UpdateStudentGPA(student *repositories.Student) error {
-	student.GPA = 0.0
-	passedSubjects := 0
-	for _, subject := range student.Subjects {
-		if subject.HasPassed {
-			student.GPA += float64(subject.ExamGrade.Grade)
-			passedSubjects++
+	grades, err := ctrl.Repo.GetExamGradesByStudent(student.ID)
+	if err != nil {
+		return fmt.Errorf("error fetching exam grades for GPA: %s", err.Error())
+	}
+	var sum int
+	passedCount := 0
+	for _, g := range grades {
+		if g.Passed {
+			sum += g.Grade
+			passedCount++
 		}
 	}
-	if passedSubjects != 0 {
-		student.GPA /= float64(passedSubjects)
+	student.GPA = 0.0
+	if passedCount > 0 {
+		student.GPA = float64(sum) / float64(passedCount)
 	}
-	err := ctrl.Repo.UpdateStudent(student)
+	err = ctrl.Repo.UpdateStudentGPA(student.ID, student.GPA)
 	if err != nil {
 		return fmt.Errorf("error updating student GPA: %s", err.Error())
 	}

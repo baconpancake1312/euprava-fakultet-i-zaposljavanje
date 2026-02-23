@@ -33,6 +33,12 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.PUT("/students/:id/major?:major_id", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.RegisterStudentForMajor)
 		protected.DELETE("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteStudent)
 		protected.PUT("/students/:id/advance", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "STUDENT"}), ctrl.AdvanceToNextYear)
+		protected.POST("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.RequestGraduation)
+		protected.GET("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.GetGraduationRequestByStudentID)
+		protected.GET("/students/:id/graduation-requests", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.GetGraduationRequestsByStudentID)
+		protected.PUT("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateGraduationRequest)
+		protected.DELETE("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteGraduationRequest)
+		protected.GET("/graduation-requests", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "ADMIN", "ADMINISTRATOR"}), ctrl.GetGraduationRequests)
 
 		// Professors
 		protected.POST("/professors/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateProfessor)

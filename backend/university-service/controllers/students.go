@@ -42,6 +42,21 @@ func (ctrl *Controllers) CreateStudent(c *gin.Context) {
 			student.ID = primitive.NewObjectID()
 		}
 	}
+	if !student.MajorID.IsZero() || student.MajorID != primitive.NilObjectID {
+		major, err := ctrl.Repo.GetMajorByID(student.MajorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting major: " + err.Error()})
+			return
+		}
+		if major == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "major not found"})
+			return
+		}
+		student.Subjects = []repositories.Subject{}
+		for _, subject := range major.Subjects {
+			student.Subjects = append(student.Subjects, subject)
+		}
+	}
 
 	err := ctrl.Repo.CreateStudent(student)
 	if err != nil {
@@ -165,6 +180,17 @@ func (ctrl *Controllers) updateStudentFields(student *repositories.Student, upda
 				student.MajorID = objectID
 			} else {
 				errors = append(errors, "major_id must be a valid ObjectID")
+			}
+			major, err := ctrl.Repo.GetMajorByID(student.MajorID)
+			if err != nil {
+				errors = append(errors, "error getting major: "+err.Error())
+			}
+			if major == nil {
+				errors = append(errors, "major not found")
+			}
+			student.Subjects = []repositories.Subject{}
+			for _, subject := range major.Subjects {
+				student.Subjects = append(student.Subjects, subject)
 			}
 		} else {
 			errors = append(errors, "major_id must be a string")
@@ -314,4 +340,37 @@ func (ctrl *Controllers) AdvanceToNextYear(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, student)
+}
+
+func (ctrl *Controllers) RequestGraduation(c *gin.Context) {
+	studentIDParam := c.Param("id")
+	studentObjectID, err := primitive.ObjectIDFromHex(studentIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	student, err := ctrl.Repo.GetStudentByID(studentIDParam)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+	if !ctrl.HasStudentPassedAllSubjects(student) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Student has not passed all subjects"})
+		return
+	}
+	request := repositories.GraduationRequest{
+		StudentID: studentObjectID,
+	}
+	err = ctrl.Repo.CreateGraduationRequest(&request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	_, _ = ctrl.CreateNotificationByRecipient(repositories.Notification{
+		RecipientType:  "role",
+		RecipientValue: "ADMINISTRATOR",
+		Title:          "Graduation request",
+		Content:        "A new graduation request has been created by student " + *student.User.FirstName + " " + *student.User.LastName,
+	})
+	c.JSON(http.StatusOK, request)
 }

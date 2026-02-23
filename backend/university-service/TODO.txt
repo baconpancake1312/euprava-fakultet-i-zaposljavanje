@@ -16,14 +16,14 @@ student
 		student ne vidi i ne moze da prijavi ispit koji nije nedelju dana pre ili u trenutnom roku✅
 		definicija semestra od kad do kad
 		student moze da vidi ispite po ispitnim rokovima,✅
-		brisanje roka
+		brisanje roka✅
 		
 	kaskadno brisanje
 	?? prebacivanje predmeta u sl godinu
 	zahtev za zavrsavanje fakulteta
 		
 	>bug gpa se ne racuna/upisuje u bazu
-	>bug update student profila ne updateuje fields kao sto je email na uni servisu
+	>bug update student profila ne updateuje fields kao sto je email na uni servisu ✅
 }
 
 profesor
