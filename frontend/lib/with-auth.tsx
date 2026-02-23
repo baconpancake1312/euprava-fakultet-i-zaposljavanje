@@ -44,6 +44,7 @@ export function withAuth<P extends object>(
             router.push("/dashboard/professor")
             break
           case "ADMIN":
+          case "ADMINISTRATOR":
           case "STUDENTSKA_SLUZBA":
             router.push("/dashboard/admin")
             break

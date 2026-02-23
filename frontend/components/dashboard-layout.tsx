@@ -187,10 +187,23 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/admin/professors", label: "Professors", icon: Users },
           { href: "/dashboard/admin/employers", label: "Employers", icon: Building },
           { href: "/dashboard/admin/job-listings", label: "Job Listings", icon: Briefcase },
+          { href: "/dashboard/admin/graduation-requests", label: "Graduation Requests", icon: GraduationCap },
           { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
           { href: "/dashboard/admin/exam-periods", label: "Exam Periods", icon: Calendar },
           { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
         ]
+        case "administrator":
+          return [
+            { href: "/dashboard/admin", label: "Dashboard", icon: Home },
+            { href: "/dashboard/admin/students", label: "Students", icon: Users },
+            { href: "/dashboard/admin/professors", label: "Professors", icon: Users },
+            { href: "/dashboard/admin/employers", label: "Employers", icon: Building },
+            { href: "/dashboard/admin/job-listings", label: "Job Listings", icon: Briefcase },
+            { href: "/dashboard/admin/graduation-requests", label: "Graduation Requests", icon: GraduationCap },
+            { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
+            { href: "/dashboard/admin/exam-periods", label: "Exam Periods", icon: Calendar },
+            { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
+          ]
       case "studentska_sluzba":
         return [
           { href: "/dashboard/admin", label: "Dashboard", icon: Home },
@@ -198,6 +211,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/admin/professors", label: "Professors", icon: Users },
           { href: "/dashboard/admin/employers", label: "Employers", icon: Building },
           { href: "/dashboard/admin/job-listings", label: "Job Listings", icon: Briefcase },
+          { href: "/dashboard/admin/graduation-requests", label: "Graduation Requests", icon: GraduationCap },
           { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
           { href: "/dashboard/admin/exam-periods", label: "Exam Periods", icon: Calendar },
           { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },

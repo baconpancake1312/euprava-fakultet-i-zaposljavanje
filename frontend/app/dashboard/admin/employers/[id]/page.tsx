@@ -139,7 +139,7 @@ export default function AdminEmployerDetailPage() {
   useEffect(() => {
     if (authLoading) return
     if (!isAuthenticated || !user) return
-    if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") return
+    if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") return
     loadData()
   }, [authLoading, isAuthenticated, user, loadData])
 
@@ -347,7 +347,7 @@ export default function AdminEmployerDetailPage() {
     )
   }
 
-  if (!isAuthenticated || !user || (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA")) {
+  if (!isAuthenticated || !user || (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA")) {
     return (
       <DashboardLayout title="Employer Positions">
         <Alert variant="destructive">

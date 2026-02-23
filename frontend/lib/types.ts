@@ -1,6 +1,7 @@
 export type UserType =
   | "STUDENT"
   | "ADMIN"
+  | "ADMINISTRATOR"
   | "EMPLOYER"
   | "CANDIDATE"
   | "PROFESSOR"
@@ -10,6 +11,14 @@ export type UserType =
   | "EMPLOYMENT_SERVICE"
 
 export type ApprovalStatus = "Approved" | "Rejected" | "Pending"
+
+export interface GraduationRequest {
+  id: string
+  student_id?: string
+  requested_at?: string
+  status: string
+  comments?: string
+}
 
 export interface User {
   id: string

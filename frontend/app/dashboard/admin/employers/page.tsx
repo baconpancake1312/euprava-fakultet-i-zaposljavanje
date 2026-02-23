@@ -51,7 +51,7 @@ export default function AdminEmployersPage() {
       }
 
       // Check if user is admin
-      if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+      if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") {
         setLoading(false)
         toast({
           title: "Access Denied",
@@ -403,7 +403,7 @@ export default function AdminEmployersPage() {
     )
   }
 
-  if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+  if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") {
     return (
       <DashboardLayout title="Employer Management">
         <div className="space-y-6">

@@ -29,7 +29,7 @@ export default function CreateExamPeriodPage() {
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
-    if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+    if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") {
       router.replace("/dashboard")
     }
   }, [isAuthenticated, user, router])
@@ -73,7 +73,7 @@ export default function CreateExamPeriodPage() {
   }
 
   if (!isAuthenticated || !user) return null
-  if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") return null
+  if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") return null
 
   return (
     <DashboardLayout title="Create Exam Period">

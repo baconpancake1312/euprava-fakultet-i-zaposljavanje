@@ -9,7 +9,7 @@ const protectedRoutes = ["/dashboard"]
 
 // Role-based route access
 const roleRoutes: Record<string, string[]> = {
-  "/dashboard/admin": ["ADMIN", "STUDENTSKA_SLUZBA"],
+  "/dashboard/admin": ["ADMIN", "ADMINISTRATOR", "STUDENTSKA_SLUZBA"],
   "/dashboard/employer": ["EMPLOYER"],
   "/dashboard/candidate": ["CANDIDATE", "STUDENT"],
   "/dashboard/student": ["STUDENT"],
@@ -65,6 +65,7 @@ export function middleware(request: NextRequest) {
                 redirectPath = "/dashboard/professor"
                 break
               case "ADMIN":
+              case "ADMINISTRATOR":
               case "STUDENTSKA_SLUZBA":
                 redirectPath = "/dashboard/admin"
                 break

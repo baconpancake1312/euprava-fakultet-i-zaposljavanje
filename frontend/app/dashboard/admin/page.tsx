@@ -12,7 +12,7 @@ export default function AdminDashboard() {
   const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    if (!isAuthenticated || (user?.user_type !== "ADMIN" && user?.user_type !== "EMPLOYMENT_SERVICE" as any)) {
+    if (!isAuthenticated || (user?.user_type !== "ADMIN" && user?.user_type !== "ADMINISTRATOR" && user?.user_type !== "EMPLOYMENT_SERVICE" as any)) {
       router.push("/login")
       return
     }

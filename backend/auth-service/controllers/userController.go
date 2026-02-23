@@ -264,7 +264,7 @@ func RegisterIntoUni(user *models.User) error {
 	case models.ProfessorType:
 		url = "http://university-service:8088/professors/create"
 	case models.AdministratorType:
-		url = "http://university-service:8088/admins/create"
+		url = "http://university-service:8088/administrators/create"
 	case models.StudentServiceType:
 		url = "http://university-service:8088/student-service/create"
 	default:
@@ -409,7 +409,7 @@ func Login() gin.HandlerFunc {
 
 			token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
 			helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
-			
+
 			fmt.Printf("[Login - Keycloak] Generated token with User_type: %s\n", string(foundUser.User_type))
 
 			c.JSON(http.StatusOK, gin.H{
@@ -597,6 +597,9 @@ func UpdateUser() gin.HandlerFunc {
 		}
 		if userUpdate.User_type != "" {
 			update["user_type"] = userUpdate.User_type
+		}
+		if userUpdate.Address != nil {
+			update["address"] = userUpdate.Address
 		}
 		update["updated_at"] = time.Now()
 

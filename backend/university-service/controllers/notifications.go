@@ -23,6 +23,7 @@ func (ctrl *Controllers) CreateNotificationByRecipient(req repositories.Notifica
 		"major":                 true,
 		"major_students":        true,
 		"major_professors":      true,
+		"administrator":         true,
 	}
 	if !validTypes[req.RecipientType] {
 		return 0, &ValidationError{Message: "Invalid recipient_type. Must be: id, role, department, or major"}

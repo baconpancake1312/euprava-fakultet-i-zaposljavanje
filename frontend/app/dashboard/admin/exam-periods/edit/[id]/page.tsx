@@ -44,7 +44,7 @@ export default function EditExamPeriodPage() {
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
-    if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+    if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") {
       router.replace("/dashboard")
       return
     }
@@ -120,7 +120,7 @@ export default function EditExamPeriodPage() {
   }
 
   if (!isAuthenticated || !user) return null
-  if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") return null
+  if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") return null
 
   if (loading) {
     return (

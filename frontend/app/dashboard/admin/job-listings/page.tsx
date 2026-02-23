@@ -44,7 +44,7 @@ export default function AdminJobListingsPage() {
       }
 
       // Check if user is admin
-      if (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA") {
+      if (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA") {
         setLoading(false)
         return
       }
@@ -151,7 +151,7 @@ export default function AdminJobListingsPage() {
   }
 
   // Show error if not authenticated or not admin
-  if (!isAuthenticated || !token || !user || (user.user_type !== "ADMIN" && user.user_type !== "STUDENTSKA_SLUZBA")) {
+  if (!isAuthenticated || !token || !user || (user.user_type !== "ADMIN" && user.user_type !== "ADMINISTRATOR" && user.user_type !== "STUDENTSKA_SLUZBA")) {
     return (
       <DashboardLayout title="Job Listings Management">
         <div className="space-y-6">

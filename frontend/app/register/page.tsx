@@ -227,7 +227,7 @@ export default function RegisterPage() {
                     <SelectItem value="PROFESSOR">Professor</SelectItem>
                     <SelectItem value="EMPLOYER">Employer</SelectItem>
                     <SelectItem value="CANDIDATE">Job Candidate</SelectItem>
-                    <SelectItem value="ADMIN">Administrator</SelectItem>
+                    <SelectItem value="ADMINISTRATOR">Administrator</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

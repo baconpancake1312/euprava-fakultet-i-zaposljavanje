@@ -5,7 +5,7 @@ type UserType string
 const (
 	StudentType        UserType = "STUDENT"
 	ProfessorType      UserType = "PROFESSOR"
-	AdministratorType  UserType = "ADMIN"
+	AdministratorType  UserType = "ADMINISTRATOR"
 	EmployerType       UserType = "EMPLOYER"
 	CandidateType      UserType = "CANDIDATE"
 	StudentServiceType UserType = "STUDENTSKA_SLUZBA"
