@@ -203,6 +203,7 @@ export interface ExamSession {
   subject: Subject
   professor_id: string
   exam_date: string // ISO string format (e.g., "2025-10-15T20:50:00+02:00")
+  exam_period_id?: string
   location: string
   max_students: number
   created_at?: string

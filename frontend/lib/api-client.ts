@@ -580,6 +580,16 @@ class ApiClient {
     return this.handleResponse(response)
   }
 
+  async deleteExamPeriod(id: string, token: string): Promise<void> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+  }
+
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)

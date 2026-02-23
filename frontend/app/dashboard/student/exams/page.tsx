@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Calendar, BookOpen, Clock, Filter } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { StudentData } from '../../../../lib/types';
+import type { ExamPeriod } from "@/lib/types"
 
 export default function StudentExamsPage() {
   const { token, user } = useAuth()
@@ -22,7 +23,9 @@ export default function StudentExamsPage() {
   const [studentData, setStudentData] = useState<any>(null)
   const [passedCourses, setPassedCourses] = useState<any[]>([])
   const [allSubjects, setAllSubjects] = useState<any[]>([])
+  const [examPeriods, setExamPeriods] = useState<ExamPeriod[]>([])
   const [selectedSubject, setSelectedSubject] = useState<string>("all")
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("all")
   const [timeFilter, setTimeFilter] = useState<"all" | "future" | "past">("all")
   const [showRegisteredOnly, setShowRegisteredOnly] = useState<boolean>(false)
   const [showGradedOnly, setShowGradedOnly] = useState<boolean>(false)
@@ -58,20 +61,22 @@ export default function StudentExamsPage() {
 
       setStudentData(data)
 
-      // Load exams, passed courses, subjects, and exam grades after student data is available
+      // Load exams, passed courses, subjects, exam periods, and exam grades after student data is available
       if (data.major_id) {
         console.log("Loading data for major_id:", data.major_id)
         await Promise.all([
           loadExams(),
           loadPassedCourses(user.id),
           loadSubjects(data.major_id),
-          loadExamGrades(user.id)
+          loadExamGrades(user.id),
+          loadExamPeriods()
         ])
       } else {
         console.log("Cannot load data - no major_id")
         await Promise.all([
           loadExams(),
-          loadExamGrades(user.id)
+          loadExamGrades(user.id),
+          loadExamPeriods()
         ])
       }
     } catch (err) {
@@ -88,7 +93,7 @@ export default function StudentExamsPage() {
       console.log("Loading passed courses for student:", studentId)
       const data = await apiClient.getPassedCorusesForStudent(studentId, token)
       console.log("Passed courses data:", data)
-      setPassedCourses(data || [])
+      setPassedCourses(data as any[] || [])
     } catch (err) {
       console.error("Error in loadPassedCourses:", err)
       console.log("Failed to load passed courses, continuing without this data")
@@ -106,6 +111,17 @@ export default function StudentExamsPage() {
     } catch (err) {
       console.error("Error in loadSubjects:", err)
       console.log("Failed to load subjects, continuing without this data")
+    }
+  }
+
+  const loadExamPeriods = async () => {
+    try {
+      if (!token) return
+      const data = await apiClient.getAllExamPeriods(token)
+      setExamPeriods(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Error loading exam periods:", err)
+      setExamPeriods([])
     }
   }
 
@@ -153,7 +169,7 @@ export default function StudentExamsPage() {
       ])
 
       // Handle different data structures
-      const examSessions = examSessionsData?.value || examSessionsData || []
+      const examSessions = (examSessionsData as any)?.value || []
       console.log("Loaded exam sessions:", examSessions)
       console.log("Exam sessions count:", examSessions.length)
 
@@ -173,8 +189,8 @@ export default function StudentExamsPage() {
       let registrations = []
       if (Array.isArray(registrationsData)) {
         registrations = registrationsData
-      } else if (registrationsData && registrationsData.value && Array.isArray(registrationsData.value)) {
-        registrations = registrationsData.value
+      } else if (registrationsData && (registrationsData as any)?.value && Array.isArray((registrationsData as any)?.value as any[])) {
+        registrations = (registrationsData as any)?.value as any[]
       }
 
       console.log("Loaded registrations:", registrations)
@@ -204,8 +220,8 @@ export default function StudentExamsPage() {
       let registrations = []
       if (Array.isArray(registrationsData)) {
         registrations = registrationsData
-      } else if (registrationsData && registrationsData.value && Array.isArray(registrationsData.value)) {
-        registrations = registrationsData.value
+      } else if (registrationsData && (registrationsData as any)?.value && Array.isArray((registrationsData as any)?.value)) {
+        registrations = (registrationsData as any)?.value as any[]
       }
 
       if (registrations.length > 0) {
@@ -311,22 +327,25 @@ export default function StudentExamsPage() {
     return foundGrade
   }
 
-  // Filter exams based on selected subject, past registered filter, and time filter
+  // Filter exams based on selected subject, exam period, and other filters
   const getFilteredExams = () => {
     let filteredExams = exams
 
-    // First apply subject filter
-    if (selectedSubject === "all") {
-      filteredExams = exams
-    } else if (selectedSubject === "not-passed") {
-      // Show exams for subjects the student hasn't passed
+    // Apply exam period filter
+    if (selectedPeriod !== "all") {
+      filteredExams = filteredExams.filter(
+        (exam) => exam.exam_period_id === selectedPeriod
+      )
+    }
+
+    // Apply subject filter
+    if (selectedSubject === "not-passed") {
       const notPassedSubjectIds = getNotPassedSubjects().map(subject => subject.id)
-      filteredExams = exams.filter(exam =>
+      filteredExams = filteredExams.filter(exam =>
         exam.subject?.id && notPassedSubjectIds.includes(exam.subject.id)
       )
-    } else {
-      // Show exams for specific subject
-      filteredExams = exams.filter(exam => exam.subject?.id === selectedSubject)
+    } else if (selectedSubject !== "all") {
+      filteredExams = filteredExams.filter(exam => exam.subject?.id === selectedSubject)
     }
 
     // Then apply time filter (future/past)
@@ -379,8 +398,8 @@ export default function StudentExamsPage() {
 
         {/* Filter Controls */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Filter by subject:</span>
               <Select value={selectedSubject} onValueChange={setSelectedSubject}>
@@ -393,6 +412,20 @@ export default function StudentExamsPage() {
                   {getNotPassedSubjects().map((subject) => (
                     <SelectItem key={subject.id} value={subject.id}>
                       {subject.Name || subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-sm font-medium">Exam period:</span>
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Select exam period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All exam periods</SelectItem>
+                  {examPeriods.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -499,11 +532,13 @@ export default function StudentExamsPage() {
                       ? "No future exams found"
                       : timeFilter === "past"
                         ? "No past exams found"
-                        : selectedSubject === "all"
-                          ? "No exam sessions scheduled"
-                          : selectedSubject === "not-passed"
-                            ? "No exams for subjects you haven't passed"
-                            : "No exams for selected subject"}
+                        : selectedPeriod !== "all"
+                          ? "No exams in selected exam period"
+                          : selectedSubject === "all"
+                            ? "No exam sessions scheduled"
+                            : selectedSubject === "not-passed"
+                              ? "No exams for subjects you haven't passed"
+                              : "No exams for selected subject"}
               </p>
             </CardContent>
           </Card>

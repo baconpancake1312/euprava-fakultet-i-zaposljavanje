@@ -8,7 +8,18 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Plus, Pencil } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Loader2, Calendar, Plus, Pencil, Trash2 } from "lucide-react"
 import type { ExamPeriod } from "@/lib/types"
 
 function formatDate(iso: string): string {
@@ -26,6 +37,20 @@ export default function AdminExamPeriodsPage() {
   const { user, token, isAuthenticated } = useAuth()
   const [periods, setPeriods] = useState<ExamPeriod[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (period: ExamPeriod) => {
+    if (!token) return
+    setDeletingId(period.id)
+    try {
+      await apiClient.deleteExamPeriod(period.id, token)
+      setPeriods((prev) => prev.filter((p) => p.id !== period.id))
+    } catch (err) {
+      console.error("Failed to delete exam period:", err)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   useEffect(() => {
     if (!token || !user) {
@@ -112,6 +137,41 @@ export default function AdminExamPeriodsPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            title="Delete"
+                            disabled={deletingId === period.id}
+                          >
+                            {deletingId === period.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete exam period</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete &quot;{period.name}&quot;? This action cannot be undone.
+                              Exam sessions linked to this period may be affected.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(period)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardHeader>
