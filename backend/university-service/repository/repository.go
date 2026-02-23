@@ -1420,6 +1420,29 @@ func (r *Repository) UpdateExamPeriod(period *ExamPeriod) error {
 	return err
 }
 
+// GetVisibleExamPeriodIDs returns IDs of active exam periods that are currently visible to students:
+// from one week before period start through the end of the period (start_date - 7 days <= today <= end_date).
+func (r *Repository) GetVisibleExamPeriodIDs(now time.Time) ([]primitive.ObjectID, error) {
+	periods, err := r.GetActiveExamPeriods()
+	if err != nil {
+		return nil, err
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var ids []primitive.ObjectID
+	week := 7 * 24 * time.Hour
+	for i := range periods {
+		p := &periods[i]
+		start := time.Date(p.StartDate.Year(), p.StartDate.Month(), p.StartDate.Day(), 0, 0, 0, 0, p.StartDate.Location())
+		endDay := time.Date(p.EndDate.Year(), p.EndDate.Month(), p.EndDate.Day(), 0, 0, 0, 0, p.EndDate.Location())
+		visibleFrom := start.Add(-week)
+		// Visible if today is in [visibleFrom, endDay] (inclusive)
+		if (today.Equal(visibleFrom) || today.After(visibleFrom)) && (today.Equal(endDay) || today.Before(endDay)) {
+			ids = append(ids, p.ID)
+		}
+	}
+	return ids, nil
+}
+
 // ExamSession methods
 func (r *Repository) CreateExamSession(examSession *ExamSession) error {
 	collection := r.getCollection("exam_sessions")
@@ -1473,8 +1496,26 @@ func (r *Repository) GetExamSessionsByStudent(studentID primitive.ObjectID) ([]E
 	defer cursor.Close(context.TODO())
 
 	var examSessions []ExamSession
-	err = cursor.All(context.TODO(), &examSessions)
-	return examSessions, err
+	if err = cursor.All(context.TODO(), &examSessions); err != nil {
+		return nil, err
+	}
+
+	// Students only see exams from periods that are visible: from 1 week before period start through period end
+	visibleIDs, err := r.GetVisibleExamPeriodIDs(time.Now())
+	if err != nil {
+		return nil, err
+	}
+	visibleSet := make(map[primitive.ObjectID]bool)
+	for _, id := range visibleIDs {
+		visibleSet[id] = true
+	}
+	filtered := make([]ExamSession, 0, len(examSessions))
+	for _, s := range examSessions {
+		if s.ExamPeriodID != nil && visibleSet[*s.ExamPeriodID] {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered, nil
 }
 
 func (r *Repository) UpdateExamSession(examSession *ExamSession) error {

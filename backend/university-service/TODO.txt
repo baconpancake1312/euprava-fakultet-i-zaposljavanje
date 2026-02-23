@@ -2,20 +2,24 @@ student
 {	
 	ima problem sa updateovanjem: returnuje updateovan objekat ali se ne upise u bazu ✅
  	treba da se napavi registerstudentformajor koji dodaje sve predmete iz tog majora u studenta za tracking toga sta je polozio itd ✅
-	kaskadno brisanje
 	prikaz predmeta (polozenih/nepolozenih i po godini) i ocena na posebnoj strani✅
 	dostupnost ispita u zavisnosti od godine ✅
 	prebacivanje u sledecu godinu ✅
-	?? prebacivanje predmeta u sl godinu
-	zahtev za zavrsavanje fakulteta
 	 semestri: predmet dobija field semestar,✅
 	?? prostorije na fakultetu: zauzimanje prostorija za ispit
 	?? ispitni rokovi: moze da se doda ispit samo za taj rok i ispit koji se podudara sa trenutnim semestrom:
 		entity ispitni rok(od date, do date, )✅
-		profesor bira ispitni rok, i datum unutar ispitnog roka ako nije unutar ispitnog roka onda ga upozori ✅
+		profesor bira ispitni rok, ✅
+		i datum unutar ispitnog roka ako nije unutar ispitnog roka onda ga upozori ✅
 		admin dodaje ispitni rok ✅
+		automatska aktivacija ispitnih rokova
 		definicija semestra od kad do kad
 		student moze da vidi ispite po ispitnim rokovima,
+		brisanje roka
+		student ne vidi i ne moze da prijavi ispit koji nije nedelju dana pre ili u trenutnom roku
+	kaskadno brisanje
+	?? prebacivanje predmeta u sl godinu
+	zahtev za zavrsavanje fakulteta
 		
 	>bug gpa se ne racuna/upisuje u bazu
 	>bug update student profila ne updateuje fields kao sto je email na uni servisu
