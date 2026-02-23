@@ -119,11 +119,12 @@ func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
 	func() {
 		logData := map[string]interface{}{
 			"runId":        "route-setup",
-			"hypothesisId": "E",
-			"location":     "routes.go:112",
+			"hypothesisId": "A",
+			"location":     "routes.go:117",
 			"message":      "Setting up admin routes",
 			"data": map[string]interface{}{
 				"admin_handler_nil": h.Admin == nil,
+				"handlers_nil":      h == nil,
 			},
 			"timestamp": time.Now().UnixMilli(),
 		}
@@ -141,7 +142,33 @@ func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
 	admin := router.Group("/admin")
 	admin.Use(middleware.AuthorizeRoles([]string{"ADMIN"}))
 	{
-
+		// #region agent log
+		func() {
+			handlerFunc := h.Admin.ApproveEmployer()
+			logData := map[string]interface{}{
+				"runId":        "route-setup",
+				"hypothesisId": "E",
+				"location":     "routes.go:145",
+				"message":      "Registering approve employer route",
+				"data": map[string]interface{}{
+					"admin_handler_nil":     h.Admin == nil,
+					"handler_func_nil":      handlerFunc == nil,
+					"route_path":            "/admin/employers/:id/approve",
+					"route_method":          "PUT",
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		admin.PUT("/employers/:id/approve", h.Admin.ApproveEmployer())
 		admin.PUT("/employers/:id/reject", h.Admin.RejectEmployer())
 		admin.GET("/employers/pending", h.Admin.GetPendingEmployers())

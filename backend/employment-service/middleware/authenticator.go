@@ -23,6 +23,30 @@ var (
 
 func Authentication() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #region agent log
+		func() {
+			logData := map[string]interface{}{
+				"runId":        "middleware-exec",
+				"hypothesisId": "C",
+				"location":     "authenticator.go:24",
+				"message":      "Authentication middleware entry",
+				"data": map[string]interface{}{
+					"path":   c.Request.URL.Path,
+					"method": c.Request.Method,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
 		clientToken := c.Request.Header.Get("Authorization")
 		clientToken = strings.Replace(clientToken, "Bearer ", "", 1)
 		if clientToken == "" {

@@ -276,6 +276,18 @@ func (h *EmployerHandler) GetAllEmployers() gin.HandlerFunc {
 			}
 		}()
 		// #endregion
+		// Log sample employer IDs to verify they're being returned correctly
+		if len(employers) > 0 {
+			h.logger.Printf("[GetAllEmployers] Returning %d employers", len(employers))
+			for i, emp := range employers {
+				if i >= 3 {
+					break
+				}
+				if emp != nil {
+					h.logger.Printf("[GetAllEmployers] Employer[%d] - ID: %s, FirmName: %s", i, emp.ID.Hex(), emp.FirmName)
+				}
+			}
+		}
 		c.JSON(http.StatusOK, employers)
 	}
 }
@@ -283,14 +295,59 @@ func (h *EmployerHandler) GetAllEmployers() gin.HandlerFunc {
 func (h *EmployerHandler) UpdateEmployer() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		employerId := c.Param("id")
+		h.logger.Printf("[UpdateEmployer] Received employerId from URL: %s", employerId)
+		
 		var employer models.Employer
 		if err := c.BindJSON(&employer); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
 
-		err := h.service.UpdateEmployer(employerId, &employer)
+		// Check if employerId is zero or invalid
+		parsedId, err := primitive.ObjectIDFromHex(employerId)
+		if err != nil || parsedId.IsZero() {
+			h.logger.Printf("[UpdateEmployer] Invalid or zero ID from URL: %s, trying to get from context", employerId)
+			
+			// Try to get user ID from context (from JWT token)
+			userIDValue, exists := c.Get("uid")
+			if !exists || userIDValue == nil {
+				h.logger.Printf("[UpdateEmployer] No user ID in context")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid employer ID and no user ID in context"})
+				return
+			}
+			
+			userIDStr, ok := userIDValue.(string)
+			if !ok || userIDStr == "" {
+				h.logger.Printf("[UpdateEmployer] User ID in context is not a valid string")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID in context"})
+				return
+			}
+			
+			h.logger.Printf("[UpdateEmployer] Using user ID from context: %s", userIDStr)
+			
+			// Verify employer exists by user ID
+			existingEmployer, err := h.service.GetEmployerByUserID(userIDStr)
+			if err != nil {
+				h.logger.Printf("[UpdateEmployer] Could not find employer by user ID: %v", err)
+				c.JSON(http.StatusNotFound, gin.H{"error": "Employer not found for user ID"})
+				return
+			}
+			
+			// Use the user ID directly for the update, since employer._id = user_id in MongoDB
+			// If the employer's ID field is set, use it; otherwise use the user ID
+			if !existingEmployer.ID.IsZero() {
+				employerId = existingEmployer.ID.Hex()
+				h.logger.Printf("[UpdateEmployer] Found employer with ID: %s, using it for update", employerId)
+			} else {
+				// Use user ID directly since _id = user_id in MongoDB
+				employerId = userIDStr
+				h.logger.Printf("[UpdateEmployer] Employer ID is zero, using user ID directly: %s", employerId)
+			}
+		}
+
+		err = h.service.UpdateEmployer(employerId, &employer)
 		if err != nil {
+			h.logger.Printf("[UpdateEmployer] Update error: %v", err)
 			if isNotFoundError(err) {
 				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			} else {
@@ -299,6 +356,7 @@ func (h *EmployerHandler) UpdateEmployer() gin.HandlerFunc {
 			return
 		}
 
+		h.logger.Printf("[UpdateEmployer] Successfully updated employer with ID: %s", employerId)
 		c.JSON(http.StatusOK, gin.H{"message": "Employer updated successfully"})
 	}
 }

@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"employment-service/data"
@@ -80,7 +82,74 @@ func main() {
 	// ── Wire services / handlers / routes ─────────────────────────────────────
 	svcs := services.NewServices(store, broker, hub, logger)
 	hdlrs := handlers.NewHandlers(svcs, hub, logger)
+	// #region agent log
+	func() {
+		logData := map[string]interface{}{
+			"runId":        "route-setup",
+			"hypothesisId": "A",
+			"location":     "main.go:83",
+			"message":      "Before SetupRoutes",
+			"data": map[string]interface{}{
+				"handlers_nil":      hdlrs == nil,
+				"admin_handler_nil": hdlrs != nil && hdlrs.Admin == nil,
+			},
+			"timestamp": time.Now().UnixMilli(),
+		}
+		if logJSON, err := json.Marshal(logData); err == nil {
+			if wd, err := os.Getwd(); err == nil {
+				logPath := filepath.Join(wd, ".cursor", "debug.log")
+				if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					f.WriteString(string(logJSON) + "\n")
+					f.Close()
+				}
+			}
+		}
+	}()
+	// #endregion
 	routes.SetupRoutes(router, hdlrs)
+	// #region agent log
+	func() {
+		logData := map[string]interface{}{
+			"runId":        "route-setup",
+			"hypothesisId": "B",
+			"location":     "main.go:103",
+			"message":      "After SetupRoutes - checking registered routes",
+			"data": map[string]interface{}{
+				"router_routes_count": len(router.Routes()),
+			},
+			"timestamp": time.Now().UnixMilli(),
+		}
+		// Check if our route is registered
+		adminRouteFound := false
+		for _, route := range router.Routes() {
+			if route.Method == "PUT" && route.Path == "/admin/employers/:id/approve" {
+				adminRouteFound = true
+				logData["data"].(map[string]interface{})["admin_route_found"] = true
+				break
+			}
+		}
+		if !adminRouteFound {
+			logData["data"].(map[string]interface{})["admin_route_found"] = false
+			// Log all PUT routes for debugging
+			putRoutes := []string{}
+			for _, route := range router.Routes() {
+				if route.Method == "PUT" {
+					putRoutes = append(putRoutes, route.Path)
+				}
+			}
+			logData["data"].(map[string]interface{})["put_routes"] = putRoutes
+		}
+		if logJSON, err := json.Marshal(logData); err == nil {
+			if wd, err := os.Getwd(); err == nil {
+				logPath := filepath.Join(wd, ".cursor", "debug.log")
+				if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					f.WriteString(string(logJSON) + "\n")
+					f.Close()
+				}
+			}
+		}
+	}()
+	// #endregion
 
 	server := &http.Server{
 		Addr:    ":" + port,

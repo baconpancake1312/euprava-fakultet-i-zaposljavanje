@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"employment-service/internal/services"
@@ -29,13 +31,19 @@ func NewAdminHandler(service *services.AdminService, logger *log.Logger) *AdminH
 
 func (h *AdminHandler) ApproveEmployer() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		employerId := c.Param("id")
 		
-		// Log all context values for debugging
-		h.logger.Printf("[ApproveEmployer] Request to approve employer: %s", employerId)
+		employerId = strings.TrimSpace(employerId)
+		
+		if decoded, err := url.QueryUnescape(employerId); err == nil && decoded != employerId {
+			h.logger.Printf("[ApproveEmployer] URL decoded ID: %s -> %s", employerId, decoded)
+			employerId = decoded
+		}
+		
+		h.logger.Printf("[ApproveEmployer] Request to approve employer: %s (length: %d, raw param: %q)", employerId, len(employerId), c.Param("id"))
 		h.logger.Printf("[ApproveEmployer] All context keys: email, first_name, last_name, uid, user_id, user_type")
 		
-		// Get all relevant context values
 		email, _ := c.Get("email")
 		uid, _ := c.Get("uid")
 		userType, _ := c.Get("user_type")
@@ -52,7 +60,6 @@ func (h *AdminHandler) ApproveEmployer() gin.HandlerFunc {
 
 		h.logger.Printf("[ApproveEmployer] user_id value: %v (type: %T)", adminIdValue, adminIdValue)
 
-		// Safely convert adminId to string
 		var adminId string
 		switch v := adminIdValue.(type) {
 		case string:
@@ -71,23 +78,29 @@ func (h *AdminHandler) ApproveEmployer() gin.HandlerFunc {
 			return
 		}
 
-		h.logger.Printf("[ApproveEmployer] Calling service.ApproveEmployer with employerId: %s, adminId: %s", employerId, adminId)
+		h.logger.Printf("[ApproveEmployer] Calling service.ApproveEmployer with employerId: %s (length: %d), adminId: %s", employerId, len(employerId), adminId)
 		err := h.service.ApproveEmployer(employerId, adminId)
 		if err != nil {
 			h.logger.Printf("[ApproveEmployer] Error from service: %v", err)
+			h.logger.Printf("[ApproveEmployer] Error type: %T", err)
 			if isNotFoundError(err) {
 				// Return detailed error with available IDs if present
 				errorMsg := err.Error()
+				h.logger.Printf("[ApproveEmployer] Not found error - requested ID: %s, error message: %s", employerId, errorMsg)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": errorMsg,
 					"employer_id_requested": employerId,
+					"employer_id_length": len(employerId),
 					"admin_id": adminId,
 				})
 			} else {
+				h.logger.Printf("[ApproveEmployer] Internal server error: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			}
 			return
 		}
+		
+		h.logger.Printf("[ApproveEmployer] Successfully approved employer: %s", employerId)
 
 		go func() {
 			employer, err := h.service.GetEmployer(employerId)

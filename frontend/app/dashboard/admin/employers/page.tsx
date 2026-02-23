@@ -69,12 +69,15 @@ export default function AdminEmployersPage() {
     try {
       console.log("[Admin] Loading employers with user_type:", user?.user_type)
       const data = await apiClient.getEmployers(token!)
-      console.log("[Admin] Loaded employers:", data)
+      console.log("[Admin] Loaded employers raw data:", data)
       
-      // Normalize employer data - handle both 'id' and '_id' fields
+      // Normalize employer data - handle both 'id' and '_id' fields, and flatten embedded User fields
       const normalizedData = data.map((emp: any) => {
+        // Handle nested user object if present (some JSON serializations might nest it)
+        const userData = emp.user || emp.User || {}
+        
         // Ensure we have an 'id' field - use '_id' if 'id' is missing
-        let normalizedId = emp.id || emp._id || emp.ID
+        let normalizedId = emp.id || emp._id || emp.ID || userData.id || userData._id || userData.ID
         
         // Convert to string and trim whitespace
         if (normalizedId) {
@@ -85,16 +88,38 @@ export default function AdminEmployersPage() {
           }
         }
         
+        // Flatten all fields - extract from nested user object if needed
+        const normalized: Employer = {
+          id: normalizedId,
+          first_name: emp.first_name || userData.first_name || userData.firstName || "",
+          last_name: emp.last_name || userData.last_name || userData.lastName || "",
+          email: emp.email || userData.email || "",
+          phone: emp.phone || userData.phone || "",
+          firm_name: emp.firm_name || emp.firmName || "",
+          pib: emp.pib || emp.PIB || "",
+          maticni_broj: emp.maticni_broj || emp.maticniBroj || emp.MatBr || "",
+          delatnost: emp.delatnost || emp.Delatnost || "",
+          firm_address: emp.firm_address || emp.firmAddress || emp.FirmAddress || "",
+          firm_phone: emp.firm_phone || emp.firmPhone || emp.FirmPhone || "",
+          approval_status: emp.approval_status || emp.approvalStatus || emp.ApprovalStatus || "pending",
+          approved_at: emp.approved_at || emp.approvedAt || emp.ApprovedAt,
+          approved_by: emp.approved_by || emp.approvedBy || emp.ApprovedBy,
+        }
+        
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:75',message:'normalizing employer ID',data:{original_id:emp.id,original__id:emp._id,original_ID:emp.ID,normalized_id:normalizedId,normalized_length:normalizedId?.length,firm_name:emp.firm_name},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:75',message:'normalizing employer data',data:{original_id:emp.id,normalized_id:normalizedId,has_firm_name:!!normalized.firm_name,has_pib:!!normalized.pib,has_maticni_broj:!!normalized.maticni_broj,approval_status:normalized.approval_status},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
         // #endregion
+        
         if (!normalizedId) {
           console.warn("[Admin] Employer missing ID field:", emp)
         }
-        return {
-          ...emp,
-          id: normalizedId,
+        
+        // Log if profile data is missing
+        if (!normalized.firm_name && !normalized.pib && !normalized.maticni_broj) {
+          console.warn("[Admin] Employer missing profile data:", normalizedId, emp)
         }
+        
+        return normalized
       })
       
       // Remove duplicates by ID
@@ -115,6 +140,25 @@ export default function AdminEmployersPage() {
       console.log("[Admin] Unique employers:", uniqueEmployers.length)
       console.log("[Admin] All employer IDs:", uniqueEmployers.map((e: Employer) => ({ id: e.id, firm_name: e.firm_name })))
       console.log("[Admin] Sample employer IDs:", uniqueEmployers.slice(0, 3).map((e: Employer) => e.id))
+      
+      // Log sample employer data to debug profile data visibility
+      if (uniqueEmployers.length > 0) {
+        const sample = uniqueEmployers[0]
+        console.log("[Admin] Sample employer data:", {
+          id: sample.id,
+          firm_name: sample.firm_name,
+          pib: sample.pib,
+          maticni_broj: sample.maticni_broj,
+          delatnost: sample.delatnost,
+          firm_address: sample.firm_address,
+          firm_phone: sample.firm_phone,
+          first_name: sample.first_name,
+          last_name: sample.last_name,
+          email: sample.email,
+          approval_status: sample.approval_status,
+        })
+      }
+      
       setEmployers(uniqueEmployers)
     } catch (error) {
       console.error("Failed to load employers:", error)
@@ -201,6 +245,8 @@ export default function AdminEmployersPage() {
         title: "Employer Approved",
         description: "The employer has been successfully approved and can now post job listings.",
       })
+      // Small delay to ensure backend has processed the update
+      await new Promise(resolve => setTimeout(resolve, 500))
       await loadEmployers()
     } catch (error) {
       console.error("Failed to approve employer:", error)
@@ -236,6 +282,8 @@ export default function AdminEmployersPage() {
         title: "Employer Rejected",
         description: "The employer registration has been rejected.",
       })
+      // Small delay to ensure backend has processed the update
+      await new Promise(resolve => setTimeout(resolve, 500))
       await loadEmployers()
     } catch (error) {
       console.error("Failed to reject employer:", error)
@@ -366,23 +414,23 @@ export default function AdminEmployersPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="font-medium">PIB</p>
-                      <p className="text-muted-foreground">{employer.pib}</p>
+                      <p className="text-muted-foreground">{employer.pib ? employer.pib : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div>
                       <p className="font-medium">Matični broj</p>
-                      <p className="text-muted-foreground">{employer.maticni_broj}</p>
+                      <p className="text-muted-foreground">{employer.maticni_broj ? employer.maticni_broj : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div>
                       <p className="font-medium">Delatnost</p>
-                      <p className="text-muted-foreground">{employer.delatnost}</p>
+                      <p className="text-muted-foreground">{employer.delatnost ? employer.delatnost : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div>
                       <p className="font-medium">Phone</p>
-                      <p className="text-muted-foreground">{employer.firm_phone}</p>
+                      <p className="text-muted-foreground">{employer.firm_phone ? employer.firm_phone : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="font-medium">Address</p>
-                      <p className="text-muted-foreground">{employer.firm_address}</p>
+                      <p className="text-muted-foreground">{employer.firm_address ? employer.firm_address : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                   </div>
                   {(!employer.approval_status || employer.approval_status.toLowerCase() === "pending") && (

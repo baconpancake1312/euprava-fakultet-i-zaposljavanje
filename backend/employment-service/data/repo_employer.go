@@ -5,13 +5,25 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"employment-service/models"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// isHexString checks if a string contains only hexadecimal characters
+func isHexString(s string) bool {
+	for _, r := range s {
+		if !unicode.Is(unicode.ASCII_Hex_Digit, r) {
+			return false
+		}
+	}
+	return true
+}
 
 func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.ObjectID, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
@@ -22,32 +34,88 @@ func (er *EmploymentRepo) CreateEmployer(employer *models.Employer) (primitive.O
 
 	// If User.ID is set, use it as the _id (employer embeds User, so _id = user_id)
 	if !employer.User.ID.IsZero() {
-		employer.ID = employer.User.ID
-		er.logger.Printf("[CreateEmployer] Using provided User.ID as _id: %s", employer.ID.Hex())
+		er.logger.Printf("[CreateEmployer] Using provided User.ID as _id: %s", employer.User.ID.Hex())
+		
+		// Check if employer already exists with this ID
+		var existingEmployer models.Employer
+		err := employerCollection.FindOne(ctx, bson.M{"_id": employer.User.ID}).Decode(&existingEmployer)
+		if err == nil {
+			// Employer already exists, return the existing ID
+			er.logger.Printf("[CreateEmployer] Employer already exists with _id: %s, returning existing ID", employer.User.ID.Hex())
+			return employer.User.ID, nil
+		} else if err != mongo.ErrNoDocuments {
+			// Some other error occurred
+			er.logger.Printf("[CreateEmployer] Error checking for existing employer: %v", err)
+			return primitive.NewObjectID(), err
+		}
+		// No existing employer found, proceed with insert
 	} else {
 		// Generate new ID and set both
-		employer.ID = primitive.NewObjectID()
-		employer.User.ID = employer.ID
-		er.logger.Printf("[CreateEmployer] Generated new ID: %s", employer.ID.Hex())
+		employer.User.ID = primitive.NewObjectID()
+		er.logger.Printf("[CreateEmployer] Generated new ID: %s", employer.User.ID.Hex())
 	}
 
-	// Ensure _id and User.ID are the same (employer embeds User flat)
-	if employer.ID != employer.User.ID {
-		employer.User.ID = employer.ID
-		er.logger.Printf("[CreateEmployer] Synchronized User.ID with _id: %s", employer.ID.Hex())
-	}
-
+	// Ensure ApprovalStatus is set
 	if employer.ApprovalStatus == "" {
 		employer.ApprovalStatus = "pending"
 	}
 
-	result, err := employerCollection.InsertOne(ctx, &employer)
-	if err != nil {
-		er.logger.Printf("[CreateEmployer] InsertOne error: %v", err)
-		return primitive.NewObjectID(), err
+	// Create a BSON document explicitly setting _id to ensure MongoDB uses it
+	// Since Employer embeds User, we need to ensure _id is properly set
+	employerDoc := bson.M{
+		"_id":             employer.User.ID,
+		"first_name":      employer.FirstName,
+		"last_name":       employer.LastName,
+		"email":           employer.Email,
+		"phone":           employer.Phone,
+		"address":         employer.Address,
+		"jmbg":            employer.JMBG,
+		"user_type":       employer.UserType,
+		"firm_name":       employer.FirmName,
+		"pib":             employer.PIB,
+		"maticni_broj":    employer.MatBr,
+		"delatnost":       employer.Delatnost,
+		"firm_address":    employer.FirmAddress,
+		"firm_phone":      employer.FirmPhone,
+		"approval_status": employer.ApprovalStatus,
 	}
-	er.logger.Printf("[CreateEmployer] Successfully created employer with _id: %v", result.InsertedID)
-	return employer.ID, nil
+	if employer.ProfilePicBase64 != "" {
+		employerDoc["profile_pic_base64"] = employer.ProfilePicBase64
+	}
+
+	// Use ReplaceOne with upsert to handle both insert and update cases
+	// This ensures the _id is properly set from User.ID
+	filter := bson.M{"_id": employer.User.ID}
+	result, err := employerCollection.ReplaceOne(ctx, filter, employerDoc, 
+		options.Replace().SetUpsert(true))
+	if err != nil {
+		er.logger.Printf("[CreateEmployer] ReplaceOne error: %v", err)
+		// Check if it's a duplicate key error (MongoDB error code 11000)
+		if writeErr, ok := err.(mongo.WriteException); ok {
+			for _, we := range writeErr.WriteErrors {
+				if we.Code == 11000 {
+					er.logger.Printf("[CreateEmployer] Duplicate key error - employer with _id %s already exists", employer.User.ID.Hex())
+					return employer.User.ID, nil // Return the ID anyway since it exists
+				}
+			}
+		}
+		return primitive.NewObjectID(), fmt.Errorf("failed to save employer: %v", err)
+	}
+	
+	if result.UpsertedID != nil {
+		er.logger.Printf("[CreateEmployer] Successfully created employer with _id: %v", result.UpsertedID)
+		// Verify the inserted ID matches what we wanted
+		if insertedID, ok := result.UpsertedID.(primitive.ObjectID); ok {
+			if insertedID != employer.User.ID {
+				er.logger.Printf("[CreateEmployer] WARNING: Inserted ID %s does not match requested ID %s", insertedID.Hex(), employer.User.ID.Hex())
+				return insertedID, nil // Return the actual inserted ID
+			}
+		}
+	} else {
+		er.logger.Printf("[CreateEmployer] Employer already existed, updated with _id: %s", employer.User.ID.Hex())
+	}
+	
+	return employer.User.ID, nil
 }
 
 func (er *EmploymentRepo) GetEmployer(employerId string) (*models.Employer, error) {
@@ -62,7 +130,7 @@ func (er *EmploymentRepo) GetEmployer(employerId string) (*models.Employer, erro
 
 	err = employerCollection.FindOne(context.Background(), filter).Decode(&employer)
 	if err != nil {
-		return nil, fmt.Errorf("no employer found for id: %s", employerId)
+		return nil, fmt.Errorf("no employer found for id: %s. The employer profile must exist in MongoDB. If this ID is from Keycloak, ensure an employer document was created in MongoDB with this user_id.", employerId)
 	}
 
 	return &employer, nil
@@ -92,6 +160,18 @@ func (er *EmploymentRepo) GetEmployerByUserID(userID string) (*models.Employer, 
 			return er.findEmployerByUserIDFallback(ctx, employerCollection, userID)
 		}
 		er.logger.Printf("[GetEmployerByUserID] Found employer with string user_id: %s", userID)
+		// Ensure ID is set - try to get it from _id if available
+		if employer.ID.IsZero() {
+			// Try to find the document again to get _id
+			var rawDoc bson.M
+			if err := employerCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&rawDoc); err == nil {
+				if idObj, ok := rawDoc["_id"].(primitive.ObjectID); ok {
+					employer.ID = idObj
+					employer.User.ID = idObj
+					er.logger.Printf("[GetEmployerByUserID] Set employer.ID from _id: %s", idObj.Hex())
+				}
+			}
+		}
 		return &employer, nil
 	}
 
@@ -112,6 +192,13 @@ func (er *EmploymentRepo) GetEmployerByUserID(userID string) (*models.Employer, 
 		return er.findEmployerByUserIDFallback(ctx, employerCollection, userID)
 	}
 
+	// Ensure the ID field is set from _id (since Employer embeds User, _id should map to User.ID)
+	if employer.ID.IsZero() && !objectId.IsZero() {
+		employer.ID = objectId
+		employer.User.ID = objectId
+		er.logger.Printf("[GetEmployerByUserID] Set employer.ID and User.ID from _id: %s", objectId.Hex())
+	}
+	
 	er.logger.Printf("[GetEmployerByUserID] Found employer with ObjectID: %s, employer._id: %s", userID, employer.ID.Hex())
 	return &employer, nil
 }
@@ -159,6 +246,11 @@ func (er *EmploymentRepo) findEmployerByUserIDFallback(ctx context.Context, coll
 				er.logger.Printf("[GetEmployerByUserID] Found exact match by _id hex: %s", idHex)
 				var employer models.Employer
 				if err := collection.FindOne(ctx, bson.M{"_id": idObj}).Decode(&employer); err == nil {
+					// Ensure ID is set
+					if employer.ID.IsZero() {
+						employer.ID = idObj
+						employer.User.ID = idObj
+					}
 					return &employer, nil
 				}
 			}
@@ -191,6 +283,16 @@ func (er *EmploymentRepo) findEmployerByUserIDFallback(ctx context.Context, coll
 				er.logger.Printf("[GetEmployerByUserID] Found exact match by user_id hex: %s", uidHex)
 				var employer models.Employer
 				if err := collection.FindOne(ctx, bson.M{"user_id": uidObj}).Decode(&employer); err == nil {
+					// Ensure ID is set - try to get from _id
+					if employer.ID.IsZero() {
+						var rawDoc bson.M
+						if err2 := collection.FindOne(ctx, bson.M{"user_id": uidObj}).Decode(&rawDoc); err2 == nil {
+							if idObj, ok := rawDoc["_id"].(primitive.ObjectID); ok {
+								employer.ID = idObj
+								employer.User.ID = idObj
+							}
+						}
+					}
 					return &employer, nil
 				}
 			}
@@ -220,6 +322,16 @@ func (er *EmploymentRepo) findEmployerByUserIDFallback(ctx context.Context, coll
 			er.logger.Printf("[GetEmployerByUserID] Found match by user_id string: %s", uidStr)
 			var employer models.Employer
 			if err := collection.FindOne(ctx, bson.M{"user_id": uidStr}).Decode(&employer); err == nil {
+				// Ensure ID is set - try to get from _id
+				if employer.ID.IsZero() {
+					var rawDoc bson.M
+					if err2 := collection.FindOne(ctx, bson.M{"user_id": uidStr}).Decode(&rawDoc); err2 == nil {
+						if idObj, ok := rawDoc["_id"].(primitive.ObjectID); ok {
+							employer.ID = idObj
+							employer.User.ID = idObj
+						}
+					}
+				}
 				return &employer, nil
 			}
 		}
@@ -245,6 +357,42 @@ func (er *EmploymentRepo) GetAllEmployers() ([]*models.Employer, error) {
 		er.logger.Println(err)
 		return nil, err
 	}
+	
+	// Verify all employers have valid IDs and exist in DB
+	// Note: We don't filter by profile completeness here - admins should see all employers
+	// Profile completeness filtering is only applied to GetPendingEmployers()
+	if len(employers) > 0 {
+		er.logger.Printf("[GetAllEmployers] Found %d employers in database", len(employers))
+		validEmployers := make([]*models.Employer, 0, len(employers))
+		for i, emp := range employers {
+			if emp == nil {
+				er.logger.Printf("[GetAllEmployers] Employer[%d] is nil, skipping", i)
+				continue
+			}
+			// Ensure ID is set from User.ID if needed (since Employer embeds User)
+			if emp.User.ID.IsZero() && !emp.ID.IsZero() {
+				emp.User.ID = emp.ID
+			} else if !emp.User.ID.IsZero() && emp.ID.IsZero() {
+				emp.ID = emp.User.ID
+			}
+			// Verify the employer actually exists in the database by doing a quick lookup
+			if !emp.ID.IsZero() {
+				var verifyEmp models.Employer
+				err := employerCollection.FindOne(ctx, bson.M{"_id": emp.ID}).Decode(&verifyEmp)
+				if err != nil {
+					er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] with ID %s not found in database! This may indicate data inconsistency. Skipping.", i, emp.ID.Hex())
+					continue
+				}
+			}
+			validEmployers = append(validEmployers, emp)
+			if i < 10 {
+				er.logger.Printf("[GetAllEmployers] Employer[%d] ID: %s (type: %T, length: %d)", i, emp.ID.Hex(), emp.ID, len(emp.ID.Hex()))
+			}
+		}
+		er.logger.Printf("[GetAllEmployers] Returning %d valid employers (filtered from %d)", len(validEmployers), len(employers))
+		return validEmployers, nil
+	}
+	
 	return employers, nil
 }
 
@@ -253,9 +401,13 @@ func (er *EmploymentRepo) UpdateEmployer(employerId string, employer *models.Emp
 	defer cancel()
 
 	employerCollection := OpenCollection(er.cli, "employers")
-	objectId, err := primitive.ObjectIDFromHex(employerId)
+	
+	er.logger.Printf("[UpdateEmployer] Updating employer with ID: %s", employerId)
+	
+	// Use the same flexible filter as ApproveEmployer to find the employer
+	filter, err := er.findEmployerFilter(employerId)
 	if err != nil {
-		return fmt.Errorf("invalid ID: %v", err)
+		return fmt.Errorf("invalid employer ID: %v", err)
 	}
 
 	updateData := bson.M{
@@ -276,15 +428,18 @@ func (er *EmploymentRepo) UpdateEmployer(employerId string, employer *models.Emp
 		},
 	}
 
-	result, err := employerCollection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+	er.logger.Printf("[UpdateEmployer] Using filter: %+v", filter)
+	result, err := employerCollection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
+		er.logger.Printf("[UpdateEmployer] UpdateOne error: %v", err)
 		return fmt.Errorf("could not update employer with id: %s, error: %v", employerId, err)
 	}
 	if result.MatchedCount == 0 {
+		er.logger.Printf("[UpdateEmployer] No employer found with filter: %+v", filter)
 		return fmt.Errorf("no employer found with id: %s", employerId)
 	}
 
-	er.logger.Printf("Updated employer with id: %s", employerId)
+	er.logger.Printf("[UpdateEmployer] Successfully updated employer with id: %s (MatchedCount: %d, ModifiedCount: %d)", employerId, result.MatchedCount, result.ModifiedCount)
 	return nil
 }
 
@@ -314,13 +469,15 @@ func (er *EmploymentRepo) DeleteEmployer(employerId string) error {
 // Employer embeds User directly (flat document), so _id IS the auth user ID.
 // This function also handles ID mismatches by trying similar IDs (e.g., last character variations).
 func (er *EmploymentRepo) findEmployerFilter(employerId string) (bson.M, error) {
-	er.logger.Printf("[findEmployerFilter] Looking up employer with ID: %s", employerId)
+	er.logger.Printf("[findEmployerFilter] Looking up employer with ID: %s (length: %d)", employerId, len(employerId))
 
-	// Normalize the ID - remove any whitespace
+	// Normalize the ID - remove any whitespace and convert to lowercase for consistency
 	employerId = strings.TrimSpace(employerId)
+	employerIdLower := strings.ToLower(employerId)
 	
 	// If ID is exactly 24 hex characters, try to parse as ObjectID
 	if len(employerId) == 24 {
+		// Try parsing the original ID
 		objectId, err := primitive.ObjectIDFromHex(employerId)
 		if err == nil {
 			er.logger.Printf("[findEmployerFilter] Valid ObjectID: %s, searching _id or user_id", objectId.Hex())
@@ -329,10 +486,26 @@ func (er *EmploymentRepo) findEmployerFilter(employerId string) (bson.M, error) 
 					{"_id": objectId},                    // Primary: _id as ObjectID
 					{"user_id": objectId},                 // Legacy: user_id as ObjectID
 					{"user_id": employerId},               // Legacy: user_id as string
+					{"user_id": employerIdLower},         // Legacy: user_id as lowercase string
 				},
 			}, nil
 		}
-		er.logger.Printf("[findEmployerFilter] ID looks like ObjectID but failed to parse: %v", err)
+		
+		// Try parsing lowercase version
+		objectIdLower, errLower := primitive.ObjectIDFromHex(employerIdLower)
+		if errLower == nil && employerIdLower != employerId {
+			er.logger.Printf("[findEmployerFilter] Valid ObjectID (lowercase): %s, searching _id or user_id", objectIdLower.Hex())
+			return bson.M{
+				"$or": []bson.M{
+					{"_id": objectIdLower},                    // Primary: _id as ObjectID
+					{"user_id": objectIdLower},                 // Legacy: user_id as ObjectID
+					{"user_id": employerId},               // Legacy: user_id as string
+					{"user_id": employerIdLower},         // Legacy: user_id as lowercase string
+				},
+			}, nil
+		}
+		
+		er.logger.Printf("[findEmployerFilter] ID looks like ObjectID but failed to parse (original: %v, lowercase: %v)", err, errLower)
 	}
 
 	er.logger.Printf("[findEmployerFilter] ID is not a valid ObjectID, trying string user_id: %s", employerId)
@@ -340,25 +513,38 @@ func (er *EmploymentRepo) findEmployerFilter(employerId string) (bson.M, error) 
 	return bson.M{
 		"$or": []bson.M{
 			{"user_id": employerId},
-			{"_id": employerId}, // Also try as string _id
+			{"user_id": employerIdLower},
+			{"_id": employerId}, // Also try as string _id (unlikely but possible)
 		},
 	}, nil
+}
+
+// isEmployerProfileComplete checks if an employer has all required company profile fields filled
+func (er *EmploymentRepo) isEmployerProfileComplete(emp *models.Employer) bool {
+	if emp == nil {
+		return false
+	}
+	// Check if all required company profile fields are filled
+	return emp.FirmName != "" &&
+		emp.PIB != "" &&
+		emp.MatBr != "" &&
+		emp.Delatnost != "" &&
+		emp.FirmAddress != "" &&
+		emp.FirmPhone != ""
 }
 
 func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	er.logger.Printf("[ApproveEmployer] Received employerId: %s, adminId: %s", employerId, adminId)
+	// Normalize the employer ID first
+	employerId = strings.TrimSpace(employerId)
+	er.logger.Printf("[ApproveEmployer] Received employerId: %s (length: %d), adminId: %s", employerId, len(employerId), adminId)
 
 	collection := OpenCollection(er.cli, "employers")
 
-	filter, err := er.findEmployerFilter(employerId)
-	if err != nil {
-		return fmt.Errorf("invalid employer ID: %v", err)
-	}
-
-	er.logger.Printf("[ApproveEmployer] Using filter: %+v", filter)
+	// Declare result variable at function scope
+	var result *mongo.UpdateResult
 
 	updateData := bson.M{
 		"$set": bson.M{
@@ -368,7 +554,69 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, filter, updateData)
+	// First, try a direct lookup with the ID as ObjectID if it's 24 hex characters
+	if len(employerId) == 24 {
+		if objectId, err := primitive.ObjectIDFromHex(employerId); err == nil {
+			er.logger.Printf("[ApproveEmployer] Attempting direct ObjectID _id lookup: %s", objectId.Hex())
+			directResult, err := collection.UpdateOne(ctx, bson.M{"_id": objectId}, updateData)
+			if err == nil && directResult.MatchedCount > 0 {
+				er.logger.Printf("[ApproveEmployer] Successfully approved using direct ObjectID _id lookup")
+				err = er.CreateCompanyProfile(employerId, adminId)
+				if err != nil {
+					er.logger.Printf("Failed to create company profile for employer %s: %v", employerId, err)
+				}
+				return nil
+			}
+			if err != nil {
+				er.logger.Printf("[ApproveEmployer] Direct ObjectID _id lookup error: %v", err)
+			} else {
+				er.logger.Printf("[ApproveEmployer] Direct ObjectID _id lookup failed. MatchedCount: %d, trying user_id...", directResult.MatchedCount)
+			}
+			
+			// Try user_id lookup if _id lookup failed
+			er.logger.Printf("[ApproveEmployer] Attempting user_id lookup with ObjectID: %s", objectId.Hex())
+			userResult, err := collection.UpdateOne(ctx, bson.M{"user_id": objectId}, updateData)
+			if err == nil && userResult.MatchedCount > 0 {
+				er.logger.Printf("[ApproveEmployer] Successfully approved using user_id ObjectID lookup")
+				err = er.CreateCompanyProfile(employerId, adminId)
+				if err != nil {
+					er.logger.Printf("Failed to create company profile for employer %s: %v", employerId, err)
+				}
+				return nil
+			}
+			if err != nil {
+				er.logger.Printf("[ApproveEmployer] user_id ObjectID lookup error: %v", err)
+			} else {
+				er.logger.Printf("[ApproveEmployer] user_id ObjectID lookup failed. MatchedCount: %d", userResult.MatchedCount)
+			}
+			
+			// Try user_id as string
+			er.logger.Printf("[ApproveEmployer] Attempting user_id lookup as string: %s", employerId)
+			userStrResult, err := collection.UpdateOne(ctx, bson.M{"user_id": employerId}, updateData)
+			if err == nil && userStrResult.MatchedCount > 0 {
+				er.logger.Printf("[ApproveEmployer] Successfully approved using user_id string lookup")
+				err = er.CreateCompanyProfile(employerId, adminId)
+				if err != nil {
+					er.logger.Printf("Failed to create company profile for employer %s: %v", employerId, err)
+				}
+				return nil
+			}
+			if err != nil {
+				er.logger.Printf("[ApproveEmployer] user_id string lookup error: %v", err)
+			} else {
+				er.logger.Printf("[ApproveEmployer] user_id string lookup failed. MatchedCount: %d", userStrResult.MatchedCount)
+			}
+		}
+	}
+
+	filter, err := er.findEmployerFilter(employerId)
+	if err != nil {
+		return fmt.Errorf("invalid employer ID: %v", err)
+	}
+
+	er.logger.Printf("[ApproveEmployer] Using filter: %+v", filter)
+
+	result, err = collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
 		er.logger.Printf("[ApproveEmployer] UpdateOne error: %v", err)
 		return fmt.Errorf("error approving employer: %v", err)
@@ -376,61 +624,120 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 
 	er.logger.Printf("[ApproveEmployer] MatchedCount: %d, ModifiedCount: %d", result.MatchedCount, result.ModifiedCount)
 
+	// If we found a match, verify it was actually updated
+	if result.MatchedCount > 0 && result.ModifiedCount > 0 {
+		er.logger.Printf("[ApproveEmployer] Successfully approved employer: %s", employerId)
+		err = er.CreateCompanyProfile(employerId, adminId)
+		if err != nil {
+			er.logger.Printf("Failed to create company profile for employer %s: %v", employerId, err)
+		}
+		return nil
+	}
+
+	// Declare allEmployers at function scope so it can be used in multiple if blocks
+	var allEmployers []bson.M
+
 	if result.MatchedCount == 0 {
+		er.logger.Printf("[ApproveEmployer] Initial filter did not match any employer. Filter used: %+v", filter)
+		er.logger.Printf("[ApproveEmployer] Attempting fallback matching for ID: %s (length: %d)", employerId, len(employerId))
+		
 		// Log all employers for debugging and try fallback matching
-		var allEmployers []bson.M
-		cursor, _ := collection.Find(ctx, bson.M{})
-		if cursor != nil {
-			cursor.All(ctx, &allEmployers)
-			er.logger.Printf("[ApproveEmployer] Total employers in DB: %d", len(allEmployers))
-			er.logger.Printf("[ApproveEmployer] Searching for employer ID: %s", employerId)
-			er.logger.Printf("[ApproveEmployer] Filter used: %+v", filter)
-			
-			// Try to find a match by comparing hex strings as fallback
-			// Also try fuzzy matching for IDs that differ by 1 character (common serialization issue)
-			for _, emp := range allEmployers {
-				_id := emp["_id"]
-				user_id := emp["user_id"]
+		cursor, err := collection.Find(ctx, bson.M{})
+		if err != nil {
+			er.logger.Printf("[ApproveEmployer] Error fetching all employers: %v", err)
+		} else if cursor != nil {
+			defer cursor.Close(ctx)
+			if err := cursor.All(ctx, &allEmployers); err != nil {
+				er.logger.Printf("[ApproveEmployer] Error decoding all employers: %v", err)
+			} else {
+				er.logger.Printf("[ApproveEmployer] Total employers in DB: %d", len(allEmployers))
+				er.logger.Printf("[ApproveEmployer] Searching for employer ID: %s", employerId)
+				er.logger.Printf("[ApproveEmployer] Filter used: %+v", filter)
 				
-				// Try to convert _id to hex string and match
-				if idObj, ok := _id.(primitive.ObjectID); ok {
-					idHex := idObj.Hex()
-					// Exact match
-					if idHex == employerId {
-						er.logger.Printf("[ApproveEmployer] Found exact match by hex! Retrying with _id: %s", idHex)
-						result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
-						if err2 == nil && result2.MatchedCount > 0 {
-							er.logger.Printf("[ApproveEmployer] Successfully approved using direct _id match")
-							result = result2
+				// Log first 5 employer IDs for debugging
+				if len(allEmployers) > 0 {
+					er.logger.Printf("[ApproveEmployer] Sample employer IDs from DB:")
+					for i, emp := range allEmployers {
+						if i >= 5 {
 							break
 						}
-					}
-					// Fuzzy match: check if IDs differ by only 1 character (common serialization issue)
-					if len(idHex) == len(employerId) && len(idHex) == 24 {
-						diffCount := 0
-						for i := 0; i < len(idHex); i++ {
-							if idHex[i] != employerId[i] {
-								diffCount++
-								if diffCount > 1 {
-									break
-								}
-							}
+						if idObj, ok := emp["_id"].(primitive.ObjectID); ok {
+							er.logger.Printf("[ApproveEmployer]   [%d] _id: %s", i, idObj.Hex())
 						}
-						if diffCount == 1 {
-							er.logger.Printf("[ApproveEmployer] Found fuzzy match! Requested: %s, Found: %s (differ by 1 char). Using found ID.", employerId, idHex)
+						if uidObj, ok := emp["user_id"].(primitive.ObjectID); ok {
+							er.logger.Printf("[ApproveEmployer]   [%d] user_id (ObjectID): %s", i, uidObj.Hex())
+						}
+						if uidStr, ok := emp["user_id"].(string); ok {
+							er.logger.Printf("[ApproveEmployer]   [%d] user_id (string): %s", i, uidStr)
+						}
+					}
+				}
+			
+				// Try to find a match by comparing hex strings as fallback
+				// Use case-insensitive matching since ObjectID hex should be case-insensitive
+				employerIdLower := strings.ToLower(employerId)
+				er.logger.Printf("[ApproveEmployer] Attempting case-insensitive matching. Original: %s, Lowercase: %s", employerId, employerIdLower)
+				
+				for _, emp := range allEmployers {
+					_id := emp["_id"]
+					user_id := emp["user_id"]
+					
+					// Try to convert _id to hex string and match
+					if idObj, ok := _id.(primitive.ObjectID); ok {
+						idHex := idObj.Hex()
+						idHexLower := strings.ToLower(idHex)
+						
+						// Exact match (case-sensitive)
+						if idHex == employerId {
+							er.logger.Printf("[ApproveEmployer] Found exact case-sensitive match by hex! Retrying with _id: %s", idHex)
 							result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
 							if err2 == nil && result2.MatchedCount > 0 {
-								er.logger.Printf("[ApproveEmployer] Successfully approved using fuzzy _id match")
+								er.logger.Printf("[ApproveEmployer] Successfully approved using direct _id match")
 								result = result2
 								break
 							}
 						}
+						
+						// Case-insensitive exact match
+						if idHexLower == employerIdLower {
+							er.logger.Printf("[ApproveEmployer] Found exact case-insensitive match by hex! Requested: %s, Found: %s. Retrying with _id: %s", employerId, idHex, idHex)
+							result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
+							if err2 == nil && result2.MatchedCount > 0 {
+								er.logger.Printf("[ApproveEmployer] Successfully approved using case-insensitive _id match")
+								result = result2
+								break
+							}
+						}
+						
+						// Fuzzy match: check if IDs differ by only 1 character (common serialization issue)
+						if len(idHex) == len(employerId) && len(idHex) == 24 {
+							diffCount := 0
+							for i := 0; i < len(idHex); i++ {
+								if strings.ToLower(string(idHex[i])) != strings.ToLower(string(employerId[i])) {
+									diffCount++
+									if diffCount > 1 {
+										break
+									}
+								}
+							}
+							if diffCount == 1 {
+								er.logger.Printf("[ApproveEmployer] Found fuzzy match! Requested: %s, Found: %s (differ by 1 char). Using found ID.", employerId, idHex)
+								result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
+								if err2 == nil && result2.MatchedCount > 0 {
+									er.logger.Printf("[ApproveEmployer] Successfully approved using fuzzy _id match")
+									result = result2
+									break
+								}
+							}
+						}
 					}
-				}
 				
 				// Also check user_id as ObjectID
 				if uidObj, ok := user_id.(primitive.ObjectID); ok {
 					uidHex := uidObj.Hex()
+					uidHexLower := strings.ToLower(uidHex)
+					
+					// Case-sensitive exact match
 					if uidHex == employerId {
 						er.logger.Printf("[ApproveEmployer] Found match by user_id hex! Retrying with user_id ObjectID: %s", uidHex)
 						result2, err2 := collection.UpdateOne(ctx, bson.M{"user_id": uidObj}, updateData)
@@ -440,11 +747,23 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 							break
 						}
 					}
-					// Fuzzy match for user_id
+					
+					// Case-insensitive exact match
+					if uidHexLower == employerIdLower {
+						er.logger.Printf("[ApproveEmployer] Found case-insensitive match by user_id hex! Requested: %s, Found: %s. Retrying with user_id ObjectID: %s", employerId, uidHex, uidHex)
+						result2, err2 := collection.UpdateOne(ctx, bson.M{"user_id": uidObj}, updateData)
+						if err2 == nil && result2.MatchedCount > 0 {
+							er.logger.Printf("[ApproveEmployer] Successfully approved using case-insensitive user_id ObjectID match")
+							result = result2
+							break
+						}
+					}
+					
+					// Fuzzy match for user_id (case-insensitive)
 					if len(uidHex) == len(employerId) && len(uidHex) == 24 {
 						diffCount := 0
 						for i := 0; i < len(uidHex); i++ {
-							if uidHex[i] != employerId[i] {
+							if strings.ToLower(string(uidHex[i])) != strings.ToLower(string(employerId[i])) {
 								diffCount++
 								if diffCount > 1 {
 									break
@@ -463,30 +782,133 @@ func (er *EmploymentRepo) ApproveEmployer(employerId, adminId string) error {
 					}
 				}
 				
-				// Check user_id as string
-				if uidStr, ok := user_id.(string); ok && uidStr == employerId {
-					er.logger.Printf("[ApproveEmployer] Found match by user_id string! Retrying with user_id: %s", uidStr)
-					result2, err2 := collection.UpdateOne(ctx, bson.M{"user_id": uidStr}, updateData)
-					if err2 == nil && result2.MatchedCount > 0 {
-						er.logger.Printf("[ApproveEmployer] Successfully approved using user_id string match")
-						result = result2
-						break
+				// Check user_id as string (case-insensitive)
+				if uidStr, ok := user_id.(string); ok {
+					uidStrLower := strings.ToLower(uidStr)
+					if uidStr == employerId || uidStrLower == employerIdLower {
+						er.logger.Printf("[ApproveEmployer] Found match by user_id string! Requested: %s, Found: %s. Retrying with user_id: %s", employerId, uidStr, uidStr)
+						result2, err2 := collection.UpdateOne(ctx, bson.M{"user_id": uidStr}, updateData)
+						if err2 == nil && result2.MatchedCount > 0 {
+							er.logger.Printf("[ApproveEmployer] Successfully approved using user_id string match")
+							result = result2
+							break
+						}
+					}
+				}
+				} // Close the for loop from line 496
+			} // Close the else block from line 467 (cursor.All succeeded)
+		} // Close the else if cursor != nil block from line 463
+		
+		// If still no match after fallback attempts, try prefix matching as last resort
+		if result.MatchedCount == 0 && len(allEmployers) > 0 {
+			er.logger.Printf("[ApproveEmployer] Fallback matching failed. Trying prefix matching for ID: %s", employerId)
+			employerIdLower := strings.ToLower(employerId)
+			
+			// Try matching by first 20 characters (in case of truncation)
+			if len(employerId) >= 20 {
+				prefix := employerIdLower[:20]
+				er.logger.Printf("[ApproveEmployer] Trying prefix match with first 20 chars: %s", prefix)
+				for _, emp := range allEmployers {
+					if idObj, ok := emp["_id"].(primitive.ObjectID); ok {
+						idHexLower := strings.ToLower(idObj.Hex())
+						if len(idHexLower) >= 20 && idHexLower[:20] == prefix {
+							er.logger.Printf("[ApproveEmployer] Found prefix match! Requested prefix: %s, Found ID: %s", prefix, idObj.Hex())
+							result2, err2 := collection.UpdateOne(ctx, bson.M{"_id": idObj}, updateData)
+							if err2 == nil && result2.MatchedCount > 0 {
+								er.logger.Printf("[ApproveEmployer] Successfully approved using prefix match")
+								result = result2
+								break
+							}
+						}
 					}
 				}
 			}
 		}
 		
-		// If still no match after fallback attempts
+		// If still no match after all attempts
 		if result.MatchedCount == 0 {
+			er.logger.Printf("[ApproveEmployer] All matching attempts failed. No employer found with ID: %s", employerId)
 			// Collect all employer IDs for better error message
 			var allIds []string
+			if len(allEmployers) == 0 {
+				// Fetch all employers if we haven't already
+				cursor, err := collection.Find(ctx, bson.M{})
+				if err == nil && cursor != nil {
+					defer cursor.Close(ctx)
+					cursor.All(ctx, &allEmployers)
+				}
+			}
 			for _, emp := range allEmployers {
 				if idObj, ok := emp["_id"].(primitive.ObjectID); ok {
 					allIds = append(allIds, idObj.Hex())
 				}
 			}
-			er.logger.Printf("[ApproveEmployer] Available employer IDs in DB: %v", allIds)
-			return fmt.Errorf("employer not found with id: %s. Available IDs: %v", employerId, allIds)
+			
+			// Also fetch using GetAllEmployers to see what IDs it returns
+			var getAllEmployersIds []string
+			if allEmployersFromRepo, err := er.GetAllEmployers(); err == nil {
+				for _, emp := range allEmployersFromRepo {
+					if emp != nil {
+						getAllEmployersIds = append(getAllEmployersIds, emp.ID.Hex())
+						if emp.ID.Hex() == employerId {
+							er.logger.Printf("[ApproveEmployer] CRITICAL: Found requested ID %s in GetAllEmployers but not in database!", employerId)
+						}
+					}
+				}
+			}
+			
+			er.logger.Printf("[ApproveEmployer] Available employer IDs in DB (from raw query): %d IDs", len(allIds))
+			er.logger.Printf("[ApproveEmployer] Available employer IDs from GetAllEmployers: %d IDs", len(getAllEmployersIds))
+			er.logger.Printf("[ApproveEmployer] Requested ID: %s (length=%d, hex_chars_only=%v)", employerId, len(employerId), isHexString(employerId))
+			
+			// Check if requested ID exists in GetAllEmployers but not in raw query
+			requestedInGetAll := false
+			for _, id := range getAllEmployersIds {
+				if id == employerId {
+					requestedInGetAll = true
+					break
+				}
+			}
+			requestedInRaw := false
+			for _, id := range allIds {
+				if id == employerId {
+					requestedInRaw = true
+					break
+				}
+			}
+			er.logger.Printf("[ApproveEmployer] Requested ID in GetAllEmployers: %v, in raw query: %v", requestedInGetAll, requestedInRaw)
+			
+			// Check if requested ID is similar to any available ID (for debugging)
+			employerIdLower := strings.ToLower(employerId)
+			similarIds := []string{}
+			for _, availableId := range allIds {
+				availableIdLower := strings.ToLower(availableId)
+				if len(employerIdLower) == len(availableIdLower) && len(employerIdLower) == 24 {
+					similarity := 0
+					for i := 0; i < len(employerIdLower); i++ {
+						if employerIdLower[i] == availableIdLower[i] {
+							similarity++
+						}
+					}
+					if similarity >= 20 {
+						similarIds = append(similarIds, fmt.Sprintf("%s (similarity: %d/24)", availableId, similarity))
+					}
+				}
+			}
+			if len(similarIds) > 0 {
+				er.logger.Printf("[ApproveEmployer] Similar IDs found: %v", similarIds)
+			}
+			
+			// Limit the error message to first 50 IDs to avoid huge responses
+			errorIds := allIds
+			if len(errorIds) > 50 {
+				errorIds = errorIds[:50]
+			}
+			errorMsg := fmt.Sprintf("employer not found with id: %s. This ID might be from Keycloak (authentication service), but the employer profile must exist in MongoDB. Available employer IDs in database (showing first 50 of %d): %v", employerId, len(allIds), errorIds)
+			if len(allIds) == 0 {
+				errorMsg = fmt.Sprintf("employer not found with id: %s. No employers found in database. The employer profile must be created in MongoDB before it can be approved. Keycloak is only for authentication - employer data must exist in MongoDB.", employerId)
+			}
+			return fmt.Errorf(errorMsg)
 		}
 	}
 
@@ -677,8 +1099,22 @@ func (er *EmploymentRepo) GetPendingEmployers() ([]*models.Employer, error) {
 		return nil, err
 	}
 
-	er.logger.Printf("GetPendingEmployers: Found %d employers", len(employers))
-	return employers, nil
+	// Filter out incomplete profiles - only return employers with complete company information
+	completeEmployers := make([]*models.Employer, 0, len(employers))
+	for i, emp := range employers {
+		if er.isEmployerProfileComplete(emp) {
+			completeEmployers = append(completeEmployers, emp)
+		} else {
+			empId := "unknown"
+			if emp != nil && !emp.ID.IsZero() {
+				empId = emp.ID.Hex()
+			}
+			er.logger.Printf("GetPendingEmployers: Employer[%d] with ID %s has incomplete profile (missing required fields). Skipping.", i, empId)
+		}
+	}
+
+	er.logger.Printf("GetPendingEmployers: Found %d employers with complete profiles (filtered from %d pending)", len(completeEmployers), len(employers))
+	return completeEmployers, nil
 }
 
 func (er *EmploymentRepo) GetEmployerStats() (map[string]int64, error) {
