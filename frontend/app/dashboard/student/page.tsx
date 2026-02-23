@@ -16,9 +16,12 @@ export default function StudentDashboard() {
   const { user, token, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(true)
   const [studentData, setStudentData] = useState<any>(null)
-  const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
   const [canAdvanceYear, setCanAdvanceYear] = useState(false)
   const [advancing, setAdvancing] = useState(false)
+  const [canRequestGraduation, setCanRequestGraduation] = useState(false)
+  const [hasExistingGraduationRequest, setHasExistingGraduationRequest] = useState(false)
+  const [graduationRequestStatus, setGraduationRequestStatus] = useState<string | null>(null)
+  const [requestingGraduation, setRequestingGraduation] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated || user?.user_type !== "STUDENT") {
@@ -72,11 +75,33 @@ export default function StudentDashboard() {
           currentYearSubjects.length > 0 &&
           currentYearSubjects.every((s: any) => passedSubjectIds.has(s.id))
         setCanAdvanceYear(!!allPassed)
+        // Can request graduation when all subjects in the major (all years) are passed
+        const allSubjectsPassed =
+          subjects.length > 0 &&
+          subjects.every((s: any) => passedSubjectIds.has(s.id))
+        setCanRequestGraduation(!!allSubjectsPassed)
+        if (allSubjectsPassed) {
+          try {
+            const requests = await apiClient.getGraduationRequestsByStudent(user.id, token)
+            const hasAnyApproved = requests.some((r: { status?: string }) => r.status === "Approved")
+            const hasAnyPending = requests.some((r: { status?: string }) => r.status === "Pending")
+            setGraduationRequestStatus(hasAnyApproved ? "Approved" : hasAnyPending ? "Pending" : null)
+            setHasExistingGraduationRequest(hasAnyPending)
+          } catch {
+            setGraduationRequestStatus(null)
+            setHasExistingGraduationRequest(false)
+          }
+        } else {
+          setGraduationRequestStatus(null)
+          setHasExistingGraduationRequest(false)
+        }
       } catch {
         setCanAdvanceYear(false)
+        setCanRequestGraduation(false)
+        setHasExistingGraduationRequest(false)
+        setGraduationRequestStatus(null)
       }
     } catch (error) {
-      setNeedsProfileCompletion(true)
     } finally {
       setLoading(false)
     }
@@ -92,6 +117,19 @@ export default function StudentDashboard() {
       console.error("Failed to advance year:", err)
     } finally {
       setAdvancing(false)
+    }
+  }
+
+  const handleRequestGraduation = async () => {
+    if (!token || !user?.id || requestingGraduation) return
+    setRequestingGraduation(true)
+    try {
+      await apiClient.requestGraduation(user.id, token)
+      await checkStudentProfile()
+    } catch (err) {
+      console.error("Failed to submit graduation request:", err)
+    } finally {
+      setRequestingGraduation(false)
     }
   }
 
@@ -113,16 +151,8 @@ export default function StudentDashboard() {
           <p className="text-muted-foreground">Manage your academic journey and career opportunities</p>
         </div>
 
-        {needsProfileCompletion && (
-          <ProfileCompletionPrompt
-            title="Complete Your Student Profile"
-            description="To access all university services, please complete your student profile with academic information."
-            missingFields={["Major/Program", "Current Year"]}
-            onComplete={() => router.push("/dashboard/student/complete-profile")}
-          />
-        )}
 
-        {!needsProfileCompletion && canAdvanceYear && (
+        { canAdvanceYear && !canRequestGraduation && (
           <Alert className="border-primary/50 bg-primary/5">
             <GraduationCap className="h-4 w-4" />
             <AlertTitle>Ready for next year</AlertTitle>
@@ -139,6 +169,46 @@ export default function StudentDashboard() {
                     Advance to Year {studentData?.year != null ? Number(studentData.year) + 1 : "—"}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </>
+                )}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {canRequestGraduation && graduationRequestStatus === "Approved" && (
+          <Alert className="border-primary/50 bg-primary/5">
+            <GraduationCap className="h-4 w-4" />
+            <AlertTitle>Successfully graduated</AlertTitle>
+            <AlertDescription>
+              <p>Congratulations! Your graduation request has been approved.</p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {canRequestGraduation && hasExistingGraduationRequest && (
+          <Alert className="border-primary/50 bg-primary/5">
+            <GraduationCap className="h-4 w-4" />
+            <AlertTitle>Graduation request pending</AlertTitle>
+            <AlertDescription>
+              <p>Your graduation request is pending approval.</p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {canRequestGraduation && !hasExistingGraduationRequest && graduationRequestStatus !== "Approved" && (
+          <Alert className="border-primary/50 bg-primary/5">
+            <GraduationCap className="h-4 w-4" />
+            <AlertTitle>Ready to graduate</AlertTitle>
+            <AlertDescription className="mt-2 space-y-2">
+              <p>You have passed all courses in your program. You can submit a graduation request.</p>
+              <Button onClick={handleRequestGraduation} size="sm" className="mt-2" disabled={requestingGraduation}>
+                {requestingGraduation ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  "Request graduation"
                 )}
               </Button>
             </AlertDescription>

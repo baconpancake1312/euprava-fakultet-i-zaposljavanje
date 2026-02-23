@@ -25,6 +25,7 @@ export default function StudentCoursesPage() {
   const [error, setError] = useState("")
   const [studentData, setStudentData] = useState<any>(null)
   const [passedCourses, setPassedCourses] = useState<any[]>([])
+  const [examGrades, setExamGrades] = useState<any[]>([])
   const [filter, setFilter] = useState<"all" | "passed" | "not-passed">("not-passed")
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
 
@@ -62,12 +63,13 @@ export default function StudentCoursesPage() {
       const studentYear = data.year != null ? Number(data.year) : null
       setSelectedYear(studentYear)
 
-      // Load courses and passed courses after student data is available
+      // Load courses, passed courses, and exam grades after student data is available
       if (data.major_id) {
         console.log("Loading courses for major_id:", data.major_id)
         await Promise.all([
           loadCourses(data.major_id),
-          loadPassedCourses(user.id)
+          loadPassedCourses(user.id),
+          loadExamGrades(user.id)
         ])
       } else {
         console.log("Cannot load courses - no major_id")
@@ -92,6 +94,17 @@ export default function StudentCoursesPage() {
       // Don't set error here as it's not critical for the main functionality
       console.log("Failed to load passed courses, continuing without this data")
       setPassedCourses([]) // Ensure we always have an empty array
+    }
+  }
+
+  const loadExamGrades = async (studentId: string) => {
+    try {
+      if (!token) throw new Error("Not authenticated")
+      const data = await apiClient.getAllExamGradesForStudent(studentId, token)
+      setExamGrades(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Error in loadExamGrades:", err)
+      setExamGrades([])
     }
   }
 
@@ -165,6 +178,16 @@ export default function StudentCoursesPage() {
       passedCourse.id === courseId ||
       passedCourse.subject_id === courseId
     )
+  }
+
+  // Get grade for a passed course (exam grades are 5–10, only passed have grade shown)
+  const getGradeForCourse = (courseId: string): number | undefined => {
+    if (!examGrades?.length) return undefined
+    const idStr = (id: any) => (typeof id === "string" ? id : id?.toString?.() ?? "")
+    const passedGrade = examGrades.find(
+      (g: any) => g.passed && (idStr(g.subject_id) === courseId || idStr(g.subject_id) === idStr(courseId))
+    )
+    return passedGrade != null && typeof passedGrade.grade === "number" ? passedGrade.grade : undefined
   }
 
   // Filter courses by selected year (student's current year by default), then by passed/not-passed
@@ -270,7 +293,10 @@ export default function StudentCoursesPage() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {getFilteredCourses().map((course) => (
+            {getFilteredCourses().map((course) => {
+              const passed = isCoursePassed(course.id)
+              const grade = passed ? getGradeForCourse(course.id) : undefined
+              return (
               <Card key={course.id} className="hover:border-primary/50 transition-colors">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -278,7 +304,10 @@ export default function StudentCoursesPage() {
                     {course.Name || course.name}
                   </CardTitle>
                   <CardDescription>{"Year: " + (course.year ?? "—")}</CardDescription>
-                  <CardDescription>{"Passed: " + (isCoursePassed(course.id) ? "✅" : "❌")}</CardDescription>
+                  <CardDescription>{"Passed: " + (passed ? "✅" : "❌")}</CardDescription>
+                  {passed && grade != null && (
+                    <CardDescription className="font-medium">Grade: {grade}</CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {course.professors && Array.isArray(course.professors) && course.professors.length > 0 && (
@@ -323,7 +352,7 @@ export default function StudentCoursesPage() {
                   )}
                 </CardContent>
               </Card>
-            ))}
+            );})}
           </div>
         )}
       </div>

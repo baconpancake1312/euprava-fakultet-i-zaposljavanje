@@ -1,4 +1,4 @@
-import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer, Student, Professor, ExamPeriod, CreateExamPeriodRequest } from "./types"
+import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer, Student, Professor, ExamPeriod, CreateExamPeriodRequest, GraduationRequest } from "./types"
 import AdminProfessorsPage from '../app/dashboard/admin/professors/page';
 import { ApiErrorHandler, type ApiError } from "./error-handler"
 
@@ -176,6 +176,64 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
     })
     if (!response.ok) throw new Error("Failed to advance to next year")
+    return response.json()
+  }
+
+  async getGraduationRequest(studentId: string, token: string): Promise<{ id: string; status: string } | null> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${studentId}/graduation-request`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (response.status === 404) return null
+    if (!response.ok) throw new Error("Failed to fetch graduation request")
+    return response.json()
+  }
+
+  async getGraduationRequestsByStudent(studentId: string, token: string): Promise<GraduationRequest[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${studentId}/graduation-requests`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to fetch graduation requests")
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  }
+
+  async getGraduationRequests(token: string): Promise<GraduationRequest[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/graduation-requests`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to fetch graduation requests")
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  }
+
+  async updateGraduationRequest(
+    requestId: string,
+    body: { status?: string; comments?: string; student_id?: string; requested_at?: string },
+    token: string
+  ) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${requestId}/graduation-request`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) throw new Error("Failed to update graduation request")
+    return response.json()
+  }
+
+  async deleteGraduationRequest(requestId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${requestId}/graduation-request`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to delete graduation request")
+  }
+
+  async requestGraduation(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${id}/graduation-request`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to submit graduation request")
     return response.json()
   }
 

@@ -142,6 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!prev || prev.id !== userData.id) return prev
       const next = { ...prev, ...userData }
       localStorage.setItem("user", JSON.stringify(next))
+      if (typeof document !== "undefined") {
+        document.cookie = `user=${JSON.stringify(next)}; path=/; max-age=86400`
+      }
       return next
     })
   }

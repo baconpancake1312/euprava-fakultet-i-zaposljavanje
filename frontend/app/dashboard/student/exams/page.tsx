@@ -168,8 +168,10 @@ export default function StudentExamsPage() {
         apiClient.getStudentExamRegistrations(user.id, token)
       ])
 
-      // Handle different data structures
-      const examSessions = (examSessionsData as any)?.value || []
+      // Handle different data structures: backend returns array directly; some APIs use { value: [...] }
+      const examSessions = Array.isArray(examSessionsData)
+        ? examSessionsData
+        : (examSessionsData as any)?.value ?? []
       console.log("Loaded exam sessions:", examSessions)
       console.log("Exam sessions count:", examSessions.length)
 

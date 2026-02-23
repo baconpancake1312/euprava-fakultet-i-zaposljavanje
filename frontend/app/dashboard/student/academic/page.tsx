@@ -14,7 +14,7 @@ import { Loader2, GraduationCap, Award, BookOpen, TrendingUp, Edit } from "lucid
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function StudentAcademicPage() {
-  const { token, user } = useAuth()
+  const { token, user, updateUser } = useAuth()
   const [studentData, setStudentData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -22,10 +22,6 @@ export default function StudentAcademicPage() {
   const [totalCourses, setTotalCourses] = useState<any[]>([])
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
   const [formData, setFormData] = useState({
-    year: "",
-    gpa: "",
-    highschool_gpa: "",
-    scholarship: false,
     address: "",
     phone: "",
     email: "",
@@ -91,10 +87,6 @@ export default function StudentAcademicPage() {
   const openUpdateModal = () => {
     if (studentData && user) {
       setFormData({
-        year: studentData.year?.toString() || "",
-        gpa: studentData.gpa?.toString() || "",
-        highschool_gpa: studentData.highschool_gpa?.toString() || "",
-        scholarship: studentData.scholarship || false,
         address: user.address || "",
         phone: user.phone || "",
         email: user.email || "",
@@ -153,10 +145,9 @@ export default function StudentAcademicPage() {
     try {
       // Prepare student data
       const studentUpdateData = {
-        year: formData.year ? parseInt(formData.year) : null,
-        gpa: formData.gpa ? parseFloat(formData.gpa) : null,
-        highschool_gpa: formData.highschool_gpa ? parseFloat(formData.highschool_gpa) : null,
-        scholarship: formData.scholarship
+        address: formData.address,
+        phone: formData.phone,
+        email: formData.email,
       }
 
       // Prepare user data - only include fields that have actually changed
@@ -187,6 +178,13 @@ export default function StudentAcademicPage() {
       console.log("API calls successful, reloading data...")
       // Reload student data to reflect changes
       await loadStudentData()
+      // Sync auth context and storage so user sees updated email/phone/address without re-login
+      updateUser({
+        id: user.id,
+        address: formData.address,
+        phone: formData.phone,
+        email: formData.email,
+      })
       console.log("Data reloaded, closing modal...")
       setIsUpdateModalOpen(false)
     } catch (err) {
@@ -340,66 +338,6 @@ export default function StudentAcademicPage() {
                   <AlertDescription>{updateError}</AlertDescription>
                 </Alert>
               )}
-
-              <div className="space-y-2">
-                <Label htmlFor="year">Academic Year</Label>
-                <Select value={formData.year} onValueChange={(value) => handleFormChange("year", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1st Year</SelectItem>
-                    <SelectItem value="2">2nd Year</SelectItem>
-                    <SelectItem value="3">3rd Year</SelectItem>
-                    <SelectItem value="4">4th Year</SelectItem>
-                    <SelectItem value="5">5th Year</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="gpa">Current GPA</Label>
-                <Input
-                  id="gpa"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="4"
-                  value={formData.gpa}
-                  onChange={(e) => handleFormChange("gpa", e.target.value)}
-                  placeholder="Enter GPA (0.00 - 4.00)"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="highschool_gpa">High School GPA</Label>
-                <Input
-                  id="highschool_gpa"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="4"
-                  value={formData.highschool_gpa}
-                  onChange={(e) => handleFormChange("highschool_gpa", e.target.value)}
-                  placeholder="Enter high school GPA (0.00 - 4.00)"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="scholarship">Scholarship</Label>
-                <Select
-                  value={formData.scholarship ? "yes" : "no"}
-                  onValueChange={(value) => handleFormChange("scholarship", value === "yes")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select scholarship status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               {/* Personal Information Section */}
               <div className="border-t pt-4">
