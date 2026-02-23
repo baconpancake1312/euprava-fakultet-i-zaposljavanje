@@ -144,3 +144,18 @@ func (ctrl *Controllers) UpdateExamPeriod(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, req)
 }
+
+func (ctrl *Controllers) DeleteExamPeriod(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid exam period ID"})
+		return
+	}
+	err = ctrl.Repo.DeleteExamPeriod(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Exam period deleted successfully"})
+}

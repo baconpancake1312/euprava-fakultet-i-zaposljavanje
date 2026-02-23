@@ -12,11 +12,12 @@ student
 		profesor bira ispitni rok, ✅
 		i datum unutar ispitnog roka ako nije unutar ispitnog roka onda ga upozori ✅
 		admin dodaje ispitni rok ✅
-		automatska aktivacija ispitnih rokova
+		automatska aktivacija ispitnih rokova ✅
+		student ne vidi i ne moze da prijavi ispit koji nije nedelju dana pre ili u trenutnom roku✅
 		definicija semestra od kad do kad
-		student moze da vidi ispite po ispitnim rokovima,
+		student moze da vidi ispite po ispitnim rokovima,✅
 		brisanje roka
-		student ne vidi i ne moze da prijavi ispit koji nije nedelju dana pre ili u trenutnom roku
+		
 	kaskadno brisanje
 	?? prebacivanje predmeta u sl godinu
 	zahtev za zavrsavanje fakulteta

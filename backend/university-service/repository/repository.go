@@ -1443,6 +1443,12 @@ func (r *Repository) GetVisibleExamPeriodIDs(now time.Time) ([]primitive.ObjectI
 	return ids, nil
 }
 
+func (r *Repository) DeleteExamPeriod(id primitive.ObjectID) error {
+	collection := r.getCollection("exam_periods")
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
+	return err
+}
+
 // ExamSession methods
 func (r *Repository) CreateExamSession(examSession *ExamSession) error {
 	collection := r.getCollection("exam_sessions")
