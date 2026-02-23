@@ -88,22 +88,57 @@ export default function AdminEmployersPage() {
           }
         }
         
-        // Flatten all fields - extract from nested user object if needed
+        // Helper function to safely get a field value (handles null, undefined, empty string)
+        const getField = (...keys: string[]): string => {
+          for (const key of keys) {
+            const value = emp[key]
+            if (value !== null && value !== undefined && value !== "" && String(value).trim() !== "") {
+              return String(value).trim()
+            }
+          }
+          return ""
+        }
+        
+        // Log raw data for first employer to debug (only log once)
+        if (data.indexOf(emp) === 0) {
+          console.log("[Admin] Raw employer data (first):", JSON.stringify(emp, null, 2))
+        }
+        
         const normalized: Employer = {
           id: normalizedId,
-          first_name: emp.first_name || userData.first_name || userData.firstName || "",
-          last_name: emp.last_name || userData.last_name || userData.lastName || "",
-          email: emp.email || userData.email || "",
-          phone: emp.phone || userData.phone || "",
-          firm_name: emp.firm_name || emp.firmName || "",
-          pib: emp.pib || emp.PIB || "",
-          maticni_broj: emp.maticni_broj || emp.maticniBroj || emp.MatBr || "",
-          delatnost: emp.delatnost || emp.Delatnost || "",
-          firm_address: emp.firm_address || emp.firmAddress || emp.FirmAddress || "",
-          firm_phone: emp.firm_phone || emp.firmPhone || emp.FirmPhone || "",
-          approval_status: emp.approval_status || emp.approvalStatus || emp.ApprovalStatus || "pending",
+          first_name: getField("first_name", "firstName", "FirstName") || userData.first_name || userData.firstName || "",
+          last_name: getField("last_name", "lastName", "LastName") || userData.last_name || userData.lastName || "",
+          email: getField("email", "Email") || userData.email || "",
+          phone: getField("phone", "Phone") || userData.phone || "",
+          firm_name: getField("firm_name", "firmName", "FirmName") || "",
+          pib: getField("pib", "PIB") || "",
+          maticni_broj: getField("maticni_broj", "maticniBroj", "MatBr", "maticni_broj") || "",
+          delatnost: getField("delatnost", "Delatnost") || "",
+          firm_address: getField("firm_address", "firmAddress", "FirmAddress") || "",
+          firm_phone: getField("firm_phone", "firmPhone", "FirmPhone") || "",
+          approval_status: getField("approval_status", "approvalStatus", "ApprovalStatus") || "pending",
           approved_at: emp.approved_at || emp.approvedAt || emp.ApprovedAt,
           approved_by: emp.approved_by || emp.approvedBy || emp.ApprovedBy,
+        }
+        
+        // Log if we have profile data but normalization didn't catch it
+        if ((emp.pib || emp.PIB || emp.maticni_broj || emp.maticniBroj || emp.MatBr || emp.delatnost) && 
+            (!normalized.pib && !normalized.maticni_broj && !normalized.delatnost)) {
+          console.warn("[Admin] Profile data exists but not normalized:", {
+            raw: {
+              pib: emp.pib,
+              PIB: emp.PIB,
+              maticni_broj: emp.maticni_broj,
+              maticniBroj: emp.maticniBroj,
+              MatBr: emp.MatBr,
+              delatnost: emp.delatnost,
+            },
+            normalized: {
+              pib: normalized.pib,
+              maticni_broj: normalized.maticni_broj,
+              delatnost: normalized.delatnost,
+            }
+          })
         }
         
         // #region agent log
@@ -414,23 +449,23 @@ export default function AdminEmployersPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="font-medium">PIB</p>
-                      <p className="text-muted-foreground">{employer.pib ? employer.pib : <span className="text-gray-400 italic">Not provided</span>}</p>
+                      <p className="text-muted-foreground">{employer.pib && employer.pib.trim() ? employer.pib : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div>
                       <p className="font-medium">Matični broj</p>
-                      <p className="text-muted-foreground">{employer.maticni_broj ? employer.maticni_broj : <span className="text-gray-400 italic">Not provided</span>}</p>
+                      <p className="text-muted-foreground">{employer.maticni_broj && employer.maticni_broj.trim() ? employer.maticni_broj : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div>
                       <p className="font-medium">Delatnost</p>
-                      <p className="text-muted-foreground">{employer.delatnost ? employer.delatnost : <span className="text-gray-400 italic">Not provided</span>}</p>
+                      <p className="text-muted-foreground">{employer.delatnost && employer.delatnost.trim() ? employer.delatnost : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div>
                       <p className="font-medium">Phone</p>
-                      <p className="text-muted-foreground">{employer.firm_phone ? employer.firm_phone : <span className="text-gray-400 italic">Not provided</span>}</p>
+                      <p className="text-muted-foreground">{employer.firm_phone && employer.firm_phone.trim() ? employer.firm_phone : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="font-medium">Address</p>
-                      <p className="text-muted-foreground">{employer.firm_address ? employer.firm_address : <span className="text-gray-400 italic">Not provided</span>}</p>
+                      <p className="text-muted-foreground">{employer.firm_address && employer.firm_address.trim() ? employer.firm_address : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                   </div>
                   {(!employer.approval_status || employer.approval_status.toLowerCase() === "pending") && (
