@@ -14,6 +14,10 @@ func (ctrl *Controllers) CreateCourse(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if subject.Semester != 1 && subject.Semester != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "semester must be 1 (first semester) or 2 (second semester)"})
+		return
+	}
 
 	err := ctrl.Repo.CreateSubject(&subject)
 	if err != nil {
@@ -41,6 +45,10 @@ func (ctrl *Controllers) UpdateSubject(c *gin.Context) {
 	var subject repositories.Subject
 	if err := c.BindJSON(&subject); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if subject.Semester != 0 && subject.Semester != 1 && subject.Semester != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "semester must be 1 (first semester) or 2 (second semester)"})
 		return
 	}
 	oldSubject, err := ctrl.Repo.GetSubjectByID(id)

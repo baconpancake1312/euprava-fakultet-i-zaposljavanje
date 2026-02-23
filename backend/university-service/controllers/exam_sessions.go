@@ -29,12 +29,30 @@ func (ctrl *Controllers) CreateExamSession(c *gin.Context) {
 		return
 	}
 
+	// Exam date must fall within an active exam period (professors can create exams before the period starts)
+	var majorID *primitive.ObjectID
+	if !subject.MajorID.IsZero() {
+		majorID = &subject.MajorID
+	}
+	period, err := ctrl.Repo.GetExamPeriodContainingDate(req.ExamDate, majorID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if period == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Exam date must fall within an active exam period. Create or activate an exam period that includes this date.",
+		})
+		return
+	}
+
 	examSession := repositories.ExamSession{
-		Subject:     *subject,
-		Professor:   *professor,
-		ExamDate:    req.ExamDate,
-		Location:    req.Location,
-		MaxStudents: req.MaxStudents,
+		Subject:      *subject,
+		Professor:    *professor,
+		ExamDate:     req.ExamDate,
+		ExamPeriodID: &period.ID,
+		Location:     req.Location,
+		MaxStudents:  req.MaxStudents,
 	}
 
 	err = ctrl.Repo.CreateExamSession(&examSession)
@@ -111,7 +129,34 @@ func (ctrl *Controllers) UpdateExamSession(c *gin.Context) {
 		return
 	}
 
+	// If exam date is being changed, it must fall within an active exam period
+	if !examSession.ExamDate.IsZero() {
+		var majorID *primitive.ObjectID
+		if !oldExamSession.Subject.MajorID.IsZero() {
+			majorID = &oldExamSession.Subject.MajorID
+		}
+		period, err := ctrl.Repo.GetExamPeriodContainingDate(examSession.ExamDate, majorID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if period == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Exam date must fall within an active exam period.",
+			})
+			return
+		}
+		examSession.ExamPeriodID = &period.ID
+	} else {
+		// Preserve existing period and date when not updating date
+		examSession.ExamDate = oldExamSession.ExamDate
+		examSession.ExamPeriodID = oldExamSession.ExamPeriodID
+	}
+
 	examSession.ID = objectID
+	examSession.Subject = oldExamSession.Subject
+	examSession.Professor = oldExamSession.Professor
+	examSession.CreatedAt = oldExamSession.CreatedAt
 
 	err = ctrl.Repo.UpdateExamSession(&examSession)
 	if err != nil {

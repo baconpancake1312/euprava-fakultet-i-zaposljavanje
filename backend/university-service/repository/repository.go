@@ -176,7 +176,7 @@ func (r *Repository) DeleteStudent(userID string) error {
 
 func (r *Repository) DeleteDynamic(entityID string, entityType string) error {
 	r.logger.Println("Deleting entity with ID:", entityID)
-	collections := []string{"student", "professor", "assistant", "department", "university", "subjects", "majors", "exam_sessions", "exam_registrations", "exam_grades", "notifications", "internship_applications", "student_services", "administrators"}
+	collections := []string{"student", "professor", "assistant", "department", "university", "subjects", "majors", "exam_sessions", "exam_registrations", "exam_grades", "exam_periods", "notifications", "internship_applications", "student_services", "administrators"}
 	if !slices.Contains(collections, entityType) {
 		return fmt.Errorf("invalid entity type: %s", entityType)
 	}
@@ -1337,6 +1337,89 @@ func (r *Repository) GetAllInternshipApplicationsForStudent(studentId primitive.
 
 // ===== NEW EXAM SYSTEM METHODS =====
 
+// ExamPeriod methods
+func (r *Repository) CreateExamPeriod(period *ExamPeriod) error {
+	collection := r.getCollection("exam_periods")
+	period.ID = primitive.NewObjectID()
+	period.CreatedAt = time.Now()
+	_, err := collection.InsertOne(context.TODO(), period)
+	return err
+}
+
+func (r *Repository) GetExamPeriodByID(id primitive.ObjectID) (*ExamPeriod, error) {
+	collection := r.getCollection("exam_periods")
+	var period ExamPeriod
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&period)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &period, nil
+}
+
+func (r *Repository) GetAllExamPeriods() ([]ExamPeriod, error) {
+	collection := r.getCollection("exam_periods")
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+	var periods []ExamPeriod
+	err = cursor.All(context.TODO(), &periods)
+	return periods, err
+}
+
+// GetActiveExamPeriods returns all periods where is_active is true.
+func (r *Repository) GetActiveExamPeriods() ([]ExamPeriod, error) {
+	collection := r.getCollection("exam_periods")
+	cursor, err := collection.Find(context.TODO(), bson.M{"is_active": true})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+	var periods []ExamPeriod
+	err = cursor.All(context.TODO(), &periods)
+	return periods, err
+}
+
+// GetExamPeriodContainingDate returns an active period whose start_date <= t <= end_date.
+// If majorID is non-nil, prefers a period for that major; otherwise returns a global period (major_id null).
+func (r *Repository) GetExamPeriodContainingDate(t time.Time, majorID *primitive.ObjectID) (*ExamPeriod, error) {
+	periods, err := r.GetActiveExamPeriods()
+	if err != nil {
+		return nil, err
+	}
+	truncated := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	var globalFallback *ExamPeriod
+	for i := range periods {
+		p := &periods[i]
+		start := time.Date(p.StartDate.Year(), p.StartDate.Month(), p.StartDate.Day(), 0, 0, 0, 0, p.StartDate.Location())
+		end := time.Date(p.EndDate.Year(), p.EndDate.Month(), p.EndDate.Day(), 23, 59, 59, 999999999, p.EndDate.Location())
+		if truncated.Before(start) || truncated.After(end) {
+			continue
+		}
+		if p.MajorID == nil {
+			globalFallback = p
+			if majorID == nil {
+				return p, nil
+			}
+		}
+		if majorID != nil && p.MajorID != nil && *p.MajorID == *majorID {
+			return p, nil
+		}
+	}
+	return globalFallback, nil
+}
+
+// UpdateExamPeriod updates an exam period by ID.
+func (r *Repository) UpdateExamPeriod(period *ExamPeriod) error {
+	collection := r.getCollection("exam_periods")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": period.ID}, bson.M{"$set": period})
+	return err
+}
+
 // ExamSession methods
 func (r *Repository) CreateExamSession(examSession *ExamSession) error {
 	collection := r.getCollection("exam_sessions")
@@ -1409,6 +1492,9 @@ func (r *Repository) UpdateExamSession(examSession *ExamSession) error {
 	}
 	if !examSession.ExamDate.IsZero() {
 		updateDoc["exam_date"] = examSession.ExamDate
+	}
+	if examSession.ExamPeriodID != nil {
+		updateDoc["exam_period_id"] = examSession.ExamPeriodID
 	}
 	if examSession.Location != "" {
 		updateDoc["location"] = examSession.Location

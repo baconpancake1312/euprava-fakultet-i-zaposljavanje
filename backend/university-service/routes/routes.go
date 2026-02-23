@@ -85,10 +85,18 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		// ExamGrade routes
 		protected.POST("/exam-grades/create", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.CreateExamGrade)
 		protected.PUT("/exam-grades/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateExamGrade)
+		protected.GET("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradeByID)
 		protected.GET("/exam-grades/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByStudent)
 		protected.GET("/exam-grades/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByExamSession)
 		protected.GET("/exam-grades/student/:studentId/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradeByStudentAndExam)
 		protected.DELETE("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "PROFESSOR"}), ctrl.DeleteExamGrade)
+
+		// Exam periods (when exams can be scheduled)
+		protected.POST("/exam-periods", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateExamPeriod)
+		protected.GET("/exam-periods", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetAllExamPeriods)
+		protected.GET("/exam-periods/active", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetActiveExamPeriods)
+		protected.GET("/exam-periods/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamPeriodByID)
+		protected.PUT("/exam-periods/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateExamPeriod)
 
 		// Admins
 		protected.POST("/administrators/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateAdministrator)

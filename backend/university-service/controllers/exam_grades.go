@@ -10,6 +10,21 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+func (ctrl *Controllers) GetExamGradeByID(c *gin.Context) {
+	id := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	grade, err := ctrl.Repo.GetExamGradeByID(objectID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Grade not found"})
+		return
+	}
+	c.JSON(http.StatusOK, grade)
+}
+
 func (ctrl *Controllers) CreateExamGrade(c *gin.Context) {
 	var req repositories.CreateExamGradeRequest
 	if err := c.BindJSON(&req); err != nil {
@@ -108,7 +123,9 @@ func (ctrl *Controllers) UpdateStudentGPA(student *repositories.Student) error {
 			passedSubjects++
 		}
 	}
-	student.GPA /= float64(passedSubjects)
+	if passedSubjects != 0 {
+		student.GPA /= float64(passedSubjects)
+	}
 	err := ctrl.Repo.UpdateStudent(student)
 	if err != nil {
 		return fmt.Errorf("error updating student GPA: %s", err.Error())
@@ -117,17 +134,26 @@ func (ctrl *Controllers) UpdateStudentGPA(student *repositories.Student) error {
 }
 
 func (ctrl *Controllers) UpdateExamGrade(c *gin.Context) {
-	id := c.Param("id")
+	id, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
 	var grade repositories.ExamGrade
 	if err := c.BindJSON(&grade); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	oldGrade, err := ctrl.Repo.GetExamGradeByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Grade not found"})
 		return
 	}
 	if grade.Grade < 5 || grade.Grade > 10 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Grade must be between 5 and 10"})
 		return
 	}
-	fetchedStudent, err := ctrl.Repo.GetStudentByID(grade.Student.ID.Hex())
+	fetchedStudent, err := ctrl.Repo.GetStudentByID(oldGrade.Student.ID.Hex())
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
 		return
@@ -147,13 +173,8 @@ func (ctrl *Controllers) UpdateExamGrade(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
 
-	grade.ID = objectID
+	grade.ID = id
 
 	err = ctrl.Repo.UpdateExamGrade(&grade)
 	if err != nil {
