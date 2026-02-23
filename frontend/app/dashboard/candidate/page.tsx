@@ -33,11 +33,19 @@ export default function CandidateDashboard() {
       setCandidateData(data)
 
       // Check if profile needs completion
-      const missingFields = []
-      if (!data.cv_file && !data.cv_base64) missingFields.push("cv")
-      if (!data.skills || data.skills.length === 0) missingFields.push("skills")
+      // If approved, profile is considered complete regardless of fields
+      const isApproved = data.approval_status?.toLowerCase() === 'approved'
+      
+      if (isApproved) {
+        setNeedsProfileCompletion(false)
+      } else {
+        // Only check for missing fields if not approved
+        const missingFields = []
+        if (!data.cv_file && !data.cv_base64) missingFields.push("cv")
+        if (!data.skills || data.skills.length === 0) missingFields.push("skills")
 
-      setNeedsProfileCompletion(missingFields.length > 0)
+        setNeedsProfileCompletion(missingFields.length > 0)
+      }
     } catch (error) {
       // Candidate profile doesn't exist yet
       setNeedsProfileCompletion(true)
@@ -80,7 +88,7 @@ export default function CandidateDashboard() {
         </div>
 
         {/* Only show profile completion prompt if profile is NOT approved */}
-        {needsProfileCompletion && !isApproved && (
+        {needsProfileCompletion && candidateData?.approval_status?.toLowerCase() !== 'approved' && (
           <div className="animate-slideIn">
             <ProfileCompletionPrompt
               title="Complete Your Candidate Profile"

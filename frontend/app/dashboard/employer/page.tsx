@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileCompletionPrompt } from "@/components/profile-completion-prompt"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Briefcase, Users, FileText, Building, Loader2, MessageSquare, BarChart3 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Briefcase, Users, FileText, Building, Loader2, MessageSquare, BarChart3, RefreshCw } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
 export default function EmployerDashboard() {
@@ -23,22 +24,50 @@ export default function EmployerDashboard() {
     }
 
     checkEmployerProfile()
-  }, [isAuthenticated, user, router])
+    
+    // Refresh profile data periodically to check for approval status updates
+    const interval = setInterval(() => {
+      if (token && user?.id) {
+        checkEmployerProfile()
+      }
+    }, 10000) // Check every 10 seconds
+
+    // Also refresh when page comes into focus (user switches back to tab)
+    const handleFocus = () => {
+      if (token && user?.id) {
+        checkEmployerProfile()
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [isAuthenticated, user, router, token])
 
   const checkEmployerProfile = async () => {
     try {
       if (!token || !user?.id) return
 
-      const data = await apiClient.getEmployerById(user.id, token)
+      const data = await apiClient.getEmployerByUserId(user.id, token)
       setEmployerData(data)
 
       // Check if profile needs completion
-      const missingFields = []
-      if (!data.firm_name) missingFields.push("firm_name")
-      if (!data.pib) missingFields.push("pib")
-      if (!data.maticni_broj) missingFields.push("maticni_broj")
+      // If approved, profile is considered complete regardless of fields
+      const isApproved = data.approval_status?.toLowerCase() === 'approved'
+      
+      if (isApproved) {
+        setNeedsProfileCompletion(false)
+      } else {
+        // Only check for missing fields if not approved
+        const missingFields = []
+        if (!data.firm_name) missingFields.push("firm_name")
+        if (!data.pib) missingFields.push("pib")
+        if (!data.maticni_broj) missingFields.push("maticni_broj")
 
-      setNeedsProfileCompletion(missingFields.length > 0)
+        setNeedsProfileCompletion(missingFields.length > 0)
+      }
     } catch (error) {
       // Employer profile doesn't exist yet
       setNeedsProfileCompletion(true)
@@ -77,6 +106,16 @@ export default function EmployerDashboard() {
                 {employerData.approval_status}
               </div>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => checkEmployerProfile()}
+              className="gap-2"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
         </div>
 
