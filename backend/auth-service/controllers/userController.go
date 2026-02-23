@@ -735,6 +735,8 @@ func GenerateServiceToken() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
+		l := log.New(gin.DefaultWriter, "User controller: ", log.LstdFlags)
+
 		// Find service account
 		var serviceAccount models.User
 		err := userCollection.FindOne(ctx, bson.M{
@@ -743,14 +745,19 @@ func GenerateServiceToken() gin.HandlerFunc {
 		}).Decode(&serviceAccount)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials"})
+			l.Printf("[GenerateServiceToken] Service account not found for service_name: %s, error: %v", request.ServiceName, err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials: service account not found"})
 			return
 		}
 
 		// Verify password
-		passwordIsValid, _ := VerifyPassword(*serviceAccount.Password, request.Password)
+		passwordIsValid, verifyMsg := VerifyPassword(*serviceAccount.Password, request.Password)
+		if verifyMsg != "" {
+			l.Printf("[GenerateServiceToken] Password verification error for service_name: %s, error: %s", request.ServiceName, verifyMsg)
+		}
 		if !passwordIsValid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials"})
+			l.Printf("[GenerateServiceToken] Invalid password for service_name: %s", request.ServiceName)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials: password mismatch"})
 			return
 		}
 
@@ -881,16 +888,32 @@ func getServiceToken(serviceName string) (string, error) {
 		return "", err
 	}
 
+	// Get auth service URL from environment or use default
+	authServiceURL := os.Getenv("AUTH_SERVICE_URL")
+	if authServiceURL == "" {
+		// Default to service name in Docker, fallback to localhost for local development
+		authServiceURL = "http://auth-service:8080"
+	}
+
 	// For self-service token generation, we can call the endpoint directly
 	// In a real scenario, this might be cached or retrieved from a secure store
-	resp, err := http.Post("http://localhost:8080/service-token", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(authServiceURL+"/service-token", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", err
+		// If service name fails, try localhost as fallback (for local development)
+		if authServiceURL != "http://localhost:8080" {
+			authServiceURL = "http://localhost:8080"
+			resp, err = http.Post(authServiceURL+"/service-token", "application/json", bytes.NewBuffer(jsonData))
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to connect to auth service: %v", err)
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get service token, status: %d", resp.StatusCode)
+		bodyBytes := make([]byte, 1024)
+		resp.Body.Read(bodyBytes)
+		return "", fmt.Errorf("failed to get service token, status: %d, response: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var tokenResponse struct {

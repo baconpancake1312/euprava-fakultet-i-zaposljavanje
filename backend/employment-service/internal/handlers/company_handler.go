@@ -8,6 +8,7 @@ import (
 	"employment-service/internal/services"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type CompanyHandler struct {
@@ -41,6 +42,18 @@ func (h *CompanyHandler) UpdateCompanyProfile() gin.HandlerFunc {
 		if err := c.BindJSON(&company); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
+		}
+
+		// Get employer_id from JWT context if not provided in company object
+		if company.EmployerId.IsZero() {
+			if uidValue, exists := c.Get("uid"); exists {
+				if uidStr, ok := uidValue.(string); ok && uidStr != "" {
+					if objectId, err := primitive.ObjectIDFromHex(uidStr); err == nil {
+						company.EmployerId = objectId
+						h.logger.Printf("[UpdateCompanyProfile] Set EmployerId from JWT context: %s", uidStr)
+					}
+				}
+			}
 		}
 
 		err := h.service.UpdateCompany(companyId, &company)

@@ -375,14 +375,17 @@ func (er *EmploymentRepo) GetAllEmployers() ([]*models.Employer, error) {
 			} else if !emp.User.ID.IsZero() && emp.ID.IsZero() {
 				emp.ID = emp.User.ID
 			}
+			// Skip employers with zero IDs - these are invalid documents
+			if emp.ID.IsZero() {
+				er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] has zero ID, skipping invalid document", i)
+				continue
+			}
 			// Verify the employer actually exists in the database by doing a quick lookup
-			if !emp.ID.IsZero() {
-				var verifyEmp models.Employer
-				err := employerCollection.FindOne(ctx, bson.M{"_id": emp.ID}).Decode(&verifyEmp)
-				if err != nil {
-					er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] with ID %s not found in database! This may indicate data inconsistency. Skipping.", i, emp.ID.Hex())
-					continue
-				}
+			var verifyEmp models.Employer
+			err := employerCollection.FindOne(ctx, bson.M{"_id": emp.ID}).Decode(&verifyEmp)
+			if err != nil {
+				er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] with ID %s not found in database! This may indicate data inconsistency. Skipping.", i, emp.ID.Hex())
+				continue
 			}
 			validEmployers = append(validEmployers, emp)
 			if i < 10 {
