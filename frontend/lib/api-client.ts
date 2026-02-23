@@ -1,4 +1,4 @@
-import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer, Student, Professor } from "./types"
+import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer, Student, Professor, ExamPeriod, CreateExamPeriodRequest } from "./types"
 import AdminProfessorsPage from '../app/dashboard/admin/professors/page';
 import { ApiErrorHandler, type ApiError } from "./error-handler"
 
@@ -537,6 +537,49 @@ class ApiClient {
     })
     return this.handleResponse(response)
   }
+
+  // Exam Periods
+  async getAllExamPeriods(token: string): Promise<ExamPeriod[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods`, {
+      headers: this.getAuthHeaders(token),
+    })
+    const data = await this.handleResponse<ExamPeriod[]>(response)
+    return Array.isArray(data) ? data : []
+  }
+
+  async getActiveExamPeriods(token: string): Promise<ExamPeriod[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/active`, {
+      headers: this.getAuthHeaders(token),
+    })
+    const data = await this.handleResponse<ExamPeriod[]>(response)
+    return Array.isArray(data) ? data : []
+  }
+
+  async getExamPeriodById(id: string, token: string): Promise<ExamPeriod> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async createExamPeriod(data: CreateExamPeriodRequest, token: string): Promise<ExamPeriod> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateExamPeriod(id: string, data: Partial<ExamPeriod>, token: string): Promise<ExamPeriod> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)

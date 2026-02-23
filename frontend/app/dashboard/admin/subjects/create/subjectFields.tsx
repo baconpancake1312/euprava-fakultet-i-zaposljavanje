@@ -22,6 +22,8 @@ type Props = {
   majors: MajorOption[]
   year: string
   onYearChange: (v: string) => void
+  semester: string
+  onSemesterChange: (v: string) => void
   professorIds: string[]
   onProfessorIdsChange: (ids: string[]) => void
   professors: ProfessorOption[]
@@ -39,6 +41,8 @@ export function SubjectFields({
   majors,
   year,
   onYearChange,
+  semester,
+  onSemesterChange,
   professorIds,
   onProfessorIdsChange,
   professors,
@@ -95,6 +99,19 @@ export function SubjectFields({
           onChange={(e) => onYearChange(e.target.value)}
           placeholder="e.g. 1"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Semester</Label>
+        <Select value={semester || undefined} onValueChange={onSemesterChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select semester" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">First semester</SelectItem>
+            <SelectItem value="2">Second semester</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">

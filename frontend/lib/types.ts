@@ -220,6 +220,28 @@ export interface CreateExamSession {
   updated_at?: string
 }
 
+export interface ExamPeriod {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  academic_year: number
+  semester: number
+  major_id?: string
+  is_active: boolean
+  created_at?: string
+}
+
+export interface CreateExamPeriodRequest {
+  name: string
+  start_date: string
+  end_date: string
+  academic_year: number
+  semester: number
+  major_id?: string
+  is_active: boolean
+}
+
 export interface ExamRegistration {
   id: string
   student_id: string

@@ -12,7 +12,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { Subject } from "@/lib/types"
+import { Subject, ExamPeriod } from "@/lib/types"
+
+function formatPeriodRange(period: ExamPeriod): string {
+  try {
+    const start = new Date(period.start_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    const end = new Date(period.end_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    return `${period.name} (${start} – ${end})`
+  } catch {
+    return period.name
+  }
+}
 
 export default function CreateExamSessionPage() {
     const router = useRouter()
@@ -20,6 +30,7 @@ export default function CreateExamSessionPage() {
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [courses, setCourses] = useState<Subject[]>([])
+    const [activePeriods, setActivePeriods] = useState<ExamPeriod[]>([])
     const [formData, setFormData] = useState({
         subject_id: "",
         exam_date: "",
@@ -41,8 +52,12 @@ export default function CreateExamSessionPage() {
         try {
             if (!token || !user?.id) return
 
-            const coursesData = await apiClient.getCoursesByProfessor(user.id, token)
+            const [coursesData, periodsData] = await Promise.all([
+                apiClient.getCoursesByProfessor(user.id, token),
+                apiClient.getActiveExamPeriods(token).catch(() => []),
+            ])
             setCourses(coursesData)
+            setActivePeriods(Array.isArray(periodsData) ? periodsData : [])
         } catch (error) {
             console.error("Error fetching courses:", error)
         } finally {
@@ -195,6 +210,23 @@ export default function CreateExamSessionPage() {
 
                         {/* Sidebar */}
                         <div className="space-y-6">
+                            {activePeriods.length > 0 && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">Active exam periods</CardTitle>
+                                        <CardDescription>
+                                            Schedule your exam on a date within one of these periods so it is accepted by the system.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <ul className="text-sm text-muted-foreground space-y-1">
+                                            {activePeriods.map((p) => (
+                                                <li key={p.id}>{formatPeriodRange(p)}</li>
+                                            ))}
+                                        </ul>
+                                    </CardContent>
+                                </Card>
+                            )}
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Form Guidelines</CardTitle>

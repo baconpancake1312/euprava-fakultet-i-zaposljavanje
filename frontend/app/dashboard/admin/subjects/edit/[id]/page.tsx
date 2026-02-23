@@ -27,6 +27,7 @@ export default function EditSubjectPage() {
   const [name, setName] = useState("")
   const [majorId, setMajorId] = useState("")
   const [year, setYear] = useState("")
+  const [semester, setSemester] = useState("")
   const [majors, setMajors] = useState<MajorOption[]>([])
   const [professorIds, setProfessorIds] = useState<string[]>([])
   const [professors, setProfessors] = useState<ProfessorOption[]>([])
@@ -50,6 +51,7 @@ export default function EditSubjectPage() {
         setName(subject.name ?? "")
         setMajorId(subject.major_id ?? "")
         setYear(subject.year != null ? String(subject.year) : "")
+        setSemester(subject.semester != null ? String(subject.semester) : "")
         setMajors(
           (Array.isArray(majorsData) ? majorsData : []).map((m: Major) => ({
             id: m.id,
@@ -91,10 +93,12 @@ export default function EditSubjectPage() {
     try {
       const subject = await apiClient.getCourseById(subjectId, token)
       const yearNum = parseInt(year, 10)
+      const semesterNum = parseInt(semester, 10)
       const payload: {
         name: string
         major_id: string
         year?: number
+        semester?: number
         professor_ids?: string[]
       } = {
         ...subject,
@@ -102,6 +106,7 @@ export default function EditSubjectPage() {
         major_id: majorId.trim(),
       }
       if (!Number.isNaN(yearNum)) payload.year = yearNum
+      if (!Number.isNaN(semesterNum) && (semesterNum === 1 || semesterNum === 2)) payload.semester = semesterNum
       if (professorIds.length > 0) payload.professor_ids = professorIds
 
       await apiClient.updateCourse(subjectId, payload, token)
@@ -142,6 +147,7 @@ export default function EditSubjectPage() {
         { title: "Subject name", text: "Enter the full name of the course." },
         { title: "Major", text: "Choose the major this subject belongs to." },
         { title: "Year", text: "Optional. The year of study (1–6)." },
+        { title: "Semester", text: "First or second semester of the year." },
         { title: "Professors", text: "Optional. Select one or more professors who teach this subject." },
       ]}
     >
@@ -154,6 +160,8 @@ export default function EditSubjectPage() {
           majors={majors}
           year={year}
           onYearChange={setYear}
+          semester={semester}
+          onSemesterChange={setSemester}
           professorIds={professorIds}
           onProfessorIdsChange={setProfessorIds}
           professors={professors}
