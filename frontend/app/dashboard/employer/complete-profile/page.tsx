@@ -29,6 +29,7 @@ export default function CompleteEmployerProfile() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [checkingExisting, setCheckingExisting] = useState(true)
+  const [existingEmployerId, setExistingEmployerId] = useState<string | null>(null)
 
   useEffect(() => {
     const checkExistingProfile = async () => {
@@ -44,8 +45,28 @@ export default function CompleteEmployerProfile() {
         // Check if employer profile already exists
         const employer = await apiClient.getEmployerByUserId(user.id, token)
         if (employer && employer.id) {
-          // Profile already exists, redirect to dashboard
-          router.push("/dashboard/employer")
+          // Store the existing employer ID for updates
+          setExistingEmployerId(employer.id)
+          
+          // Load existing data into form
+          setFormData({
+            firm_name: employer.firm_name || "",
+            pib: employer.pib || "",
+            maticni_broj: employer.maticni_broj || "",
+            delatnost: employer.delatnost || "",
+            firm_address: employer.firm_address || "",
+            firm_phone: employer.firm_phone || "",
+          })
+          
+          // Only redirect if profile is complete and approved
+          const isComplete = employer.firm_name && employer.pib && employer.maticni_broj
+          const isApproved = employer.approval_status?.toLowerCase() === 'approved'
+          
+          if (isComplete && isApproved) {
+            // Profile is complete and approved, redirect to dashboard
+            router.push("/dashboard/employer")
+          }
+          // Otherwise, allow them to complete/update the profile
         }
       } catch (err) {
         // No existing profile found, that's okay - let them create one
@@ -66,22 +87,38 @@ export default function CompleteEmployerProfile() {
     try {
       if (!token || !user?.id) throw new Error("Not authenticated")
 
-      const data = {
-        user_id: user.id,
-        email: user.email,
-        first_name: user.first_name || "",
-        last_name: user.last_name || "",
-        ...formData,
-        approval_status: "pending",
-      }
+      if (existingEmployerId) {
+        // Update existing employer profile
+        const updateData = {
+          firm_name: formData.firm_name,
+          pib: formData.pib,
+          maticni_broj: formData.maticni_broj,
+          delatnost: formData.delatnost,
+          firm_address: formData.firm_address,
+          firm_phone: formData.firm_phone,
+        }
+        
+        console.log("Updating employer profile:", updateData)
+        await apiClient.updateEmployer(existingEmployerId, updateData, token)
+      } else {
+        // Create new employer profile
+        const data = {
+          user_id: user.id,
+          email: user.email,
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+          ...formData,
+          approval_status: "pending",
+        }
 
-      console.log("Creating employer profile:", data)
-      await apiClient.createEmployer(data, token)
+        console.log("Creating employer profile:", data)
+        await apiClient.createEmployer(data, token)
+      }
       
       router.push("/dashboard/employer")
     } catch (err) {
-      console.error("Error creating employer profile:", err)
-      setError(err instanceof Error ? err.message : "Failed to create employer profile")
+      console.error("Error saving employer profile:", err)
+      setError(err instanceof Error ? err.message : "Failed to save employer profile")
     } finally {
       setLoading(false)
     }
@@ -119,8 +156,14 @@ export default function CompleteEmployerProfile() {
     <DashboardLayout title="Complete Employer Profile">
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h2 className="text-2xl font-bold">Complete Your Employer Profile</h2>
-          <p className="text-muted-foreground">Add your company information to be able to post job listings</p>
+          <h2 className="text-2xl font-bold">
+            {existingEmployerId ? "Update Your Employer Profile" : "Complete Your Employer Profile"}
+          </h2>
+          <p className="text-muted-foreground">
+            {existingEmployerId 
+              ? "Update your company information to be able to post job listings"
+              : "Add your company information to be able to post job listings"}
+          </p>
         </div>
 
         <Card>
@@ -223,8 +266,10 @@ export default function CompleteEmployerProfile() {
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
+                      {existingEmployerId ? "Updating..." : "Submitting..."}
                     </>
+                  ) : existingEmployerId ? (
+                    "Update Profile"
                   ) : (
                     "Submit for Review"
                   )}
