@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users } from "lucide-react"
+import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users, AlertTriangle, CircleAlert } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { apiClient } from "@/lib/api-client"
 import { Subject, ExamPeriod } from "@/lib/types"
 
@@ -21,6 +22,20 @@ function formatPeriodRange(period: ExamPeriod): string {
     return `${period.name} (${start} – ${end})`
   } catch {
     return period.name
+  }
+}
+
+function isDateWithinPeriod(examDate: Date, period: ExamPeriod): boolean {
+  try {
+    const examDay = new Date(examDate.getFullYear(), examDate.getMonth(), examDate.getDate())
+    const periodStart = new Date(period.start_date)
+    const periodEnd = new Date(period.end_date)
+    const startDay = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate())
+    const endDay = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate())
+    endDay.setHours(23, 59, 59, 999)
+    return examDay >= startDay && examDay <= endDay
+  } catch {
+    return false
   }
 }
 
@@ -95,6 +110,16 @@ export default function CreateExamSessionPage() {
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }))
     }
+
+    const examDateChosen = formData.exam_date && formData.exam_time
+    const chosenDate = examDateChosen
+      ? new Date(`${formData.exam_date}T${formData.exam_time}`)
+      : null
+    const hasActivePeriods = activePeriods.length > 0
+    const isOutsideAnyPeriod =
+      hasActivePeriods &&
+      chosenDate != null &&
+      !activePeriods.some((p) => isDateWithinPeriod(chosenDate, p))
 
     if (loading) {
         return (
@@ -182,6 +207,16 @@ export default function CreateExamSessionPage() {
                                         </div>
                                     </div>
 
+                                    {isOutsideAnyPeriod && (
+                                        <Alert variant="destructive">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <AlertTitle>Date outside active exam period</AlertTitle>
+                                            <AlertDescription>
+                                                The chosen exam date is not within any active exam period. The system may reject this session. Please choose a date within one of the active exam periods listed in the sidebar.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
                                     <div>
                                         <Label htmlFor="location">Location *</Label>
                                         <Input
@@ -221,7 +256,10 @@ export default function CreateExamSessionPage() {
                                     <CardContent>
                                         <ul className="text-sm text-muted-foreground space-y-1">
                                             {activePeriods.map((p) => (
-                                                <li key={p.id}>{formatPeriodRange(p)}</li>
+                                                <>
+                                                    <li key={p.id}>{formatPeriodRange(p)} {isOutsideAnyPeriod ? "⚠️" : ""}</li>
+                                                    
+                                                </>
                                             ))}
                                         </ul>
                                     </CardContent>
