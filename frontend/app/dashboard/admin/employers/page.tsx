@@ -7,7 +7,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, Building2, Loader2, Eye } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Building2, Loader2, Eye, Briefcase, ChevronDown, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
@@ -36,6 +36,9 @@ export default function AdminEmployersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [jobListingsByEmployer, setJobListingsByEmployer] = useState<Record<string, any[]>>({})
+  const [expandedEmployerId, setExpandedEmployerId] = useState<string | null>(null)
+  const [loadingJobListings, setLoadingJobListings] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -332,6 +335,31 @@ export default function AdminEmployersPage() {
     }
   }
 
+  const loadJobListingsForEmployer = async (employerId: string) => {
+    if (jobListingsByEmployer[employerId]) {
+      // Already loaded, just toggle expansion
+      setExpandedEmployerId(expandedEmployerId === employerId ? null : employerId)
+      return
+    }
+
+    setLoadingJobListings(employerId)
+    try {
+      const adminToken = (user as any)?.token || token
+      const listings = await apiClient.getJobListingsByEmployer(employerId, adminToken!)
+      setJobListingsByEmployer(prev => ({ ...prev, [employerId]: listings }))
+      setExpandedEmployerId(employerId)
+    } catch (error) {
+      console.error("Failed to load job listings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load job listings for this employer",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingJobListings(null)
+    }
+  }
+
   const filteredEmployers = (employers ?? []).filter((employer) => {
     if (filter === "all") return true
     return employer.approval_status?.toLowerCase() === filter
@@ -536,14 +564,87 @@ export default function AdminEmployersPage() {
                     </div>
                   )}
                   {employer.approval_status?.toLowerCase() === "approved" && (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => router.push(`/dashboard/admin/employers/${employer.id}`)}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Applications & Candidates
-                    </Button>
+                    <>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => router.push(`/dashboard/admin/employers/${employer.id}`)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Applications & Candidates
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => loadJobListingsForEmployer(employer.id)}
+                          disabled={loadingJobListings === employer.id}
+                        >
+                          {loadingJobListings === employer.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : expandedEmployerId === employer.id ? (
+                            <ChevronDown className="mr-2 h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="mr-2 h-4 w-4" />
+                          )}
+                          <Briefcase className="mr-2 h-4 w-4" />
+                          Job Listings ({jobListingsByEmployer[employer.id]?.length || 0})
+                        </Button>
+                      </div>
+                      {expandedEmployerId === employer.id && jobListingsByEmployer[employer.id] && (
+                        <div className="mt-4 space-y-3 border-t pt-4">
+                          <h4 className="font-semibold text-sm">Job Listings</h4>
+                          {jobListingsByEmployer[employer.id].length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No job listings found</p>
+                          ) : (
+                            jobListingsByEmployer[employer.id].map((listing: any) => (
+                              <Card key={listing.id || listing._id} className="bg-muted/50">
+                                <CardContent className="pt-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-start justify-between">
+                                      <div>
+                                        <p className="font-medium">{listing.position || "Untitled Position"}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {listing.is_internship ? "Internship" : "Full-time"}
+                                        </p>
+                                      </div>
+                                      <Badge
+                                        className={
+                                          listing.approval_status?.toLowerCase() === "approved"
+                                            ? "bg-green-500"
+                                            : listing.approval_status?.toLowerCase() === "rejected"
+                                            ? "bg-red-500"
+                                            : "bg-yellow-500"
+                                        }
+                                      >
+                                        {listing.approval_status || "Pending"}
+                                      </Badge>
+                                    </div>
+                                    {listing.description && (
+                                      <p className="text-sm text-muted-foreground line-clamp-2">
+                                        {listing.description}
+                                      </p>
+                                    )}
+                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                      {listing.created_at && (
+                                        <span>
+                                          Posted: {new Date(listing.created_at).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                      {listing.expire_at && (
+                                        <span>
+                                          Expires: {new Date(listing.expire_at).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                   {employer.approved_at && (
                     <p className="text-xs text-muted-foreground">

@@ -347,56 +347,166 @@ func (er *EmploymentRepo) GetAllEmployers() ([]*models.Employer, error) {
 
 	employerCollection := OpenCollection(er.cli, "employers")
 
+	// First, clean up zero-ID documents by querying raw documents
+	er.logger.Printf("[GetAllEmployers] Checking for zero-ID documents to clean up...")
+	rawCursor, rawErr := employerCollection.Find(ctx, bson.M{})
+	if rawErr == nil && rawCursor != nil {
+		defer rawCursor.Close(ctx)
+		var allRawDocs []bson.M
+		if err := rawCursor.All(ctx, &allRawDocs); err == nil {
+			er.logger.Printf("[GetAllEmployers] Found %d raw documents in collection", len(allRawDocs))
+			deletedCount := int64(0)
+			for i, doc := range allRawDocs {
+				if _id, ok := doc["_id"]; ok {
+					// Log the actual _id value and type for debugging
+					er.logger.Printf("[GetAllEmployers] Document[%d] _id: type=%T, value=%v", i, _id, _id)
+					
+					var shouldDelete bool
+					var idType string
+					var idHex string
+					
+					if idObj, ok := _id.(primitive.ObjectID); ok {
+						idHex = idObj.Hex()
+						er.logger.Printf("[GetAllEmployers] Document[%d] _id as ObjectID: hex=%s, isZero=%v", i, idHex, idObj.IsZero())
+						if idObj.IsZero() || idHex == "000000000000000000000000" {
+							shouldDelete = true
+							idType = "ObjectID"
+							er.logger.Printf("[GetAllEmployers] Document[%d] MARKED FOR DELETION: zero ObjectID", i)
+						}
+					} else if idStr, ok := _id.(string); ok {
+						idHex = idStr
+						er.logger.Printf("[GetAllEmployers] Document[%d] _id as string: %s", i, idStr)
+						if idStr == "000000000000000000000000" || idStr == "" {
+							shouldDelete = true
+							idType = "string"
+							er.logger.Printf("[GetAllEmployers] Document[%d] MARKED FOR DELETION: zero string ID", i)
+						}
+					} else {
+						// Try to convert to string and check
+						idStr := fmt.Sprintf("%v", _id)
+						er.logger.Printf("[GetAllEmployers] Document[%d] _id as other type: %T, string representation: %s", i, _id, idStr)
+						if idStr == "000000000000000000000000" || idStr == "" || idStr == "<nil>" {
+							shouldDelete = true
+							idType = "other"
+							er.logger.Printf("[GetAllEmployers] Document[%d] MARKED FOR DELETION: zero/empty other type", i)
+						}
+					}
+					
+					if shouldDelete {
+						er.logger.Printf("[GetAllEmployers] Attempting to delete document[%d] with _id: %v (type: %T)", i, _id, _id)
+						deleteResult, delErr := employerCollection.DeleteOne(ctx, bson.M{"_id": _id})
+						if delErr != nil {
+							er.logger.Printf("[GetAllEmployers] Error deleting zero-ID document[%d] (%s): %v", i, idType, delErr)
+						} else if deleteResult.DeletedCount > 0 {
+							deletedCount += deleteResult.DeletedCount
+							er.logger.Printf("[GetAllEmployers] Successfully deleted zero-ID document[%d] (%s)", i, idType)
+						} else {
+							er.logger.Printf("[GetAllEmployers] DeleteOne returned 0 deleted for document[%d]", i)
+						}
+					} else {
+						er.logger.Printf("[GetAllEmployers] Document[%d] has valid _id, keeping it", i)
+					}
+				} else {
+					er.logger.Printf("[GetAllEmployers] Document[%d] has no _id field!", i)
+				}
+			}
+			if deletedCount > 0 {
+				er.logger.Printf("[GetAllEmployers] Cleaned up %d zero-ID employer document(s)", deletedCount)
+			} else {
+				er.logger.Printf("[GetAllEmployers] No zero-ID documents found to delete")
+			}
+		} else {
+			er.logger.Printf("[GetAllEmployers] Error decoding raw documents: %v", err)
+		}
+	} else {
+		er.logger.Printf("[GetAllEmployers] Error querying raw documents: %v", rawErr)
+	}
+
+	// Query and decode employers
 	var employers []*models.Employer
 	cursor, err := employerCollection.Find(ctx, bson.M{})
 	if err != nil {
-		er.logger.Println(err)
+		er.logger.Printf("[GetAllEmployers] Error querying employers: %v", err)
 		return nil, err
 	}
+	defer cursor.Close(ctx)
+	
+	// Decode all employers - use raw documents to manually set IDs if needed
+	var allRawDocsForDecode []bson.M
+	rawCursor2, _ := employerCollection.Find(ctx, bson.M{})
+	if rawCursor2 != nil {
+		defer rawCursor2.Close(ctx)
+		rawCursor2.All(ctx, &allRawDocsForDecode)
+	}
+	
+	// Decode all employers
 	if err = cursor.All(ctx, &employers); err != nil {
-		er.logger.Println(err)
+		er.logger.Printf("[GetAllEmployers] Error decoding employers: %v", err)
 		return nil, err
 	}
 	
-	// Verify all employers have valid IDs and exist in DB
-	// Note: We don't filter by profile completeness here - admins should see all employers
-	// Profile completeness filtering is only applied to GetPendingEmployers()
-	if len(employers) > 0 {
-		er.logger.Printf("[GetAllEmployers] Found %d employers in database", len(employers))
-		validEmployers := make([]*models.Employer, 0, len(employers))
-		for i, emp := range employers {
-			if emp == nil {
-				er.logger.Printf("[GetAllEmployers] Employer[%d] is nil, skipping", i)
-				continue
+	er.logger.Printf("[GetAllEmployers] Decoded %d employers from database", len(employers))
+	
+	// Fix IDs by matching raw documents with decoded employers
+	for i, emp := range employers {
+		if emp == nil {
+			continue
+		}
+		// If User.ID is zero, try to get it from raw document
+		if emp.User.ID.IsZero() && len(allRawDocsForDecode) > 0 {
+			// Try to match by index or by email
+			if i < len(allRawDocsForDecode) {
+				rawDoc := allRawDocsForDecode[i]
+				if _id, ok := rawDoc["_id"]; ok {
+					if idObj, ok := _id.(primitive.ObjectID); ok && !idObj.IsZero() {
+						emp.User.ID = idObj
+						er.logger.Printf("[GetAllEmployers] Fixed Employer[%d] ID from raw doc: %s", i, idObj.Hex())
+					}
+				}
 			}
-			// Ensure ID is set from User.ID if needed (since Employer embeds User)
-			if emp.User.ID.IsZero() && !emp.ID.IsZero() {
-				emp.User.ID = emp.ID
-			} else if !emp.User.ID.IsZero() && emp.ID.IsZero() {
-				emp.ID = emp.User.ID
-			}
-			// Skip employers with zero IDs - these are invalid documents
-			if emp.ID.IsZero() {
-				er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] has zero ID, skipping invalid document", i)
-				continue
-			}
-			// Verify the employer actually exists in the database by doing a quick lookup
-			var verifyEmp models.Employer
-			err := employerCollection.FindOne(ctx, bson.M{"_id": emp.ID}).Decode(&verifyEmp)
-			if err != nil {
-				er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] with ID %s not found in database! This may indicate data inconsistency. Skipping.", i, emp.ID.Hex())
-				continue
-			}
-			validEmployers = append(validEmployers, emp)
-			if i < 10 {
-				er.logger.Printf("[GetAllEmployers] Employer[%d] ID: %s (type: %T, length: %d)", i, emp.ID.Hex(), emp.ID, len(emp.ID.Hex()))
+			// If still zero, try matching by email
+			if emp.User.ID.IsZero() && emp.Email != nil && *emp.Email != "" {
+				for _, rawDoc := range allRawDocsForDecode {
+					if rawEmail, ok := rawDoc["email"].(string); ok && rawEmail == *emp.Email {
+						if _id, ok := rawDoc["_id"]; ok {
+							if idObj, ok := _id.(primitive.ObjectID); ok && !idObj.IsZero() {
+								emp.User.ID = idObj
+								er.logger.Printf("[GetAllEmployers] Fixed Employer[%d] ID from raw doc by email: %s", i, idObj.Hex())
+								break
+							}
+						}
+					}
+				}
 			}
 		}
-		er.logger.Printf("[GetAllEmployers] Returning %d valid employers (filtered from %d)", len(validEmployers), len(employers))
-		return validEmployers, nil
 	}
 	
-	return employers, nil
+	// Filter out only truly invalid employers (zero IDs)
+	// Note: We don't filter by profile completeness here - admins should see all employers
+	// Profile completeness filtering is only applied to GetPendingEmployers()
+	validEmployers := make([]*models.Employer, 0, len(employers))
+	for i, emp := range employers {
+		if emp == nil {
+			er.logger.Printf("[GetAllEmployers] Employer[%d] is nil, skipping", i)
+			continue
+		}
+		
+		// Employer embeds User, so the ID is in emp.User.ID (which maps to _id in MongoDB)
+		// Only skip if ID is truly zero (invalid document)
+		if emp.User.ID.IsZero() {
+			er.logger.Printf("[GetAllEmployers] WARNING: Employer[%d] has zero User.ID after fix attempt, skipping", i)
+			er.logger.Printf("[GetAllEmployers] Employer[%d] details: Email=%v, FirmName=%s", i, emp.Email, emp.FirmName)
+			continue
+		}
+		
+		validEmployers = append(validEmployers, emp)
+		if i < 10 {
+			er.logger.Printf("[GetAllEmployers] Employer[%d] ID: %s, FirmName: %s", i, emp.User.ID.Hex(), emp.FirmName)
+		}
+	}
+	
+	er.logger.Printf("[GetAllEmployers] Returning %d valid employers (filtered from %d)", len(validEmployers), len(employers))
+	return validEmployers, nil
 }
 
 func (er *EmploymentRepo) UpdateEmployer(employerId string, employer *models.Employer) error {

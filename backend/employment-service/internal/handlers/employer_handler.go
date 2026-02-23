@@ -284,7 +284,7 @@ func (h *EmployerHandler) GetAllEmployers() gin.HandlerFunc {
 					break
 				}
 				if emp != nil {
-					h.logger.Printf("[GetAllEmployers] Employer[%d] - ID: %s, FirmName: %s", i, emp.ID.Hex(), emp.FirmName)
+					h.logger.Printf("[GetAllEmployers] Employer[%d] - ID: %s, FirmName: %s", i, emp.User.ID.Hex(), emp.FirmName)
 				}
 			}
 		}
