@@ -28,7 +28,10 @@ export default function LoginPage() {
     try {
       const response = await apiClient.login({ email, password })
       login(response.user, response.token)
-      router.push("/dashboard")
+      // Wait a tick for state to update, then navigate
+      // This ensures the dashboard page sees the updated auth state
+      await new Promise(resolve => setTimeout(resolve, 0))
+      router.replace("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.")
     } finally {

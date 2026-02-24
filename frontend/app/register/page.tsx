@@ -47,8 +47,15 @@ export default function RegisterPage() {
       const payload = { ...formData, date_of_birth: dateOfBirth }
       console.log("Registration payload:", payload)
       const response = await apiClient.register(payload)
+      
+      // Update auth state
       login(response.user, response.token)
-      router.push("/dashboard")
+      
+      // Use replace instead of push to avoid back button issues
+      // Wait a tick for state to update, then navigate
+      // This ensures the dashboard page sees the updated auth state
+      await new Promise(resolve => setTimeout(resolve, 0))
+      router.replace("/dashboard")
     } catch (err) {
       console.error("Registration error:", err)
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
