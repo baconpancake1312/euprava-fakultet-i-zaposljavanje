@@ -90,9 +90,9 @@ type Candidate struct {
 	HighschoolGPA float64            `bson:"highschool_gpa" json:"highschool_gpa,omitempty"`
 	GPA           float64            `bson:"gpa" json:"gpa,omitempty"`
 	ESBP          int                `bson:"esbp" json:"esbp,omitempty"`
-	CVFile        string             `json:"cv_file,omitempty"`
-	CVBase64      string             `json:"cv_base64,omitempty"`
-	Skills        []string           `json:"skills,omitempty"`
+	CVFile        string             `bson:"cv_file,omitempty" json:"cv_file,omitempty"`
+	CVBase64      string             `bson:"cv_base64,omitempty" json:"cv_base64,omitempty"`
+	Skills        []string           `bson:"skills,omitempty" json:"skills,omitempty"`
 	ProfilePicBase64 string          `bson:"profile_pic_base64,omitempty" json:"profile_pic_base64,omitempty"`
 }
 

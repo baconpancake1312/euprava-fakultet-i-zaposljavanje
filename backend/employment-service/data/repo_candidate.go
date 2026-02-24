@@ -9,6 +9,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitive.ObjectID, error) {
@@ -23,28 +24,47 @@ func (er *EmploymentRepo) CreateCandidate(candidate *models.Candidate) (primitiv
 		candidate.User.ID = candidate.ID
 	}
 
-	if candidate.Major == "" {
-		candidate.Major = ""
-	}
 	if candidate.Year == 0 {
 		candidate.Year = 1
 	}
-	if candidate.GPA == 0 {
-		candidate.GPA = 0.0
-	}
-	if candidate.HighschoolGPA == 0 {
-		candidate.HighschoolGPA = 0.0
-	}
-	if candidate.ESBP == 0 {
-		candidate.ESBP = 0
+
+	// Build an explicit BSON document so _id is always set correctly.
+	// Using ReplaceOne with upsert so that re-submitting the form updates the
+	// existing record instead of attempting a duplicate insert.
+	doc := bson.M{
+		"_id":               candidate.ID,
+		"first_name":        candidate.FirstName,
+		"last_name":         candidate.LastName,
+		"email":             candidate.Email,
+		"phone":             candidate.Phone,
+		"address":           candidate.Address,
+		"date_of_birth":     candidate.DateOfBirth,
+		"jmbg":              candidate.JMBG,
+		"user_type":         candidate.UserType,
+		"major":             candidate.Major,
+		"year":              candidate.Year,
+		"scholarship":       candidate.Scholarship,
+		"highschool_gpa":    candidate.HighschoolGPA,
+		"gpa":               candidate.GPA,
+		"esbp":              candidate.ESBP,
+		"cv_file":           candidate.CVFile,
+		"cv_base64":         candidate.CVBase64,
+		"skills":            candidate.Skills,
+		"profile_pic_base64": candidate.ProfilePicBase64,
 	}
 
-	result, err := candidateCollection.InsertOne(ctx, &candidate)
+	filter := bson.M{"_id": candidate.ID}
+	result, err := candidateCollection.ReplaceOne(ctx, filter, doc, options.Replace().SetUpsert(true))
 	if err != nil {
-		er.logger.Println(err)
-		return primitive.NewObjectID(), err
+		er.logger.Printf("[CreateCandidate] ReplaceOne error: %v", err)
+		return primitive.NewObjectID(), fmt.Errorf("failed to save candidate: %v", err)
 	}
-	er.logger.Printf("Documents ID: %v\n", result.InsertedID)
+
+	if result.UpsertedID != nil {
+		er.logger.Printf("[CreateCandidate] Inserted new candidate with _id: %v", result.UpsertedID)
+	} else {
+		er.logger.Printf("[CreateCandidate] Updated existing candidate with _id: %v", candidate.ID.Hex())
+	}
 	return candidate.ID, nil
 }
 

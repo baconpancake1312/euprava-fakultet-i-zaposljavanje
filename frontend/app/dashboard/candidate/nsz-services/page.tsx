@@ -16,11 +16,11 @@ import { useToast } from "@/hooks/use-toast"
 
 // ─── Predefined benefit types ─────────────────────────────────────────────────
 const PREDEFINED_BENEFITS = [
-  { key: "unemployment", label: "Novčana naknada za nezaposlene", description: "Naknada za period nezaposlenosti (do 12 meseci)." },
-  { key: "retraining", label: "Naknada za prekvalifikaciju", description: "Podrška za pohađanje kurseva i obuka." },
-  { key: "disability", label: "Naknada za invalidnost", description: "Finansijska podrška licima sa invaliditetom." },
-  { key: "parental", label: "Roditeljski dodatak", description: "Jednokratna ili mesečna naknada za roditelje." },
-  { key: "custom", label: "Poseban zahtev (custom)", description: "Opišite razlog koji nije pokriven gornjim opcijama." },
+  { key: "unemployment", label: "Unemployment benefit", description: "Financial support during a period of unemployment (up to 12 months)." },
+  { key: "retraining", label: "Retraining / upskilling benefit", description: "Support for attending courses and professional training programs." },
+  { key: "disability", label: "Disability benefit", description: "Financial assistance for persons with disabilities." },
+  { key: "parental", label: "Parental allowance", description: "One-time or monthly allowance for parents." },
+  { key: "custom", label: "Custom request", description: "Describe a reason not covered by the options above." },
 ]
 
 interface BenefitClaim {
@@ -175,7 +175,7 @@ export default function CandidateNSZServicesPage() {
     if (!val) return ""
     const d = new Date(val)
     if (isNaN(d.getTime()) || d.getFullYear() < 2000) return ""
-    return d.toLocaleDateString("sr-RS")
+    return d.toLocaleDateString("en-GB")
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ export default function CandidateNSZServicesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <HandCoins className="h-4 w-4 text-[#FF5A5F]" />
-              Novčana naknada
+              Monetary Benefits
             </CardTitle>
             <CardDescription>
               Select a benefit type or describe a custom request. The government will review and respond.
@@ -338,7 +338,7 @@ export default function CandidateNSZServicesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-[#FF5A5F]" />
-              Komunikacija sa državom
+              Administrative Communication
             </CardTitle>
             <CardDescription>
               Send a message or inquiry to the state employment office. You will be notified when they respond.
