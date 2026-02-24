@@ -209,7 +209,9 @@ export default function JobListingAnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Application Status Distribution</CardTitle>
-              <CardDescription>Breakdown of application statuses</CardDescription>
+              <CardDescription>
+                Share of all applications for this job that are pending, accepted, or rejected.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[300px]">
@@ -220,7 +222,6 @@ export default function JobListingAnalyticsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
@@ -233,6 +234,24 @@ export default function JobListingAnalyticsPage() {
                   </PieChart>
                 </ResponsiveContainer>
               </ChartContainer>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                <div>
+                  <span className="inline-block h-2 w-2 rounded-full mr-1" style={{ backgroundColor: COLORS[0] }} />
+                  <span>Pending: </span>
+                  <span className="font-semibold text-foreground">{stats.pending}</span>
+                </div>
+                <div>
+                  <span className="inline-block h-2 w-2 rounded-full mr-1" style={{ backgroundColor: COLORS[1] }} />
+                  <span>Accepted: </span>
+                  <span className="font-semibold text-foreground">{stats.accepted}</span>
+                </div>
+                <div>
+                  <span className="inline-block h-2 w-2 rounded-full mr-1" style={{ backgroundColor: COLORS[2] }} />
+                  <span>Rejected: </span>
+                  <span className="font-semibold text-foreground">{stats.rejected}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -240,7 +259,7 @@ export default function JobListingAnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Applications by Status</CardTitle>
-              <CardDescription>Each point represents total applications per status</CardDescription>
+              <CardDescription>Total applications per status</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[300px]">
@@ -253,9 +272,9 @@ export default function JobListingAnalyticsPage() {
                     <Line
                       type="monotone"
                       dataKey="count"
-                      stroke="var(--color-applications)"
+                      stroke="#FF5A5F"
                       strokeWidth={2}
-                      dot={{ r: 5 }}
+                      dot={{ r: 5, stroke: "#FF5A5F", fill: "#FF5A5F" }}
                     />
                   </LineChart>
                 </ResponsiveContainer>

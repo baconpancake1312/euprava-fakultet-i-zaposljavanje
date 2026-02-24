@@ -119,8 +119,8 @@ export default function EmployerDashboard() {
             <Card>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                    <Building className="h-5 w-5 text-red-500" />
+                  <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                    <Building className="h-5 w-5 text-[#FF5A5F]" />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -137,8 +137,8 @@ export default function EmployerDashboard() {
             <Card>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                    <Briefcase className="h-5 w-5 text-red-500" />
+                  <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                    <Briefcase className="h-5 w-5 text-[#FF5A5F]" />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -162,8 +162,8 @@ export default function EmployerDashboard() {
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <Briefcase className="h-5 w-5 text-red-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <Briefcase className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Job Listings</CardTitle>
@@ -182,8 +182,8 @@ export default function EmployerDashboard() {
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-red-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Applications</CardTitle>
@@ -202,8 +202,8 @@ export default function EmployerDashboard() {
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <Building className="h-5 w-5 text-red-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <Building className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Company Profile</CardTitle>
@@ -225,8 +225,8 @@ export default function EmployerDashboard() {
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <MessageSquare className="h-5 w-5 text-red-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <MessageSquare className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Messages</CardTitle>
@@ -245,8 +245,8 @@ export default function EmployerDashboard() {
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-red-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Internships</CardTitle>
@@ -265,8 +265,8 @@ export default function EmployerDashboard() {
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-red-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Analytics</CardTitle>

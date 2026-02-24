@@ -71,16 +71,15 @@ export default function CompanyAnalyticsPage() {
           empId = null
         }
 
-        // Get all job listings
-        const allListings = await apiClient.getJobListings(token) as JobListing[]
+        let filteredListings: JobListing[]
 
-        // Filter by employer if not admin
-        const filteredListings = empId
-          ? allListings.filter((listing: JobListing) => {
-              const posterId = (listing as any).poster_id?.toString?.() || (listing as any).poster_id
-              return posterId === empId
-            })
-          : allListings
+        if (empId) {
+          // For employers, use dedicated helper that already filters by poster_id
+          filteredListings = await apiClient.getJobListingsByEmployer(empId, token) as JobListing[]
+        } else {
+          const allListings = await apiClient.getJobListings(token) as JobListing[]
+          filteredListings = allListings
+        }
 
         setJobListings(filteredListings)
 
