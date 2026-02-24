@@ -321,7 +321,7 @@ export default function EmployerApplicationsPage() {
 
       // Send message only if there's content
       if (messageContent.trim()) {
-        await apiClient.sendMessageToCandidate(
+      await apiClient.sendMessageToCandidate(
           {
             sender_id: user.id,
             receiver_id: messageTarget.candidateId,
@@ -329,7 +329,7 @@ export default function EmployerApplicationsPage() {
             content: messageContent.trim(),
           },
           token!,
-        )
+      )
         toast({
           title: "Message Sent",
           description:

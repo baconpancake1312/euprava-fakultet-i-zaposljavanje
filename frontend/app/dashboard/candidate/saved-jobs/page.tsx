@@ -8,7 +8,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Briefcase, Building, Calendar, BookmarkCheck, Trash2 } from "lucide-react"
+import { Loader2, Briefcase, Building, Calendar, BookmarkCheck } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 
@@ -134,7 +134,12 @@ export default function CandidateSavedJobsPage() {
       }
 
       await apiClient.unsaveJob(candidate.id, jobId, token)
-      setSavedJobs(prev => prev.filter(job => job.id !== jobId))
+      setSavedJobs(prev =>
+        prev.filter(job => {
+          const id = job.id || job._id
+          return id !== jobId
+        })
+      )
       toast({
         title: "Job Removed",
         description: "Job removed from your saved jobs.",
@@ -265,11 +270,12 @@ export default function CandidateSavedJobsPage() {
                         size="icon"
                         onClick={() => handleUnsave(jobId)}
                         disabled={unsaving === jobId}
+                        aria-label="Remove from saved jobs"
                       >
                         {unsaving === jobId ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <BookmarkCheck className="h-4 w-4 text-destructive" />
                         )}
                       </Button>
                     </div>

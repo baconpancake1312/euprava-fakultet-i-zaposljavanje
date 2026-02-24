@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileCompletionPrompt } from "@/components/profile-completion-prompt"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Search, User, Loader2 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { FileText, Search, User, Loader2, MessageSquare, CheckCircle2, XCircle } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
 export default function CandidateDashboard() {
@@ -15,6 +16,9 @@ export default function CandidateDashboard() {
   const [loading, setLoading] = useState(true)
   const [candidateData, setCandidateData] = useState<any>(null)
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [decisionSummary, setDecisionSummary] = useState<{ accepted: number; rejected: number }>({ accepted: 0, rejected: 0 })
+  const lastNotifState = useRef<{ unread: number; accepted: number; rejected: number }>({ unread: 0, accepted: 0, rejected: 0 })
 
   useEffect(() => {
     if (!isAuthenticated || user?.user_type !== "CANDIDATE") {
@@ -46,6 +50,26 @@ export default function CandidateDashboard() {
 
         setNeedsProfileCompletion(missingFields.length > 0)
       }
+
+      // Unread messages
+      try {
+        const inbox = await apiClient.getInboxMessages(user.id, token)
+        const msgs = Array.isArray(inbox) ? inbox : []
+        setUnreadMessages(msgs.filter((m: any) => !m.read).length)
+      } catch {
+        setUnreadMessages(0)
+      }
+
+      // Application decisions
+      try {
+        const apps = await apiClient.getApplicationsByCandidate(user.id, token)
+        const list = Array.isArray(apps) ? apps : []
+        const accepted = list.filter((a: any) => a.status?.toLowerCase() === "accepted").length
+        const rejected = list.filter((a: any) => a.status?.toLowerCase() === "rejected").length
+        setDecisionSummary({ accepted, rejected })
+      } catch {
+        setDecisionSummary({ accepted: 0, rejected: 0 })
+      }
     } catch (error) {
       // Candidate profile doesn't exist yet
       setNeedsProfileCompletion(true)
@@ -54,11 +78,57 @@ export default function CandidateDashboard() {
     }
   }
 
+  // Browser taskbar / system notifications for unread messages + decisions
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof Notification === "undefined") return
+
+    const shouldNotify =
+      unreadMessages !== lastNotifState.current.unread ||
+      decisionSummary.accepted !== lastNotifState.current.accepted ||
+      decisionSummary.rejected !== lastNotifState.current.rejected
+
+    if (!shouldNotify) return
+
+    lastNotifState.current = {
+      unread: unreadMessages,
+      accepted: decisionSummary.accepted,
+      rejected: decisionSummary.rejected,
+    }
+
+    const triggerNotifications = () => {
+      if (unreadMessages > 0) {
+        new Notification("New messages", {
+          body: `You have ${unreadMessages} unread message${unreadMessages > 1 ? "s" : ""}.`,
+        })
+      }
+      if (decisionSummary.accepted > 0 || decisionSummary.rejected > 0) {
+        const parts: string[] = []
+        if (decisionSummary.accepted > 0) {
+          parts.push(`${decisionSummary.accepted} accepted`)
+        }
+        if (decisionSummary.rejected > 0) {
+          parts.push(`${decisionSummary.rejected} rejected`)
+        }
+        new Notification("Application updates", {
+          body: `Decisions on your applications: ${parts.join(", ")}.`,
+        })
+      }
+    }
+
+    if (Notification.permission === "granted") {
+      triggerNotifications()
+    } else if (Notification.permission === "default") {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") triggerNotifications()
+      })
+    }
+  }, [unreadMessages, decisionSummary.accepted, decisionSummary.rejected])
+
   if (loading) {
     return (
       <DashboardLayout title="Candidate Dashboard">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#FF5A5F]" />
         </div>
       </DashboardLayout>
     )
@@ -66,25 +136,10 @@ export default function CandidateDashboard() {
 
   return (
     <DashboardLayout title="Candidate Dashboard">
-      <div className="space-y-6 animate-fadeIn">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              Welcome back, {user?.first_name}!
-            </h2>
-            <p className="text-muted-foreground mt-1">Find your next career opportunity</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {candidateData?.approval_status && (
-              <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-                candidateData.approval_status.toLowerCase() === 'approved' 
-                  ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
-                  : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-              }`}>
-                {candidateData.approval_status}
-              </div>
-            )}
-          </div>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold">Candidate dashboard</h2>
+          <p className="text-sm text-muted-foreground">See your profile status, applications and messages at a glance.</p>
         </div>
 
         {/* Only show profile completion prompt if profile is NOT approved */}
@@ -99,10 +154,91 @@ export default function CandidateDashboard() {
           </div>
         )}
 
-        {/* Quick Stats */}
+        {/* Notifications */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {unreadMessages > 0 && (
+            <Alert>
+              <MessageSquare className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>
+                  You have <span className="font-semibold">{unreadMessages}</span> unread message
+                  {unreadMessages > 1 ? "s" : ""}. Check your messages.
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="text-xs underline"
+                    onClick={() => router.push("/dashboard/candidate/messages")}
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs underline"
+                    onClick={() => {
+                      setUnreadMessages(0)
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(
+                          new CustomEvent("candidate-local-notification", {
+                            detail: { type: "msg", unread: 0 },
+                          })
+                        )
+                      }
+                    }}
+                  >
+                    Mark read
+                  </button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          {(decisionSummary.accepted > 0 || decisionSummary.rejected > 0) && (
+            <Alert>
+              {decisionSummary.accepted > 0 ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>
+                  {decisionSummary.accepted > 0 && (
+                    <span className="mr-2">
+                      <span className="font-semibold">{decisionSummary.accepted}</span> application
+                      {decisionSummary.accepted > 1 ? "s" : ""} accepted.
+                    </span>
+                  )}
+                  {decisionSummary.rejected > 0 && (
+                    <span>
+                      <span className="font-semibold">{decisionSummary.rejected}</span> application
+                      {decisionSummary.rejected > 1 ? "s" : ""} rejected.
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className="text-xs underline"
+                  onClick={() => {
+                    setDecisionSummary({ accepted: 0, rejected: 0 })
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(
+                        new CustomEvent("candidate-local-notification", {
+                          detail: { type: "app", accepted: 0, rejected: 0 },
+                        })
+                      )
+                    }
+                  }}
+                >
+                  Dismiss
+                </button>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        {/* Quick stats */}
         {candidateData && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-scaleIn">
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -111,14 +247,14 @@ export default function CandidateDashboard() {
                       {candidateData.cv_file || candidateData.cv_base64 ? "Complete" : "Incomplete"}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-6 w-6 text-primary" />
+                  <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                    <User className="h-5 w-5 text-[#FF5A5F]" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -127,14 +263,14 @@ export default function CandidateDashboard() {
                       {candidateData.cv_file || candidateData.cv_base64 ? "Uploaded" : "Missing"}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <FileText className="h-6 w-6 text-blue-500" />
+                  <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-[#FF5A5F]" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -143,14 +279,14 @@ export default function CandidateDashboard() {
                       {candidateData.skills?.length || 0}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <Search className="h-6 w-6 text-green-500" />
+                  <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                    <Search className="h-5 w-5 text-[#FF5A5F]" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -159,8 +295,8 @@ export default function CandidateDashboard() {
                       {(candidateData.cv_file || candidateData.cv_base64) && candidateData.skills?.length > 0 ? "Yes" : "No"}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-                    <FileText className="h-6 w-6 text-purple-500" />
+                  <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-[#FF5A5F]" />
                   </div>
                 </div>
               </CardContent>
@@ -168,16 +304,16 @@ export default function CandidateDashboard() {
           </div>
         )}
 
-        {/* Main Action Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Main actions */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/candidate/job-search")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:scale-110 transition-transform">
-                  <Search className="h-7 w-7 text-primary" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <Search className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Job Search</CardTitle>
@@ -191,13 +327,13 @@ export default function CandidateDashboard() {
           </Card>
 
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/candidate/applications")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 group-hover:scale-110 transition-transform">
-                  <FileText className="h-7 w-7 text-blue-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">My Applications</CardTitle>
@@ -211,13 +347,13 @@ export default function CandidateDashboard() {
           </Card>
 
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/candidate/profile")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 group-hover:scale-110 transition-transform">
-                  <User className="h-7 w-7 text-purple-500" />
+                <div className="h-9 w-9 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-[#FF5A5F]" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">My Profile</CardTitle>
@@ -231,34 +367,6 @@ export default function CandidateDashboard() {
           </Card>
         </div>
 
-        {/* Skills Section */}
-        {candidateData && candidateData.skills && candidateData.skills.length > 0 && (
-          <Card className="border-2">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                  <Search className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle>Your Skills</CardTitle>
-                  <CardDescription>Skills on your profile</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {candidateData.skills.map((skill: string, index: number) => (
-                  <span 
-                    key={index} 
-                    className="px-4 py-2 bg-gradient-to-r from-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 hover:border-primary/40 transition-colors"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   )

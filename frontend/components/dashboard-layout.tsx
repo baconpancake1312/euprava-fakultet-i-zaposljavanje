@@ -52,6 +52,10 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const [loggingOut, setLoggingOut] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationsLoading, setNotificationsLoading] = useState(false)
+  // Candidate-specific lightweight notifications (messages + application decisions)
+  const [candidateUnreadMessages, setCandidateUnreadMessages] = useState(0)
+  const [candidateAccepted, setCandidateAccepted] = useState(0)
+  const [candidateRejected, setCandidateRejected] = useState(0)
 
   const loadNotifications = useCallback(async () => {
     if (!token || !user?.id) return
@@ -80,11 +84,71 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     return () => clearInterval(interval)
   }, [token, user, loadNotifications])
 
+  // Candidate: derive notifications for messages + accepted / rejected applications
+  useEffect(() => {
+    const loadCandidateSignals = async () => {
+      if (!token || !user || user.user_type?.toUpperCase() !== "CANDIDATE") return
+      try {
+        // Unread inbox messages
+        const inbox = await apiClient.getInboxMessages(user.id, token)
+        const msgs = Array.isArray(inbox) ? inbox : []
+        setCandidateUnreadMessages(msgs.filter((m: any) => !m.read).length)
+      } catch {
+        setCandidateUnreadMessages(0)
+      }
+
+      try {
+        const apps = await apiClient.getApplicationsByCandidate(user.id, token)
+        const list = Array.isArray(apps) ? apps : []
+        setCandidateAccepted(list.filter((a: any) => a.status?.toLowerCase() === "accepted").length)
+        setCandidateRejected(list.filter((a: any) => a.status?.toLowerCase() === "rejected").length)
+      } catch {
+        setCandidateAccepted(0)
+        setCandidateRejected(0)
+      }
+    }
+
+    void loadCandidateSignals()
+  }, [token, user])
+
+  // Listen for local candidate notification events from pages (dashboard/messages)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handler = (event: Event) => {
+      const anyEvent = event as CustomEvent<any>
+      const detail = anyEvent.detail || {}
+      if (!detail || user?.user_type?.toUpperCase() !== "CANDIDATE") return
+
+      if (detail.type === "msg") {
+        setCandidateUnreadMessages(detail.unread ?? 0)
+      } else if (detail.type === "app") {
+        setCandidateAccepted(detail.accepted ?? 0)
+        setCandidateRejected(detail.rejected ?? 0)
+      }
+    }
+
+    window.addEventListener("candidate-local-notification", handler)
+    return () => window.removeEventListener("candidate-local-notification", handler)
+  }, [user])
+
   const handleMarkAsSeen = async (notificationId: string) => {
+    const id = String(notificationId)
+
+    // Local candidate notifications (not stored in backend)
+    if (id === "local-msg") {
+      setCandidateUnreadMessages(0)
+      return
+    }
+    if (id === "local-app") {
+      setCandidateAccepted(0)
+      setCandidateRejected(0)
+      return
+    }
+
     if (!token) return
     try {
-      await apiClient.markNotificationAsSeen(notificationId, token)
-      const id = String(notificationId)
+      await apiClient.markNotificationAsSeen(id, token)
       setNotifications((prev) =>
         prev.map((n) => (String(n.id) === id ? { ...n, seen: true } : n))
       )
@@ -101,19 +165,43 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     e.preventDefault()
     e.stopPropagation()
     const id = String(notification.id)
+
     if (!notification.seen) {
       void handleMarkAsSeen(id)
     }
+
+    // Local candidate notifications route to appropriate pages
+    if (id === "local-msg") {
+      router.push("/dashboard/candidate/messages")
+      return
+    }
+    if (id === "local-app") {
+      router.push("/dashboard/candidate/applications")
+      return
+    }
+
     handleView(id)
   }
 
   const handleDeleteNotification = async (e: React.MouseEvent | React.PointerEvent, notificationId: string) => {
     e.preventDefault()
     e.stopPropagation()
+    const id = String(notificationId)
+
+    // Delete local candidate notifications client-side only
+    if (id === "local-msg") {
+      setCandidateUnreadMessages(0)
+      return
+    }
+    if (id === "local-app") {
+      setCandidateAccepted(0)
+      setCandidateRejected(0)
+      return
+    }
+
     if (!token) return
     try {
-      await apiClient.deleteNotification(notificationId, token)
-      const id = String(notificationId)
+      await apiClient.deleteNotification(id, token)
       setNotifications((prev) => prev.filter((n) => String(n.id) !== id))
     } catch (error) {
       console.error("Failed to delete notification:", error)
@@ -126,7 +214,37 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     await handleMarkAsSeen(notificationId)
   }
 
-  const unseenCount = notifications.filter((n) => n.seen === false).length
+  // Build local candidate notifications as regular list items
+  const candidateLocalNotifications: Notification[] =
+    user?.user_type?.toUpperCase() === "CANDIDATE"
+      ? [
+          ...(candidateUnreadMessages > 0
+            ? [
+                {
+                  id: "local-msg",
+                  title: "New messages",
+                  content: `You have ${candidateUnreadMessages} unread message${
+                    candidateUnreadMessages > 1 ? "s" : ""
+                  }.`,
+                  seen: false,
+                } as Notification,
+              ]
+            : []),
+          ...(candidateAccepted > 0 || candidateRejected > 0
+            ? [
+                {
+                  id: "local-app",
+                  title: "Application updates",
+                  content: `Accepted: ${candidateAccepted}, Rejected: ${candidateRejected}.`,
+                  seen: false,
+                } as Notification,
+              ]
+            : []),
+        ]
+      : []
+
+  const allNotifications: Notification[] = [...candidateLocalNotifications, ...notifications]
+  const unseenCount = allNotifications.filter((n) => n.seen === false).length
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -299,12 +417,34 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                     className="w-80 !opacity-100 !visible"
                     sideOffset={8}
                   >
-                    <DropdownMenuLabel className="flex items-center justify-between">
-                      <span>Notifications</span>
-                      {unseenCount > 0 && (
-                        <Badge variant="destructive" className="ml-2">
-                          {unseenCount} new
-                        </Badge>
+                    <DropdownMenuLabel className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span>Notifications</span>
+                        {unseenCount > 0 && (
+                          <Badge variant="destructive" className="ml-2">
+                            {unseenCount} new
+                          </Badge>
+                        )}
+                      </div>
+                      {user?.user_type?.toUpperCase() === "CANDIDATE" && (
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          <p>
+                            Messages:{" "}
+                            <span className="font-semibold text-foreground">
+                              {candidateUnreadMessages}
+                            </span>
+                          </p>
+                          <p>
+                            Applications – Accepted:{" "}
+                            <span className="font-semibold text-foreground">
+                              {candidateAccepted}
+                            </span>{" "}
+                            · Rejected:{" "}
+                            <span className="font-semibold text-foreground">
+                              {candidateRejected}
+                            </span>
+                          </p>
+                        </div>
                       )}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -313,13 +453,13 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                         <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                           Loading notifications...
                         </div>
-                      ) : notifications.length === 0 ? (
+                      ) : allNotifications.length === 0 ? (
                         <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                           No notifications
                         </div>
                       ) : (
                         <div className="py-1">
-                          {[...notifications].map((notification) => (
+                          {[...allNotifications].map((notification) => (
                             <div
                               key={notification.id}
                               className={cn(

@@ -262,6 +262,13 @@ export default function CandidateMessagesPage() {
             ? { ...c, unreadCount: 0, messages: c.messages.map(m => !m.is_sent ? { ...m, read: true } : m) }
             : c
         ))
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("candidate-local-notification", {
+              detail: { type: "msg", unread: 0 },
+            })
+          )
+        }
       } catch { /* ignore */ }
     }
   }
@@ -327,96 +334,96 @@ export default function CandidateMessagesPage() {
         <div className="w-64 border-r flex flex-col">
           <div className="px-3 py-2 border-b flex items-center justify-between">
             <span className="font-medium text-sm flex items-center gap-2">Chats</span>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {conversations.map((conv) => (
-              <button
-                key={conv.otherUserId}
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {conversations.map((conv) => (
+                  <button
+                    key={conv.otherUserId}
                 className={`w-full px-3 py-2 text-left text-sm border-b hover:bg-muted/60 ${
                   selectedConv?.otherUserId === conv.otherUserId ? "bg-muted" : ""
-                }`}
-                onClick={() => handleSelectConv(conv)}
-              >
+                    }`}
+                    onClick={() => handleSelectConv(conv)}
+                  >
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate">{conv.otherUserName}</span>
-                  {conv.unreadCount > 0 && (
+                          {conv.unreadCount > 0 && (
                     <Badge className="text-[10px] px-1 py-0">{conv.unreadCount}</Badge>
-                  )}
-                </div>
+                          )}
+                        </div>
                 {conv.lastMessage && (
                   <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                     {conv.lastMessage.is_sent ? "You: " : ""}
                     {conv.lastMessage.content}
-                  </p>
-                )}
-              </button>
-            ))}
+                          </p>
+                        )}
+                  </button>
+                ))}
             {!loading && conversations.length === 0 && (
               <div className="p-3 text-xs text-muted-foreground">No messages yet.</div>
             )}
-          </div>
-        </div>
+              </div>
+            </div>
 
         {/* Chat panel */}
         <div className="flex-1 flex flex-col">
-          {selectedConv ? (
-            <>
+              {selectedConv ? (
+                <>
               <div className="px-4 py-2 border-b flex items-center gap-2 text-sm">
                 <User className="h-4 w-4" />
                 <span className="font-medium truncate">{selectedConv.otherUserName}</span>
-              </div>
+                  </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/30">
-                {selectedConv.messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.is_sent ? "justify-end" : "justify-start"}`}>
+                    {selectedConv.messages.map((msg) => (
+                      <div key={msg.id} className={`flex ${msg.is_sent ? "justify-end" : "justify-start"}`}>
                     <div
                       className={`px-3 py-2 rounded-lg text-sm max-w-[70%] break-words ${
                         msg.is_sent ? "bg-primary text-primary-foreground" : "bg-background border"
-                      }`}
-                    >
+                            }`}
+                          >
                       {msg.content}
-                    </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
                   </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
 
               <div className="px-3 py-2 border-t">
                 <div className="flex gap-2">
-                  <Textarea
+                      <Textarea
                     placeholder="Send msg"
-                    value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSendMessage()
-                      }
-                    }}
-                    rows={2}
-                    className="resize-none"
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={sendingMessage || !messageContent.trim()}
-                    size="icon"
+                        value={messageContent}
+                        onChange={(e) => setMessageContent(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
+                        rows={2}
+                        className="resize-none"
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={sendingMessage || !messageContent.trim()}
+                        size="icon"
                     className="h-10 w-10 self-end"
-                  >
+                      >
                     {sendingMessage ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <ArrowUp className="h-4 w-4" />
                     )}
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
               Select a chat on the left to start messaging.
+                </div>
+              )}
             </div>
-          )}
-        </div>
       </div>
     </DashboardLayout>
   )
