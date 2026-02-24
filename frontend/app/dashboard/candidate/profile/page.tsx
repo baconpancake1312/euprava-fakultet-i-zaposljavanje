@@ -359,7 +359,6 @@ export default function CandidateProfilePage() {
                     onChange={handleProfilePicChange}
                     className="hidden"
                   />
-                  <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB.</p>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Edit profile to change picture</p>

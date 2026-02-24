@@ -84,33 +84,6 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     return () => clearInterval(interval)
   }, [token, user, loadNotifications])
 
-  // Candidate: derive notifications for messages + accepted / rejected applications
-  useEffect(() => {
-    const loadCandidateSignals = async () => {
-      if (!token || !user || user.user_type?.toUpperCase() !== "CANDIDATE") return
-      try {
-        // Unread inbox messages
-        const inbox = await apiClient.getInboxMessages(user.id, token)
-        const msgs = Array.isArray(inbox) ? inbox : []
-        setCandidateUnreadMessages(msgs.filter((m: any) => !m.read).length)
-      } catch {
-        setCandidateUnreadMessages(0)
-      }
-
-      try {
-        const apps = await apiClient.getApplicationsByCandidate(user.id, token)
-        const list = Array.isArray(apps) ? apps : []
-        setCandidateAccepted(list.filter((a: any) => a.status?.toLowerCase() === "accepted").length)
-        setCandidateRejected(list.filter((a: any) => a.status?.toLowerCase() === "rejected").length)
-      } catch {
-        setCandidateAccepted(0)
-        setCandidateRejected(0)
-      }
-    }
-
-    void loadCandidateSignals()
-  }, [token, user])
-
   // Listen for local candidate notification events from pages (dashboard/messages)
   useEffect(() => {
     if (typeof window === "undefined") return

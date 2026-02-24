@@ -353,7 +353,6 @@ export default function CompanyProfilePage() {
                         className="hidden"
                         disabled={saving}
                       />
-                      <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB.</p>
                     </div>
                   </div>
                 </div>

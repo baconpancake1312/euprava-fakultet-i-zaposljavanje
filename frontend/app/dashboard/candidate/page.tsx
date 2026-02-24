@@ -18,6 +18,7 @@ export default function CandidateDashboard() {
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false)
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [decisionSummary, setDecisionSummary] = useState<{ accepted: number; rejected: number }>({ accepted: 0, rejected: 0 })
+  const decisionsTotalRef = useRef<{ accepted: number; rejected: number }>({ accepted: 0, rejected: 0 })
   const lastNotifState = useRef<{ unread: number; accepted: number; rejected: number }>({ unread: 0, accepted: 0, rejected: 0 })
 
   useEffect(() => {
@@ -60,13 +61,34 @@ export default function CandidateDashboard() {
         setUnreadMessages(0)
       }
 
-      // Application decisions
+      // Application decisions (only show ones not already acknowledged)
       try {
         const apps = await apiClient.getApplicationsByCandidate(user.id, token)
         const list = Array.isArray(apps) ? apps : []
         const accepted = list.filter((a: any) => a.status?.toLowerCase() === "accepted").length
         const rejected = list.filter((a: any) => a.status?.toLowerCase() === "rejected").length
-        setDecisionSummary({ accepted, rejected })
+        decisionsTotalRef.current = { accepted, rejected }
+
+        let seen = { accepted: 0, rejected: 0 }
+        if (typeof window !== "undefined") {
+          try {
+            const raw = window.localStorage.getItem(`candidate_decisions_seen_${user.id}`)
+            if (raw) {
+              const parsed = JSON.parse(raw)
+              seen = {
+                accepted: Number(parsed.accepted) || 0,
+                rejected: Number(parsed.rejected) || 0,
+              }
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        const newAccepted = Math.max(accepted - seen.accepted, 0)
+        const newRejected = Math.max(rejected - seen.rejected, 0)
+
+        setDecisionSummary({ accepted: newAccepted, rejected: newRejected })
       } catch {
         setDecisionSummary({ accepted: 0, rejected: 0 })
       }
@@ -219,7 +241,15 @@ export default function CandidateDashboard() {
                   className="text-xs underline"
                   onClick={() => {
                     setDecisionSummary({ accepted: 0, rejected: 0 })
-                    if (typeof window !== "undefined") {
+                    if (typeof window !== "undefined" && user?.id) {
+                      try {
+                        window.localStorage.setItem(
+                          `candidate_decisions_seen_${user.id}`,
+                          JSON.stringify(decisionsTotalRef.current)
+                        )
+                      } catch {
+                        // ignore storage errors
+                      }
                       window.dispatchEvent(
                         new CustomEvent("candidate-local-notification", {
                           detail: { type: "app", accepted: 0, rejected: 0 },

@@ -324,35 +324,35 @@ export default function EmployerMessagesPage() {
         <div className="w-64 border-r flex flex-col">
           <div className="px-3 py-2 border-b flex items-center justify-between">
             <span className="font-medium text-sm flex items-center gap-2">Chats</span>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {conversations.map((conv) => (
-              <button
-                key={conv.otherUserId}
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {conversations.map((conv) => (
+                  <button
+                    key={conv.otherUserId}
                 className={`w-full px-3 py-2 text-left text-sm border-b hover:bg-muted/60 ${
                   selectedConv?.otherUserId === conv.otherUserId ? "bg-muted" : ""
-                }`}
-                onClick={() => handleSelectConv(conv)}
-              >
+                    }`}
+                    onClick={() => handleSelectConv(conv)}
+                  >
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate">{conv.otherUserName}</span>
-                  {conv.unreadCount > 0 && (
+                          {conv.unreadCount > 0 && (
                     <Badge className="text-[10px] px-1 py-0">{conv.unreadCount}</Badge>
-                  )}
-                </div>
+                          )}
+                        </div>
                 {conv.lastMessage && (
                   <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                     {conv.lastMessage.is_sent ? "You: " : ""}
                     {conv.lastMessage.content}
-                  </p>
-                )}
-              </button>
-            ))}
+                          </p>
+                        )}
+                  </button>
+                ))}
             {!loading && conversations.length === 0 && (
               <div className="p-3 text-xs text-muted-foreground">No messages yet.</div>
-            )}
-          </div>
-        </div>
+                        )}
+                      </div>
+                    </div>
 
         {/* Chat panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -363,58 +363,58 @@ export default function EmployerMessagesPage() {
                 <span className="font-medium truncate">{selectedConv.otherUserName}</span>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/10">
-                {selectedConv.messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.is_sent ? "justify-end" : "justify-start"}`}>
+                      {selectedConv.messages.map((msg) => (
+                        <div key={msg.id} className={`flex ${msg.is_sent ? "justify-end" : "justify-start"}`}>
                     <div
                       className={`max-w-[70%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap break-words ${
                         msg.is_sent ? "bg-primary text-primary-foreground" : "bg-background border"
-                      }`}
-                    >
+                              }`}
+                            >
                       {msg.content}
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={messagesEndRef} />
                     </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-              <div className="p-3 border-t bg-background shrink-0">
-                <div className="flex gap-2 items-end">
-                  <Textarea
+                    <div className="p-3 border-t bg-background shrink-0">
+                      <div className="flex gap-2 items-end">
+                        <Textarea
                     placeholder="Send msg"
-                    value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSendMessage()
-                      }
-                    }}
-                    rows={2}
-                    className="resize-none"
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={sendingMessage || !messageContent.trim()}
-                    size="icon"
-                    className="shrink-0 h-10 w-10"
-                  >
+                          value={messageContent}
+                          onChange={(e) => setMessageContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSendMessage()
+                            }
+                          }}
+                          rows={2}
+                          className="resize-none"
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={sendingMessage || !messageContent.trim()}
+                          size="icon"
+                          className="shrink-0 h-10 w-10"
+                        >
                     {sendingMessage ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <ArrowUp className="h-4 w-4" />
                     )}
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
+                        </Button>
+                      </div>
+                    </div>
+                </>
+              ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              <div className="text-center">
+                  <div className="text-center">
                 <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p>Select a conversation to start chatting</p>
-              </div>
+                    <p>Select a conversation to start chatting</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
       </div>
     </DashboardLayout>
   )

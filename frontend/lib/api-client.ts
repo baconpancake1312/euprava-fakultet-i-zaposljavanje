@@ -784,12 +784,28 @@ class ApiClient {
   }
 
   async unsaveJob(candidateId: string, jobId: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`, {
+    // Prefer new saved-jobs endpoint, fallback to legacy path if needed
+    const primaryUrl = `${EMPLOYMENT_API_URL}/saved-jobs/candidate/${candidateId}/job/${jobId}`
+    const legacyUrl = `${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`
+
+    let response = await fetch(primaryUrl, {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
-    });
-    if (!response.ok) throw new Error("Failed to unsave job");
-    return response.json();
+    })
+
+    if (!response.ok) {
+      // Try legacy endpoint
+      response = await fetch(legacyUrl, {
+        method: "DELETE",
+        headers: this.getAuthHeaders(token),
+      })
+    }
+
+    if (!response.ok) {
+      throw new Error("Failed to unsave job")
+    }
+
+    return response.json()
   }
 
   async getSavedJobs(candidateId: string, token: string) {
