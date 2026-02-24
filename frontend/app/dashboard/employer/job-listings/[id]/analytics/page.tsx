@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, ArrowLeft, BarChart3 } from "lucide-react"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 
 interface JobListing {
   id: string
@@ -101,30 +101,12 @@ export default function JobListingAnalyticsPage() {
     { name: "Rejected", value: stats.rejected, fill: COLORS[2] },
   ]
 
-  // Applications over time (last 7 days)
-  const getApplicationsOverTime = () => {
-    const days = 7
-    const data = []
-    const today = new Date()
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0]
-      
-      const count = applications.filter(app => {
-        const appDate = new Date(app.submitted_at)
-        return appDate.toISOString().split('T')[0] === dateStr
-      }).length
-      
-      data.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        applications: count,
-      })
-    }
-    
-    return data
-  }
+  // Line chart data: one point per status type
+  const statusLineData = [
+    { status: "Pending", count: stats.pending },
+    { status: "Accepted", count: stats.accepted },
+    { status: "Rejected", count: stats.rejected },
+  ]
 
   const chartConfig = {
     applications: {
@@ -254,22 +236,28 @@ export default function JobListingAnalyticsPage() {
             </CardContent>
           </Card>
 
-          {/* Applications Over Time */}
+          {/* Status counts as line chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Applications Over Time</CardTitle>
-              <CardDescription>Last 7 days</CardDescription>
+              <CardTitle>Applications by Status</CardTitle>
+              <CardDescription>Each point represents total applications per status</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={getApplicationsOverTime()}>
+                  <LineChart data={statusLineData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
+                    <XAxis dataKey="status" />
+                    <YAxis allowDecimals={false} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="applications" fill="var(--color-applications)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="var(--color-applications)"
+                      strokeWidth={2}
+                      dot={{ r: 5 }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </ChartContainer>
             </CardContent>

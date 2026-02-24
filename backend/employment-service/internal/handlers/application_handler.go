@@ -163,21 +163,6 @@ func (h *ApplicationHandler) AcceptApplication() gin.HandlerFunc {
 			return
 		}
 
-		go func() {
-			application, _ := h.service.GetApplication(appId)
-			if application != nil {
-				candidate, _ := h.service.GetCandidateByID(application.ApplicantId.Hex())
-				if candidate != nil {
-					helper.CreateNotification(
-						candidate.User.ID.Hex(),
-						"Application Accepted",
-						"Congratulations! Your job application has been accepted.",
-						h.logger,
-					)
-				}
-			}
-		}()
-
 		c.JSON(http.StatusOK, gin.H{"message": "Application accepted successfully"})
 	}
 }
@@ -194,21 +179,6 @@ func (h *ApplicationHandler) RejectApplication() gin.HandlerFunc {
 			}
 			return
 		}
-
-		go func() {
-			application, _ := h.service.GetApplication(appId)
-			if application != nil {
-				candidate, _ := h.service.GetCandidateByID(application.ApplicantId.Hex())
-				if candidate != nil {
-					helper.CreateNotification(
-						candidate.User.ID.Hex(),
-						"Application Rejected",
-						"Your job application has been rejected.",
-						h.logger,
-					)
-				}
-			}
-		}()
 
 		c.JSON(http.StatusOK, gin.H{"message": "Application rejected successfully"})
 	}

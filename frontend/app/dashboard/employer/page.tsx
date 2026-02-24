@@ -88,35 +88,12 @@ export default function EmployerDashboard() {
 
   return (
     <DashboardLayout title="Employer Dashboard">
-      <div className="space-y-6 animate-fadeIn">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              Welcome back, {user?.first_name}!
-            </h2>
-            <p className="text-muted-foreground mt-1">Manage your job listings and find the best candidates</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {employerData?.approval_status && (
-              <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-                employerData.approval_status.toLowerCase() === 'approved' 
-                  ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
-                  : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-              }`}>
-                {employerData.approval_status}
-              </div>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => checkEmployerProfile()}
-              className="gap-2"
-              disabled={loading}
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold">Employer dashboard</h2>
+          <p className="text-sm text-muted-foreground">
+            Quick access to your job listings, applications, messages and company profile.
+          </p>
         </div>
 
         {/* Only show profile completion prompt if profile is NOT approved */}
@@ -136,54 +113,57 @@ export default function EmployerDashboard() {
           </div>
         )}
 
-        {/* Quick Stats */}
+        {/* Quick stats */}
         {employerData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scaleIn">
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <Building className="h-5 w-5 text-red-500" />
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Company Status</p>
-                    <p className="text-2xl font-bold mt-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Company status
+                    </p>
+                    <p className="text-lg font-semibold mt-1">
                       {employerData.approval_status || "Pending"}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Building className="h-6 w-6 text-primary" />
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <Briefcase className="h-5 w-5 text-red-500" />
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Company Name</p>
-                    <p className="text-lg font-bold mt-1 truncate">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Company name
+                    </p>
+                    <p className="text-lg font-semibold mt-1 truncate">
                       {employerData.firm_name || "Not set"}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <Briefcase className="h-6 w-6 text-blue-500" />
-                  </div>
                 </div>
               </CardContent>
             </Card>
-
           </div>
         )}
 
-        {/* Main Action Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Main actions */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/employer/job-listings")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:scale-110 transition-transform">
-                  <Briefcase className="h-7 w-7 text-primary" />
+                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <Briefcase className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Job Listings</CardTitle>
@@ -197,13 +177,13 @@ export default function EmployerDashboard() {
           </Card>
 
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/employer/applications")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 group-hover:scale-110 transition-transform">
-                  <FileText className="h-7 w-7 text-blue-500" />
+                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Applications</CardTitle>
@@ -217,33 +197,13 @@ export default function EmployerDashboard() {
           </Card>
 
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
-            onClick={() => router.push("/dashboard/employer/candidates")}
-          >
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/10 group-hover:scale-110 transition-transform">
-                  <Users className="h-7 w-7 text-green-500" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Candidates</CardTitle>
-                  <CardDescription>Browse applicants</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">View candidates who applied to your positions</p>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/employer/company")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 group-hover:scale-110 transition-transform">
-                  <Building className="h-7 w-7 text-purple-500" />
+                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <Building className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Company Profile</CardTitle>
@@ -257,16 +217,16 @@ export default function EmployerDashboard() {
           </Card>
         </div>
 
-        {/* Additional Options */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Other */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/employer/messages")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-500/10 group-hover:scale-110 transition-transform">
-                  <MessageSquare className="h-7 w-7 text-orange-500" />
+                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <MessageSquare className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Messages</CardTitle>
@@ -280,13 +240,13 @@ export default function EmployerDashboard() {
           </Card>
 
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/employer/internships")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-500/10 group-hover:scale-110 transition-transform">
-                  <Users className="h-7 w-7 text-teal-500" />
+                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Internships</CardTitle>
@@ -300,13 +260,13 @@ export default function EmployerDashboard() {
           </Card>
 
           <Card
-            className="border-2 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-xl hover:scale-[1.02]"
+            className="cursor-pointer"
             onClick={() => router.push("/dashboard/employer/analytics")}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-500/10 group-hover:scale-110 transition-transform">
-                  <BarChart3 className="h-7 w-7 text-indigo-500" />
+                <div className="h-9 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">Analytics</CardTitle>

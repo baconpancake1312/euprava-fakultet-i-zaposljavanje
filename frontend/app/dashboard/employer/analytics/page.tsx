@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, ArrowLeft, BarChart3, Building } from "lucide-react"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 
 interface JobListing {
   id: string
@@ -73,20 +73,33 @@ export default function CompanyAnalyticsPage() {
 
         // Get all job listings
         const allListings = await apiClient.getJobListings(token) as JobListing[]
-        
+
         // Filter by employer if not admin
-        const filteredListings = empId 
-          ? allListings.filter((listing: JobListing) => 
-              listing.poster_id === empId || listing.poster_id?.toString() === empId
-            )
+        const filteredListings = empId
+          ? allListings.filter((listing: JobListing) => {
+              const posterId = (listing as any).poster_id?.toString?.() || (listing as any).poster_id
+              return posterId === empId
+            })
           : allListings
-        
+
         setJobListings(filteredListings)
 
         // Get applications
         if (empId) {
-          const empApplications = await apiClient.getApplicationsByEmployer(empId, token) as Application[]
-          setApplications(empApplications)
+          // For employers: aggregate applications per own job using per‑job endpoint
+          const allApps: Application[] = []
+          for (const job of filteredListings) {
+            try {
+              const jobId = (job as any).id?.toString?.() || job.id
+              const apps = await apiClient.getApplicationsForJob(jobId, token)
+              if (Array.isArray(apps)) {
+                allApps.push(...(apps as Application[]))
+              }
+            } catch (e) {
+              console.warn("Failed to load applications for job", job.id, e)
+            }
+          }
+          setApplications(allApps)
         } else {
           // For admins, get all applications
           // Try to get all applications, but if it fails, collect from all employers
@@ -156,44 +169,22 @@ export default function CompanyAnalyticsPage() {
     const jobAppCounts: { [key: string]: number } = {}
     
     applications.forEach(app => {
-      const jobId = app.listing_id
+      const jobId = (app as any).listing_id?.toString?.() || app.listing_id
       if (jobId) {
         jobAppCounts[jobId] = (jobAppCounts[jobId] || 0) + 1
       }
     })
 
     return jobListings
-      .map(job => ({
-        name: job.position.length > 20 ? job.position.substring(0, 20) + "..." : job.position,
-        applications: jobAppCounts[job.id] || 0,
-      }))
+      .map(job => {
+        const id = (job as any).id?.toString?.() || job.id
+        return {
+          name: job.position.length > 20 ? job.position.substring(0, 20) + "..." : job.position,
+          applications: jobAppCounts[id] || 0,
+        }
+      })
       .sort((a, b) => b.applications - a.applications)
       .slice(0, 10) // Top 10
-  }
-
-  // Applications over time (last 30 days)
-  const getApplicationsOverTime = () => {
-    const days = 30
-    const data = []
-    const today = new Date()
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0]
-      
-      const count = applications.filter(app => {
-        const appDate = new Date(app.submitted_at)
-        return appDate.toISOString().split('T')[0] === dateStr
-      }).length
-      
-      data.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        applications: count,
-      })
-    }
-    
-    return data
   }
 
   const chartConfig = {
@@ -345,33 +336,6 @@ export default function CompanyAnalyticsPage() {
                     </Pie>
                     <ChartTooltip content={<ChartTooltipContent />} />
                   </PieChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          {/* Applications Over Time */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Applications Over Time</CardTitle>
-              <CardDescription>Last 30 days</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={getApplicationsOverTime()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="applications" 
-                      stroke="var(--color-applications)" 
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                    />
-                  </LineChart>
                 </ResponsiveContainer>
               </ChartContainer>
             </CardContent>

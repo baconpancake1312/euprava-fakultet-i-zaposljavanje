@@ -169,12 +169,20 @@ func (er *EmploymentRepo) GetApplicationsByEmployerId(employerId string) ([]*mod
 	defer cancel()
 
 	jobCollection := OpenCollection(er.cli, "job_listings")
-	employerObjectId, err := primitive.ObjectIDFromHex(employerId)
-	if err != nil {
-		return nil, fmt.Errorf("invalid employer ID: %v", err)
+
+	// poster_id in job_listings may be stored either as an ObjectID or as a string.
+	// To be robust, try matching against both representations.
+	filter := bson.M{"poster_id": employerId}
+	if employerObjectId, err := primitive.ObjectIDFromHex(employerId); err == nil {
+		filter = bson.M{
+			"$or": []bson.M{
+				{"poster_id": employerObjectId},
+				{"poster_id": employerId},
+			},
+		}
 	}
 
-	cursor, err := jobCollection.Find(ctx, bson.M{"poster_id": employerObjectId})
+	cursor, err := jobCollection.Find(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("error querying job listings: %v", err)
 	}

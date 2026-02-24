@@ -22,6 +22,16 @@ func (ec *EmploymentController) CreateApplication() gin.HandlerFunc {
 			return
 		}
 
+		// Ensure submitted_at is always set to a valid timestamp
+		if application.SubmittedAt.IsZero() {
+			application.SubmittedAt = time.Now()
+		}
+
+		// Normalize status – default to pending if not provided
+		if strings.TrimSpace(application.Status) == "" {
+			application.Status = "pending"
+		}
+
 		applicationId, err := ec.repo.CreateApplication(&application)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

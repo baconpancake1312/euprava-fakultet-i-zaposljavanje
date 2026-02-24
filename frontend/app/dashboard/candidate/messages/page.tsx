@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Loader2,
   Mail,
-  Send,
+  ArrowUp,
   User,
   Briefcase,
   Clock,
@@ -301,8 +301,6 @@ export default function CandidateMessagesPage() {
     loadMessages()
   }, [wsMessage, loadMessages])
 
-  const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0)
-
   if (authLoading) {
     return (
       <DashboardLayout title="Messages">
@@ -325,209 +323,100 @@ export default function CandidateMessagesPage() {
 
   return (
     <DashboardLayout title="Messages">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <MessageSquare className="h-6 w-6" />
-              Messages
-              {totalUnread > 0 && (
-                <Badge className="bg-primary text-white ml-1">{totalUnread} new</Badge>
-              )}
-            </h2>
-            <p className="text-muted-foreground text-sm">Chat with employers about your applications</p>
+      <div className="flex h-[calc(100vh-8rem)] border rounded-xl overflow-hidden">
+        <div className="w-64 border-r flex flex-col">
+          <div className="px-3 py-2 border-b flex items-center justify-between">
+            <span className="font-medium text-sm flex items-center gap-2">Chats</span>
           </div>
-          <Button variant="outline" size="sm" onClick={() => loadMessages()} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            <span className="ml-2">Refresh</span>
-          </Button>
+          <div className="flex-1 overflow-y-auto">
+            {conversations.map((conv) => (
+              <button
+                key={conv.otherUserId}
+                className={`w-full px-3 py-2 text-left text-sm border-b hover:bg-muted/60 ${
+                  selectedConv?.otherUserId === conv.otherUserId ? "bg-muted" : ""
+                }`}
+                onClick={() => handleSelectConv(conv)}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{conv.otherUserName}</span>
+                  {conv.unreadCount > 0 && (
+                    <Badge className="text-[10px] px-1 py-0">{conv.unreadCount}</Badge>
+                  )}
+                </div>
+                {conv.lastMessage && (
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    {conv.lastMessage.is_sent ? "You: " : ""}
+                    {conv.lastMessage.content}
+                  </p>
+                )}
+              </button>
+            ))}
+            {!loading && conversations.length === 0 && (
+              <div className="p-3 text-xs text-muted-foreground">No messages yet.</div>
+            )}
+          </div>
         </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : conversations.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <Mail className="h-14 w-14 mx-auto text-muted-foreground mb-4 opacity-40" />
-              <p className="text-lg font-medium text-muted-foreground">No messages yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                When employers contact you about your applications, messages will appear here.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="flex gap-0 overflow-hidden border rounded-xl" style={{ height: "calc(100vh - 13rem)" }}>
-            {/* Sidebar */}
-            <div className="w-72 shrink-0 border-r flex flex-col overflow-hidden bg-muted/20">
-              <div className="p-3 border-b bg-muted/30">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversations</p>
+        {/* Chat panel */}
+        <div className="flex-1 flex flex-col">
+          {selectedConv ? (
+            <>
+              <div className="px-4 py-2 border-b flex items-center gap-2 text-sm">
+                <User className="h-4 w-4" />
+                <span className="font-medium truncate">{selectedConv.otherUserName}</span>
               </div>
-              <div className="flex-1 overflow-y-auto">
-                {conversations.map((conv) => (
-                  <button
-                    key={conv.otherUserId}
-                    className={`w-full text-left p-3 border-b transition-colors hover:bg-muted/50 ${
-                      selectedConv?.otherUserId === conv.otherUserId
-                        ? "bg-primary/10 border-l-2 border-l-primary"
-                        : ""
-                    }`}
-                    onClick={() => handleSelectConv(conv)}
-                  >
-                    <div className="flex items-center gap-3">
-                      {conv.otherUserProfilePic ? (
-                        <img
-                          src={conv.otherUserProfilePic}
-                          alt={conv.otherUserName}
-                          className="h-9 w-9 rounded object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="h-9 w-9 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                          {conv.otherUserFirmName
-                            ? <Building2 className="h-4 w-4 text-primary" />
-                            : <User className="h-4 w-4 text-primary" />
-                          }
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={`text-sm truncate ${conv.unreadCount > 0 ? "font-semibold" : "font-medium"}`}>
-                            {conv.otherUserName}
-                          </p>
-                          {conv.unreadCount > 0 && (
-                            <Badge variant="default" className="h-4 min-w-4 px-1 text-xs ml-1 shrink-0">
-                              {conv.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
-                        {conv.job_position && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                            <Briefcase className="h-3 w-3 shrink-0" />
-                            {conv.job_position}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {conv.lastMessage.is_sent ? "You: " : ""}{conv.lastMessage.content}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3" />
-                          {new Date(conv.lastMessage.sent_at).toLocaleDateString("en-GB", {
-                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/30">
+                {selectedConv.messages.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.is_sent ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`px-3 py-2 rounded-lg text-sm max-w-[70%] break-words ${
+                        msg.is_sent ? "bg-primary text-primary-foreground" : "bg-background border"
+                      }`}
+                    >
+                      {msg.content}
                     </div>
-                  </button>
+                  </div>
                 ))}
+                <div ref={messagesEndRef} />
               </div>
-            </div>
 
-            {/* Chat window */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {selectedConv ? (
-                <>
-                  {/* Chat header */}
-                  <div className="p-4 border-b bg-background flex items-center gap-3 shrink-0">
-                    {selectedConv.otherUserProfilePic ? (
-                      <img
-                        src={selectedConv.otherUserProfilePic}
-                        alt={selectedConv.otherUserName}
-                        className="h-10 w-10 rounded object-cover shrink-0"
-                      />
+              <div className="px-3 py-2 border-t">
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Send msg"
+                    value={messageContent}
+                    onChange={(e) => setMessageContent(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
+                    rows={2}
+                    className="resize-none"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={sendingMessage || !messageContent.trim()}
+                    size="icon"
+                    className="h-10 w-10 self-end"
+                  >
+                    {sendingMessage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                        {selectedConv.otherUserFirmName
-                          ? <Building2 className="h-5 w-5 text-primary" />
-                          : <User className="h-5 w-5 text-primary" />
-                        }
-                      </div>
+                      <ArrowUp className="h-4 w-4" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{selectedConv.otherUserName}</p>
-                      {selectedConv.otherUserFirmName && selectedConv.otherUserFirmName !== selectedConv.otherUserName && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />
-                          {selectedConv.otherUserFirmName}
-                        </p>
-                      )}
-                      {selectedConv.job_position && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Briefcase className="h-3 w-3" />
-                          {selectedConv.job_position}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/10">
-                    {selectedConv.messages.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.is_sent ? "justify-end" : "justify-start"}`}>
-                        <div className="max-w-[70%] space-y-1">
-                          <div
-                            className={`rounded-2xl px-4 py-2.5 ${
-                              msg.is_sent
-                                ? "bg-primary text-primary-foreground rounded-br-sm"
-                                : "bg-background border rounded-bl-sm"
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                          </div>
-                          <p className={`text-xs text-muted-foreground ${msg.is_sent ? "text-right" : "text-left"}`}>
-                            {new Date(msg.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  {/* Input */}
-                  <div className="p-3 border-t bg-background shrink-0">
-                    <div className="flex gap-2 items-end">
-                      <Textarea
-                        placeholder={`Message ${selectedConv.otherUserName}...`}
-                        value={messageContent}
-                        onChange={(e) => setMessageContent(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                        rows={2}
-                        className="resize-none"
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={sendingMessage || !messageContent.trim()}
-                        size="icon"
-                        className="shrink-0 h-10 w-10"
-                      >
-                        {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>Select a conversation to start chatting</p>
-                  </div>
+                  </Button>
                 </div>
-              )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              Select a chat on the left to start messaging.
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </DashboardLayout>
   )

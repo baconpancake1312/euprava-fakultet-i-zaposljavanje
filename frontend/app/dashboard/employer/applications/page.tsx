@@ -79,6 +79,7 @@ export default function EmployerApplicationsPage() {
   const [jobListings, setJobListings] = useState<JobListing[]>([])
   const [applicationsByListing, setApplicationsByListing] = useState<Record<string, Application[]>>({})
   const [filteredApplicationsByListing, setFilteredApplicationsByListing] = useState<Record<string, Application[]>>({})
+  const [applicationCounts, setApplicationCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [processingId, setProcessingId] = useState<string | null>(null)
@@ -95,6 +96,8 @@ export default function EmployerApplicationsPage() {
   const [messageTarget, setMessageTarget] = useState<{ candidateId: string; name: string; listingId?: string } | null>(null)
   const [messageContent, setMessageContent] = useState("")
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [messageAction, setMessageAction] = useState<"message" | "accept" | "reject">("message")
+  const [messageApplicationContext, setMessageApplicationContext] = useState<{ applicationId: string; listingId: string } | null>(null)
 
   const loadListings = useCallback(async () => {
     if (!token || !user?.id) {
@@ -118,6 +121,23 @@ export default function EmployerApplicationsPage() {
       }) as JobListing[]
 
       setJobListings(myListings)
+
+      // Prefetch applicant counts so the UI shows correct numbers without expanding
+      setApplicationCounts({})
+      const results = await Promise.allSettled(
+        myListings.map(async (listing) => {
+          const res = await apiClient.getApplicationsForJob(listing.id, token)
+          const apps: any[] = Array.isArray(res) ? res : (res as any)?.applications || []
+          return { listingId: listing.id, count: apps.length }
+        }),
+      )
+      const nextCounts: Record<string, number> = {}
+      results.forEach((r) => {
+        if (r.status === "fulfilled") {
+          nextCounts[r.value.listingId] = r.value.count
+        }
+      })
+      setApplicationCounts(nextCounts)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load job listings")
     } finally {
@@ -143,6 +163,9 @@ export default function EmployerApplicationsPage() {
       const apps: Application[] = Array.isArray(result)
         ? result
         : (result as any)?.applications || []
+
+      // Update count immediately (even before enrichment)
+      setApplicationCounts((prev) => ({ ...prev, [listingId]: apps.length }))
 
       // Enrich with candidate info
       const allCandidates = await apiClient.getAllCandidates(token!).catch(() => [])
@@ -229,63 +252,100 @@ export default function EmployerApplicationsPage() {
     }
   }
 
-  const handleAccept = async (applicationId: string, listingId: string) => {
-    setProcessingId(applicationId)
-    try {
-      await apiClient.acceptApplication(applicationId, token!)
-      setApplicationsByListing((prev) => ({
-        ...prev,
-        [listingId]: (prev[listingId] || []).map((a) =>
-          a.id === applicationId ? { ...a, status: "accepted" } : a
-        ),
-      }))
-      toast({ title: "Application Accepted", description: "The application has been accepted." })
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to accept", variant: "destructive" })
-    } finally {
-      setProcessingId(null)
-    }
+  const formatDate = (value?: string) => {
+    if (!value) return null
+    if (value === "0001-01-01T00:00:00Z") return null
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return null
+    if (d.getFullYear() < 2000) return null
+    return d.toLocaleDateString("en-GB")
   }
 
-  const handleReject = async (applicationId: string, listingId: string) => {
-    setProcessingId(applicationId)
-    try {
-      await apiClient.rejectApplication(applicationId, token!)
-      setApplicationsByListing((prev) => ({
-        ...prev,
-        [listingId]: (prev[listingId] || []).map((a) =>
-          a.id === applicationId ? { ...a, status: "rejected" } : a
-        ),
-      }))
-      toast({ title: "Application Rejected", description: "The application has been rejected." })
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to reject", variant: "destructive" })
-    } finally {
-      setProcessingId(null)
-    }
+  const formatListingDate = (expireAt?: string, createdAt?: string) => {
+    // Prefer listing expiry date; fall back to created_at
+    return formatDate(expireAt) || formatDate(createdAt) || "N/A"
   }
 
   const openMessageDialog = (candidateId: string, name: string, listingId?: string) => {
+    setMessageAction("message")
+    setMessageApplicationContext(null)
+    setMessageTarget({ candidateId, name, listingId })
+    setMessageContent("")
+    setMessageDialog(true)
+  }
+
+  const openDecisionDialog = (
+    action: "accept" | "reject",
+    applicationId: string,
+    listingId: string,
+    candidateId: string,
+    name: string,
+  ) => {
+    setMessageAction(action)
+    setMessageApplicationContext({ applicationId, listingId })
     setMessageTarget({ candidateId, name, listingId })
     setMessageContent("")
     setMessageDialog(true)
   }
 
   const handleSendMessage = async () => {
-    if (!messageTarget || !messageContent.trim() || !user) return
+    if (!messageTarget || !user) return
     setSendingMessage(true)
     try {
-      await apiClient.sendMessageToCandidate(
-        { sender_id: user.id, receiver_id: messageTarget.candidateId, job_listing_id: messageTarget.listingId, content: messageContent.trim() },
-        token!
-      )
-      toast({ title: "Message Sent", description: `Message sent to ${messageTarget.name}.` })
+      // If this is an accept/reject action, update the application status first
+      if (messageAction === "accept" || messageAction === "reject") {
+        if (!messageApplicationContext) {
+          throw new Error("Missing application context")
+        }
+        const { applicationId, listingId } = messageApplicationContext
+        setProcessingId(applicationId)
+        if (messageAction === "accept") {
+          await apiClient.acceptApplication(applicationId, token!)
+        } else {
+          await apiClient.rejectApplication(applicationId, token!)
+        }
+        setApplicationsByListing((prev) => ({
+          ...prev,
+          [listingId]: (prev[listingId] || []).map((a) =>
+            a.id === applicationId ? { ...a, status: messageAction === "accept" ? "accepted" : "rejected" } : a,
+          ),
+        }))
+        toast({
+          title: `Application ${messageAction === "accept" ? "Accepted" : "Rejected"}`,
+          description:
+            messageAction === "accept"
+              ? "The application has been accepted."
+              : "The application has been rejected.",
+        })
+      }
+
+      // Send message only if there's content
+      if (messageContent.trim()) {
+        await apiClient.sendMessageToCandidate(
+          {
+            sender_id: user.id,
+            receiver_id: messageTarget.candidateId,
+            job_listing_id: messageTarget.listingId,
+            content: messageContent.trim(),
+          },
+          token!,
+        )
+        toast({
+          title: "Message Sent",
+          description:
+            messageAction === "message"
+              ? `Message sent to ${messageTarget.name}.`
+              : `Decision message sent to ${messageTarget.name}.`,
+        })
+      }
+
       setMessageDialog(false)
       setMessageContent("")
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to send message", variant: "destructive" })
     } finally {
       setSendingMessage(false)
+      setProcessingId(null)
     }
   }
 
@@ -379,7 +439,10 @@ export default function EmployerApplicationsPage() {
               const isExpanded = expandedListing === listing.id
               const isLoadingThis = loadingApps === listing.id
               const apps = filteredApplicationsByListing[listing.id] || []
-              const appCount = filteredApplicationsByListing[listing.id]?.length || 0
+              const hasSearch = !!searchQuery.trim()
+              const appCount = hasSearch
+                ? (filteredApplicationsByListing[listing.id]?.length ?? 0)
+                : (applicationCounts[listing.id] ?? filteredApplicationsByListing[listing.id]?.length ?? 0)
 
               return (
                 <Card key={listing.id} className={`transition-all ${isExpanded ? "border-primary" : "hover:border-primary/50"}`}>
@@ -397,7 +460,10 @@ export default function EmployerApplicationsPage() {
                           <CardTitle className="text-base truncate">{listing.position}</CardTitle>
                           <CardDescription className="flex items-center gap-2 mt-0.5">
                             <Calendar className="h-3.5 w-3.5" />
-                            {new Date(listing.created_at).toLocaleDateString()}
+                            {formatListingDate(
+                              (listing as any).expire_at,
+                              (listing as any).created_at,
+                            )}
                             {listing.is_internship && (
                               <Badge variant="outline" className="text-xs ml-1">Internship</Badge>
                             )}
@@ -467,6 +533,7 @@ export default function EmployerApplicationsPage() {
                                 </div>
 
                                 {/* Candidate quick info */}
+                                {/* Candidate quick info (no date as requested) */}
                                 {candidate && (
                                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                                     {candidate.major && (
@@ -475,13 +542,6 @@ export default function EmployerApplicationsPage() {
                                     {candidate.gpa !== undefined && candidate.gpa > 0 && (
                                       <span>🎓 GPA {candidate.gpa.toFixed(2)}</span>
                                     )}
-                                    {candidate.skills && candidate.skills.length > 0 && (
-                                      <span>🛠 {candidate.skills.slice(0, 3).join(", ")}{candidate.skills.length > 3 ? ` +${candidate.skills.length - 3}` : ""}</span>
-                                    )}
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {new Date(application.submitted_at).toLocaleDateString()}
-                                    </span>
                                   </div>
                                 )}
 
@@ -515,12 +575,21 @@ export default function EmployerApplicationsPage() {
                                       Message
                                     </Button>
                                   )}
-                                  {application.status === "pending" && (
+                                  {(!application.status ||
+                                    application.status.toLowerCase() === "pending") && candidate && (
                                     <>
                                       <Button
                                         size="sm"
                                         className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                                        onClick={() => handleAccept(application.id, listing.id)}
+                                        onClick={() =>
+                                          openDecisionDialog(
+                                            "accept",
+                                            application.id,
+                                            listing.id,
+                                            candidate.id,
+                                            candidateName,
+                                          )
+                                        }
                                         disabled={processingId === application.id}
                                       >
                                         {processingId === application.id ? (
@@ -534,7 +603,15 @@ export default function EmployerApplicationsPage() {
                                         size="sm"
                                         variant="destructive"
                                         className="h-7 text-xs"
-                                        onClick={() => handleReject(application.id, listing.id)}
+                                        onClick={() =>
+                                          openDecisionDialog(
+                                            "reject",
+                                            application.id,
+                                            listing.id,
+                                            candidate.id,
+                                            candidateName,
+                                          )
+                                        }
                                         disabled={processingId === application.id}
                                       >
                                         {processingId === application.id ? (
@@ -660,10 +737,16 @@ export default function EmployerApplicationsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
-              Send Message to {messageTarget?.name}
+              {messageAction === "accept"
+                ? `Accept application for ${messageTarget?.name}`
+                : messageAction === "reject"
+                  ? `Reject application for ${messageTarget?.name}`
+                  : `Send message to ${messageTarget?.name}`}
             </DialogTitle>
             <DialogDescription>
-              Write a message or letter to this candidate regarding their application.
+              {messageAction === "message"
+                ? "Write a message to this candidate regarding their application."
+                : "Optionally include a message explaining your decision to the candidate."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
