@@ -99,19 +99,18 @@ func Register() gin.HandlerFunc {
 		filter := bson.M{
 			"$or": []bson.M{
 				{"email": user.Email},
-				{"phone": user.Phone},
 			},
 		}
 
 		count, err := userCollection.CountDocuments(ctx, filter)
 		if err != nil {
-			l.Println("Error occurred while checking for email or phone number:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while checking for the email or phone number"})
+			l.Println("Error occurred while checking for email:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while checking for the email"})
 			return
 		}
 
 		if count > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "this email or phone number already exists"})
+			c.JSON(http.StatusConflict, gin.H{"error": "this email already exists"})
 			return
 		}
 

@@ -13,33 +13,33 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		c.JSON(200, gin.H{"status": "ok", "service": "employment-service"})
 	})
 
-	   public := routes.Group("/")
-	   {
+	public := routes.Group("/")
+	{
 
-		   public.GET("/job-listings", ec.GetAllJobListings())
-		   public.GET("/job-listings/:id", ec.GetJobListing())
+		public.GET("/job-listings", ec.GetAllJobListings())
+		public.GET("/job-listings/:id", ec.GetJobListing())
 
-		   public.POST("/users", ec.CreateUser())
-		   public.POST("/employers", ec.CreateEmployer())
-		   public.POST("/candidates", ec.CreateCandidate())
+		public.POST("/users", ec.CreateUser())
+		public.POST("/employers", ec.CreateEmployer())
+		public.POST("/candidates", ec.CreateCandidate())
 
-		   public.GET("/search/jobs/text", ec.SearchJobsByText())
-		   public.GET("/search/jobs/internship", ec.SearchJobsByInternship())
-		   public.GET("/search/jobs/active", ec.GetActiveJobs())
-		   public.GET("/search/jobs/trending", ec.GetTrendingJobs())
-		   public.GET("/search/users/text", ec.SearchUsersByText())
-		   public.GET("/search/employers/text", ec.SearchEmployersByText())
-		   public.GET("/search/candidates/text", ec.SearchCandidatesByText())
-	   }
+		public.GET("/search/jobs/text", ec.SearchJobsByText())
+		public.GET("/search/jobs/internship", ec.SearchJobsByInternship())
+		public.GET("/search/jobs/active", ec.GetActiveJobs())
+		public.GET("/search/jobs/trending", ec.GetTrendingJobs())
+		public.GET("/search/users/text", ec.SearchUsersByText())
+		public.GET("/search/employers/text", ec.SearchEmployersByText())
+		public.GET("/search/candidates/text", ec.SearchCandidatesByText())
+	}
 
-	   protected := routes.Group("/")
-	   protected.Use(middleware.Authentication())
-	   {
+	protected := routes.Group("/")
+	protected.Use(middleware.Authentication())
+	{
 
-		   protected.POST("/interviews", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.CreateInterview())
-		   protected.GET("/interviews/candidate/:id", middleware.AuthorizeRoles([]string{"CANDIDATE", "STUDENT"}), ec.GetInterviewsByCandidate())
-		   protected.GET("/interviews/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetInterviewsByEmployer())
-		   protected.PUT("/interviews/:id/status", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.UpdateInterviewStatus())
+		protected.POST("/interviews", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.CreateInterview())
+		protected.GET("/interviews/candidate/:id", middleware.AuthorizeRoles([]string{"CANDIDATE", "STUDENT"}), ec.GetInterviewsByCandidate())
+		protected.GET("/interviews/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetInterviewsByEmployer())
+		protected.PUT("/interviews/:id/status", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), ec.UpdateInterviewStatus())
 
 		protected.GET("/users", ec.GetAllUsers())
 		protected.GET("/users/:id", ec.GetUser())
@@ -59,20 +59,20 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.DELETE("/candidates/:id", ec.DeleteCandidate())
 
 		protected.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.CreateApplication())
-		protected.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetAllApplications())
+		protected.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.GetAllApplications())
 		protected.GET("/applications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetApplicationsByCandidate())
 		protected.GET("/applications/candidate/:id/stats", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetCandidateApplicationStats())
 		protected.GET("/applications/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetApplicationsByEmployer())
-		protected.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER", "STUDENT", "CANDIDATE"}), ec.GetApplication())
-		protected.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateApplication())
-		protected.PUT("/applications/:id/accept", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN"}), ec.AcceptApplication())
-		protected.PUT("/applications/:id/reject", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN"}), ec.RejectApplication())
-		protected.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteApplication())
+		protected.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER", "STUDENT", "CANDIDATE"}), ec.GetApplication())
+		protected.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.UpdateApplication())
+		protected.PUT("/applications/:id/accept", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN", "ADMINISTRATOR"}), ec.AcceptApplication())
+		protected.PUT("/applications/:id/reject", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN", "ADMINISTRATOR"}), ec.RejectApplication())
+		protected.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.DeleteApplication())
 
-		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.CreateJobListing())
-		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.UpdateJobListing())
-		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.DeleteJobListing())
-		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), ec.GetApplicationsForJob())
+		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.CreateJobListing())
+		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.UpdateJobListing())
+		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.DeleteJobListing())
+		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.GetApplicationsForJob())
 
 		protected.POST("/documents", ec.CreateDocument())
 		protected.GET("/documents", ec.GetAllDocuments())
@@ -99,14 +99,14 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.GET("/companies/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.GetCompanyProfile())
 		protected.PUT("/companies/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), ec.UpdateCompanyProfile())
 
-		protected.PUT("/admin/employers/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.ApproveEmployer())
-		protected.PUT("/admin/employers/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.RejectEmployer())
-		protected.GET("/admin/employers/pending", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetPendingEmployers())
-		protected.GET("/admin/employers/stats", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetEmployerStats())
+		protected.PUT("/admin/employers/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.ApproveEmployer())
+		protected.PUT("/admin/employers/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.RejectEmployer())
+		protected.GET("/admin/employers/pending", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.GetPendingEmployers())
+		protected.GET("/admin/employers/stats", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.GetEmployerStats())
 
-		protected.PUT("/admin/jobs/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.ApproveJobListing())
-		protected.PUT("/admin/jobs/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.RejectJobListing())
-		protected.GET("/admin/jobs/pending", middleware.AuthorizeRoles([]string{"ADMIN"}), ec.GetPendingJobListings())
+		protected.PUT("/admin/jobs/:id/approve", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.ApproveJobListing())
+		protected.PUT("/admin/jobs/:id/reject", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.RejectJobListing())
+		protected.GET("/admin/jobs/pending", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}), ec.GetPendingJobListings())
 
 		protected.GET("/internships", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternships())
 		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), ec.GetInternshipsForStudent())

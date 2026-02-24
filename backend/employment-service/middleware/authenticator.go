@@ -58,7 +58,7 @@ func Authentication() gin.HandlerFunc {
 		if keycloakURL != "" && keycloakRealm != "" {
 			var keycloakUserInfo map[string]interface{}
 			var keycloakErr error
-			
+
 			// Try to decode JWT token directly first (faster, no network call)
 			jwtUserInfo, jwtErr := decodeKeycloakJWT(clientToken)
 			if jwtErr == nil && jwtUserInfo != nil {
@@ -72,18 +72,18 @@ func Authentication() gin.HandlerFunc {
 					fmt.Printf("[Keycloak Auth] Token validation failed: %v\n", keycloakErr)
 				}
 			}
-			
+
 			if keycloakErr == nil && keycloakUserInfo != nil {
 				email, _ := keycloakUserInfo["email"].(string)
 				preferredUsername, _ := keycloakUserInfo["preferred_username"].(string)
 				if email == "" {
 					email = preferredUsername
 				}
-				
+
 				firstName, _ := keycloakUserInfo["given_name"].(string)
 				lastName, _ := keycloakUserInfo["family_name"].(string)
 				sub, _ := keycloakUserInfo["sub"].(string)
-				
+
 				userType := "CANDIDATE" // default
 				// Try to get user_type from token claims (if mapper is configured)
 				if userTypeAttr, ok := keycloakUserInfo["user_type"].([]interface{}); ok && len(userTypeAttr) > 0 {
@@ -110,6 +110,9 @@ func Authentication() gin.HandlerFunc {
 										roleUpper := strings.ToUpper(roleStr)
 										if roleUpper == "ADMIN" {
 											userType = "ADMIN"
+											break
+										} else if roleUpper == "ADMINISTRATOR" {
+											userType = "ADMINISTRATOR"
 											break
 										} else if roleUpper == "EMPLOYER" {
 											userType = "EMPLOYER"
@@ -207,7 +210,7 @@ func validateKeycloakTokenIntrospection(token string) (map[string]interface{}, e
 	// Get client credentials from environment or use default
 	clientID := os.Getenv("KEYCLOAK_CLIENT_ID")
 	clientSecret := os.Getenv("KEYCLOAK_CLIENT_SECRET")
-	
+
 	if clientID == "" {
 		clientID = "euprava-client"
 	}
@@ -222,7 +225,7 @@ func validateKeycloakTokenIntrospection(token string) (map[string]interface{}, e
 	formData.Set("token", token)
 	formData.Set("client_id", clientID)
 	formData.Set("client_secret", clientSecret)
-	
+
 	req, err := http.NewRequest("POST", introspectURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, err
@@ -291,7 +294,7 @@ func decodeKeycloakJWT(token string) (map[string]interface{}, error) {
 	if _, hasUserType := claims["User_type"].(string); hasUserType {
 		return nil, fmt.Errorf("auth service token detected, not Keycloak token")
 	}
-	
+
 	// For Keycloak tokens, verify issuer
 	expectedIssuer := fmt.Sprintf("%s/realms/%s", keycloakURL, keycloakRealm)
 	if iss, ok := claims["iss"].(string); ok {
@@ -305,7 +308,7 @@ func decodeKeycloakJWT(token string) (map[string]interface{}, error) {
 
 	// Extract user info from claims
 	userInfo := make(map[string]interface{})
-	
+
 	// Copy relevant claims to userInfo
 	if email, ok := claims["email"].(string); ok {
 		userInfo["email"] = email
@@ -322,12 +325,12 @@ func decodeKeycloakJWT(token string) (map[string]interface{}, error) {
 	if sub, ok := claims["sub"].(string); ok {
 		userInfo["sub"] = sub
 	}
-	
+
 	// Check for auth service User_type field (capital U, capital T)
 	if userType, ok := claims["User_type"].(string); ok {
 		userInfo["user_type"] = userType
 	}
-	
+
 	// Copy realm_access for role extraction
 	if realmAccess, ok := claims["realm_access"].(map[string]interface{}); ok {
 		userInfo["realm_access"] = realmAccess
@@ -360,8 +363,8 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 				"location":     "authenticator.go:329",
 				"message":      "AuthorizeRoles middleware entry",
 				"data": map[string]interface{}{
-					"path":          c.Request.URL.Path,
-					"method":        c.Request.Method,
+					"path":           c.Request.URL.Path,
+					"method":         c.Request.Method,
 					"required_roles": roles,
 				},
 				"timestamp": time.Now().UnixMilli(),
@@ -382,12 +385,12 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 		if user_type != nil {
 			userRole = user_type.(string)
 		}
-		
+
 		// Log the authorization check
 		fmt.Printf("[AuthorizeRoles] Required roles: %v, User role: %s\n", roles, userRole)
-		
+
 		authorized := false
-		if isServiceAccountType(userRole) || userRole == "ADMIN" {
+		if isServiceAccountType(userRole) || userRole == "ADMIN" || userRole == "ADMINISTRATOR" {
 			authorized = true
 		} else {
 			for _, role := range roles {
@@ -407,10 +410,10 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 					"location":     "authenticator.go:350",
 					"message":      "Authorization FAILED",
 					"data": map[string]interface{}{
-						"path":          c.Request.URL.Path,
-						"method":        c.Request.Method,
+						"path":           c.Request.URL.Path,
+						"method":         c.Request.Method,
 						"required_roles": roles,
-						"user_role":     userRole,
+						"user_role":      userRole,
 					},
 					"timestamp": time.Now().UnixMilli(),
 				}
@@ -429,7 +432,7 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 			return
 		}
-		
+
 		// #region agent log
 		func() {
 			logData := map[string]interface{}{
