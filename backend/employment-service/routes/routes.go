@@ -72,6 +72,8 @@ func MainRoutes(routes *gin.Engine, ec controllers.EmploymentController) {
 		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.CreateJobListing())
 		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.UpdateJobListing())
 		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.DeleteJobListing())
+		protected.PUT("/job-listings/:id/open", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.OpenJobListing())
+		protected.PUT("/job-listings/:id/close", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.CloseJobListing())
 		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR", "EMPLOYER"}), ec.GetApplicationsForJob())
 
 		protected.POST("/documents", ec.CreateDocument())

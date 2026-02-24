@@ -18,6 +18,7 @@ type Handlers struct {
 	Messaging   *MessagingHandler
 	Interview   *InterviewHandler
 	Company     *CompanyHandler
+	Social      *SocialHandler
 }
 
 func NewHandlers(services *services.Services, hub *messaging.Hub, logger *log.Logger) *Handlers {
@@ -32,5 +33,6 @@ func NewHandlers(services *services.Services, hub *messaging.Hub, logger *log.Lo
 		Messaging:   NewMessagingHandler(services.Messaging, hub, logger),
 		Interview:   NewInterviewHandler(services.Interview, logger),
 		Company:     NewCompanyHandler(services.Company, logger),
+		Social:      NewSocialHandler(services.Social, logger),
 	}
 }

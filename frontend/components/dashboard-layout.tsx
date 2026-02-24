@@ -258,13 +258,13 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/candidate/job-search", label: "Job Search", icon: Briefcase },
           { href: "/dashboard/candidate/saved-jobs", label: "Saved Jobs", icon: Bookmark },
           { href: "/dashboard/candidate/applications", label: "My Applications", icon: FileText },
+          { href: "/dashboard/candidate/nsz-services", label: "Government Services", icon: CheckCheck },
           { href: "/dashboard/candidate/messages", label: "Messages", icon: MessageSquare },
           { href: "/dashboard/candidate/profile", label: "Profile", icon: User },
         ]
       case "professor":
         return [
-          { href: "/dashboard/professor", label: "Dashboard", icon: Home },,
-          
+          { href: "/dashboard/professor", label: "Dashboard", icon: Home },
           { href: "/dashboard/professor/courses", label: "Courses", icon: BookOpen },
           { href: "/dashboard/professor/exam-sessions", label: "Exams", icon: Calendar },
           { href: "/dashboard/professor/students", label: "Students", icon: Users },
@@ -281,6 +281,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
           { href: "/dashboard/admin/exam-periods", label: "Exam Periods", icon: Calendar },
           { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
+          { href: "/dashboard/admin/benefit-claims", label: "Monetary Benefits", icon: CheckCheck },
+          { href: "/dashboard/admin/state-communications", label: "Communications", icon: CheckCheck },
         ]
         case "administrator":
           return [
@@ -293,6 +295,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
             { href: "/dashboard/admin/subjects", label: "Departments & Majors", icon: BookOpen },
             { href: "/dashboard/admin/exam-periods", label: "Exam Periods", icon: Calendar },
             { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
+            { href: "/dashboard/admin/benefit-claims", label: "Monetary Benefits", icon: CheckCheck },
+            { href: "/dashboard/admin/state-communications", label: "Communications", icon: CheckCheck },
           ]
       case "studentska_sluzba":
         return [
@@ -324,7 +328,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
               </Link>
 
               <nav className="hidden md:flex items-center gap-1">
-                {navigationLinks.map((link) => {
+                {navigationLinks.filter(Boolean).map((link) => {
                   const Icon = link.icon
                   const isActive = pathname === link.href
                   return (
@@ -355,7 +359,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Navigation</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {navigationLinks.map((link) => {
+                  {navigationLinks.filter(Boolean).map((link) => {
                     const Icon = link.icon
                     return (
                       <DropdownMenuItem key={link.href} onClick={() => router.push(link.href)}>
@@ -392,11 +396,11 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                   >
                     <DropdownMenuLabel className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span>Notifications</span>
-                        {unseenCount > 0 && (
-                          <Badge variant="destructive" className="ml-2">
-                            {unseenCount} new
-                          </Badge>
+                      <span>Notifications</span>
+                      {unseenCount > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          {unseenCount} new
+                        </Badge>
                         )}
                       </div>
                       {user?.user_type?.toUpperCase() === "CANDIDATE" && (

@@ -90,6 +90,9 @@ func (er *EmploymentRepo) CreateJobListing(listing *models.JobListing) (primitiv
 		listing.ApprovalStatus = "pending"
 	}
 
+	// By default new listings are open
+	listing.IsOpen = true
+
 	result, err := lisCollection.InsertOne(ctx, &listing)
 	if err != nil {
 		er.logger.Println(err)
@@ -149,6 +152,33 @@ func (er *EmploymentRepo) UpdateJobListing(listingId string, listing *models.Job
 	}
 
 	er.logger.Printf("Updated listing with id: %s", listingId)
+	return nil
+}
+
+func (er *EmploymentRepo) SetJobListingOpenState(listingId string, isOpen bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	col := OpenCollection(er.cli, "listings")
+	objectId, err := primitive.ObjectIDFromHex(listingId)
+	if err != nil {
+		return fmt.Errorf("invalid ID: %v", err)
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"is_open":    isOpen,
+			"updated_at": time.Now(),
+		},
+	}
+
+	res, err := col.UpdateOne(ctx, bson.M{"_id": objectId}, update)
+	if err != nil {
+		return fmt.Errorf("could not update open state for listing %s: %v", listingId, err)
+	}
+	if res.MatchedCount == 0 {
+		return fmt.Errorf("no listing found with id: %s", listingId)
+	}
 	return nil
 }
 

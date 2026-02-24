@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, Briefcase, Plus, Calendar, CheckCircle, Clock, XCircle, Pencil, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 export default function EmployerJobListingsPage() {
   const router = useRouter()
@@ -19,6 +20,8 @@ export default function EmployerJobListingsPage() {
   const [error, setError] = useState("")
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [employerId, setEmployerId] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     const loadData = async () => {
@@ -42,7 +45,7 @@ export default function EmployerJobListingsPage() {
       if (!token || !user?.id) throw new Error("Not authenticated")
       
       // Get employer profile to find employer ID
-      let employer
+      let employer: any
       try {
         employer = await apiClient.getEmployerByUserId(user.id, token)
         if (!employer || !employer.id) {
@@ -101,6 +104,37 @@ export default function EmployerJobListingsPage() {
       setError(err instanceof Error ? err.message : "Failed to delete job listing")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleToggleOpen = async (listingId: string, currentOpen: boolean) => {
+    if (!token) return
+    setTogglingId(listingId)
+    try {
+      if (currentOpen) {
+        await apiClient.closeJobListing(listingId, token)
+      } else {
+        await apiClient.openJobListing(listingId, token)
+      }
+      setListings(prev =>
+        prev.map(l =>
+          l.id === listingId ? { ...l, is_open: !currentOpen } : l
+        )
+      )
+      toast({
+        title: currentOpen ? "Position closed" : "Position reopened",
+        description: currentOpen
+          ? "Candidates will no longer see this job as open."
+          : "This job is open again for applications.",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update job status",
+        variant: "destructive",
+      })
+    } finally {
+      setTogglingId(null)
     }
   }
 
@@ -185,6 +219,11 @@ export default function EmployerJobListingsPage() {
                       <Badge variant={listing.approval_status === "Approved" ? "default" : "secondary"}>
                         {listing.approval_status}
                       </Badge>
+                      {listing.approval_status === "Approved" && (
+                        <Badge variant={listing.is_open === false ? "secondary" : "outline"}>
+                          {listing.is_open === false ? "Closed" : "Open"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -229,7 +268,7 @@ export default function EmployerJobListingsPage() {
                       })()}
                     </div>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       className="flex-1 bg-transparent"
@@ -245,6 +284,22 @@ export default function EmployerJobListingsPage() {
                     >
                       View Details
                     </Button>
+                    {listing.approval_status === "Approved" && (
+                      <Button
+                        variant={listing.is_open === false ? "outline" : "destructive"}
+                        size="sm"
+                        onClick={() => handleToggleOpen(listing.id, listing.is_open !== false)}
+                        disabled={togglingId === listing.id}
+                      >
+                        {togglingId === listing.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : listing.is_open === false ? (
+                          "Reopen"
+                        ) : (
+                          "Close"
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       size="sm"

@@ -29,6 +29,7 @@ interface JobListing {
   is_internship?: boolean
   approved_at?: string
   approved_by?: string
+  is_open?: boolean
 }
 
 export default function JobListingDetailsPage() {
@@ -39,6 +40,7 @@ export default function JobListingDetailsPage() {
   const [listing, setListing] = useState<JobListing | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [toggling, setToggling] = useState(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -88,6 +90,36 @@ export default function JobListingDetailsPage() {
         return <Badge className="bg-yellow-500">Pending</Badge>
       default:
         return <Badge>{status}</Badge>
+    }
+  }
+
+  const handleToggleOpen = async () => {
+    if (!listing || !token) return
+    if (listing.approval_status?.toLowerCase() !== "approved") return
+
+    setToggling(true)
+    try {
+      const currentlyOpen = listing.is_open !== false
+      if (currentlyOpen) {
+        await apiClient.closeJobListing(listing.id, token)
+      } else {
+        await apiClient.openJobListing(listing.id, token)
+      }
+      setListing(prev => (prev ? { ...prev, is_open: !currentlyOpen } : prev))
+      toast({
+        title: currentlyOpen ? "Position closed" : "Position reopened",
+        description: currentlyOpen
+          ? "Candidates will no longer see this job as open."
+          : "This job is open again for applications.",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update job status",
+        variant: "destructive",
+      })
+    } finally {
+      setToggling(false)
     }
   }
 
@@ -165,7 +197,14 @@ export default function JobListingDetailsPage() {
                   )}
                 </CardDescription>
               </div>
-              {getStatusBadge(listing.approval_status)}
+              <div className="flex flex-col items-end gap-2">
+                {getStatusBadge(listing.approval_status)}
+                {listing.approval_status?.toLowerCase() === "approved" && (
+                  <Badge variant={listing.is_open === false ? "secondary" : "outline"}>
+                    {listing.is_open === false ? "Closed" : "Open"}
+                  </Badge>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -244,6 +283,24 @@ export default function JobListingDetailsPage() {
                       })
                     })()}
                   </p>
+                </div>
+              )}
+              {listing.approval_status?.toLowerCase() === "approved" && (
+                <div className="flex items-center justify-end gap-2 col-span-2">
+                  <Button
+                    variant={listing.is_open === false ? "outline" : "destructive"}
+                    size="sm"
+                    onClick={handleToggleOpen}
+                    disabled={toggling}
+                  >
+                    {toggling ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : listing.is_open === false ? (
+                      "Reopen position"
+                    ) : (
+                      "Close position"
+                    )}
+                  </Button>
                 </div>
               )}
             </div>

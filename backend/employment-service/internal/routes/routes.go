@@ -70,6 +70,8 @@ func setupProtectedRoutes(router *gin.Engine, h *handlers.Handlers) {
 		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.CreateJobListing())
 		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.UpdateJobListing())
 		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.DeleteJobListing())
+		protected.PUT("/job-listings/:id/open", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.OpenJobListing())
+		protected.PUT("/job-listings/:id/close", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.CloseJobListing())
 		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.GetApplicationsForJob())
 
 		protected.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Application.CreateApplication())
@@ -110,6 +112,16 @@ func setupProtectedRoutes(router *gin.Engine, h *handlers.Handlers) {
 		protected.GET("/internships", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.GetTrendingJobs()) 
 		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.GetTrendingJobs())
 
+		// NSZ-like endpoints for candidates (basic flows)
+		protected.POST("/benefit-claims", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.CreateBenefitClaim())
+		protected.GET("/benefit-claims/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.GetBenefitClaims())
+
+		protected.POST("/state-competitions/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.CreateCompetitionApplication())
+		protected.GET("/state-competitions/applications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.GetCompetitionApplications())
+
+		protected.POST("/state-communications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.CreateStateCommunication())
+		protected.GET("/state-communications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.GetStateCommunications())
+
 		setupAdminRoutes(protected, h)
 	}
 }
@@ -140,7 +152,7 @@ func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
 	}()
 	// #endregion
 	admin := router.Group("/admin")
-	admin.Use(middleware.AuthorizeRoles([]string{"ADMIN"}))
+	admin.Use(middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}))
 	{
 		// #region agent log
 		func() {
@@ -178,6 +190,16 @@ func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
 		admin.PUT("/jobs/:id/approve", h.Admin.ApproveJobListing())
 		admin.PUT("/jobs/:id/reject", h.Admin.RejectJobListing())
 		admin.GET("/jobs/pending", h.Admin.GetPendingJobListings())
+
+		// NSZ admin endpoints
+		admin.GET("/benefit-claims", h.Social.AdminGetAllBenefitClaims())
+		admin.PUT("/benefit-claims/:id/status", h.Social.AdminUpdateBenefitClaimStatus())
+
+		admin.GET("/state-competitions/applications", h.Social.AdminGetAllCompetitionApplications())
+		admin.PUT("/state-competitions/applications/:id/status", h.Social.AdminUpdateCompetitionApplicationStatus())
+
+		admin.GET("/state-communications", h.Social.AdminGetAllStateCommunications())
+		admin.PUT("/state-communications/:id", h.Social.AdminUpdateStateCommunication())
 	}
 	// #region agent log
 	func() {

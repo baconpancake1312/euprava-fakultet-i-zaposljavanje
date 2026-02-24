@@ -415,8 +415,8 @@ export default function CandidateJobSearchPage() {
         </div>
 
         {/* Search and Filter Section */}
-        <Card className="border-2 shadow-lg">
-          <CardContent className="pt-6">
+        <Card>
+          <CardContent className="pt-4">
             <div className="flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -443,11 +443,7 @@ export default function CandidateJobSearchPage() {
                   <SelectItem value="fulltime">Full-time</SelectItem>
                 </SelectContent>
               </Select>
-              <Button 
-                onClick={handleSearch} 
-                disabled={searching}
-                className="h-12 px-6 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30"
-              >
+              <Button onClick={handleSearch} disabled={searching} className="h-12 px-6">
                 {searching ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -489,8 +485,8 @@ export default function CandidateJobSearchPage() {
             </div>
           </div>
         ) : listings.length === 0 ? (
-          <Card className="border-2">
-            <CardContent className="py-20 text-center">
+          <Card>
+            <CardContent className="py-16 text-center">
               <div className="flex flex-col items-center gap-4">
                 <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
                   <Briefcase className="h-10 w-10 text-muted-foreground" />
@@ -507,28 +503,22 @@ export default function CandidateJobSearchPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-4">
             {listings.map((listing) => {
               // Normalize listing ID for comparison
               const listingId = String(listing.id || listing._id || "")
               const isApplied = appliedJobIds.has(listingId)
 
               return (
-                <Card
-                  key={listingId}
-                  className="border-2 hover:border-primary/50 transition-all hover:shadow-xl group relative overflow-hidden"
-                >
-                  {/* Gradient accent */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary to-primary/60" />
-
-                  <CardHeader className="pb-4">
+                <Card key={listingId} className="hover:border-[#FF5A5F]/40 transition-colors">
+                  <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
-                            <Briefcase className="h-5 w-5 text-primary" />
+                          <div className="h-8 w-8 rounded-full bg-[#FF5A5F]/10 flex items-center justify-center">
+                            <Briefcase className="h-4 w-4 text-[#FF5A5F]" />
                           </div>
-                          <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                          <CardTitle className="text-base font-semibold">
                             {listing.position}
                           </CardTitle>
                         </div>
@@ -539,26 +529,25 @@ export default function CandidateJobSearchPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {isApplied && (
-                          <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3" />
-                            Applied
-                          </Badge>
-                        )}
-                        {listing.match_score !== undefined && (
-                          <Badge
-                            variant="outline"
-                            className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 border-yellow-500/20"
-                          >
-                            <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                            <span className="font-semibold">{listing.match_score}%</span>
-                          </Badge>
-                        )}
-                        {listing.is_internship && (
-                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                            Internship
-                          </Badge>
-                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          {isApplied && (
+                            <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3" />
+                              Applied
+                            </Badge>
+                          )}
+                          {listing.is_internship && (
+                            <Badge variant="outline" className="text-xs">
+                              Internship
+                            </Badge>
+                          )}
+                          {listing.match_score !== undefined && (
+                            <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                              <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                              <span className="font-semibold">{listing.match_score}% match</span>
+                            </Badge>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -578,7 +567,7 @@ export default function CandidateJobSearchPage() {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">{listing.description}</p>
 
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -612,7 +601,7 @@ export default function CandidateJobSearchPage() {
                       <Button
                         onClick={() => handleApply(listingId)}
                         disabled={applying === listingId || isApplied}
-                        className={`flex-1 h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 group-hover:scale-[1.02] transition-all ${
+                        className={`flex-1 h-10 ${
                           isApplied ? "bg-green-500 hover:bg-green-600" : ""
                         }`}
                       >

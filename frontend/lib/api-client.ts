@@ -1075,6 +1075,28 @@ class ApiClient {
     return response.ok
   }
 
+  async openJobListing(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}/open`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
+  async closeJobListing(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}/close`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
   async searchJobsByText(query: string, page: number = 1, limit: number = 20) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/text?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
       headers: this.getAuthHeaders(),
@@ -1160,6 +1182,126 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
     })
     return this.handleResponse(response)
+  }
+
+  // NSZ-like candidate services
+  async createBenefitClaim(data: { candidate_id: string; reason: string }, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/benefit-claims`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getBenefitClaimsForCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/benefit-claims/candidate/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async createStateCompetitionApplication(
+    data: { candidate_id: string; title: string; issuer?: string },
+    token: string,
+  ) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/state-competitions/applications`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getStateCompetitionApplicationsForCandidate(candidateId: string, token: string) {
+    const response = await fetch(
+      `${EMPLOYMENT_API_URL}/state-competitions/applications/candidate/${candidateId}`,
+      {
+        headers: this.getAuthHeaders(token),
+      },
+    )
+    return this.handleResponse(response)
+  }
+
+  async createStateCommunication(
+    data: { candidate_id: string; subject: string; message: string },
+    token: string,
+  ) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/state-communications`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getStateCommunicationsForCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/state-communications/candidate/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  // NSZ admin services
+  async getAllBenefitClaims(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/benefit-claims`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateBenefitClaimStatus(id: string, status: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/benefit-claims/${id}/status`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify({ status }),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+  }
+
+  async getAllStateCompetitionApplications(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/state-competitions/applications`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateStateCompetitionApplicationStatus(id: string, status: string, token: string) {
+    const response = await fetch(
+      `${EMPLOYMENT_API_URL}/admin/state-competitions/applications/${id}/status`,
+      {
+        method: "PUT",
+        headers: this.getAuthHeaders(token),
+        body: JSON.stringify({ status }),
+      },
+    )
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+  }
+
+  async getAllStateCommunications(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/state-communications`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateStateCommunication(
+    id: string,
+    data: { status: string; response?: string },
+    token: string,
+  ) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/state-communications/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   async applyToJob(listingId: string, data: any, token: string) {

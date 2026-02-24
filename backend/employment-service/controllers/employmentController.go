@@ -244,6 +244,56 @@ func (ec *EmploymentController) UpdateJobListing() gin.HandlerFunc {
 	}
 }
 
+// OpenJobListing sets is_open = true for an approved listing
+func (ec *EmploymentController) OpenJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		listingId := c.Param("id")
+
+		listing, err := ec.repo.GetJobListing(listingId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		if strings.ToLower(string(listing.ApprovalStatus)) != "approved" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Only approved listings can be opened/closed"})
+			return
+		}
+
+		if err := ec.repo.SetJobListingOpenState(listingId, true); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing opened"})
+	}
+}
+
+// CloseJobListing sets is_open = false for an approved listing
+func (ec *EmploymentController) CloseJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		listingId := c.Param("id")
+
+		listing, err := ec.repo.GetJobListing(listingId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		if strings.ToLower(string(listing.ApprovalStatus)) != "approved" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Only approved listings can be opened/closed"})
+			return
+		}
+
+		if err := ec.repo.SetJobListingOpenState(listingId, false); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing closed"})
+	}
+}
+
 func (ec *EmploymentController) DeleteJobListing() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		listingId := c.Param("id")

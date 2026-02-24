@@ -18,6 +18,7 @@ type Services struct {
 	Messaging   *MessagingService
 	Interview   *InterviewService
 	Company     *CompanyService
+	Social      *SocialService
 }
 
 func NewServices(repo *data.EmploymentRepo, broker *messaging.Broker, hub *messaging.Hub, logger *log.Logger) *Services {
@@ -32,5 +33,6 @@ func NewServices(repo *data.EmploymentRepo, broker *messaging.Broker, hub *messa
 		Messaging:   NewMessagingService(repo, broker, hub, logger),
 		Interview:   NewInterviewService(repo, logger),
 		Company:     NewCompanyService(repo, logger),
+		Social:      NewSocialService(repo, logger),
 	}
 }

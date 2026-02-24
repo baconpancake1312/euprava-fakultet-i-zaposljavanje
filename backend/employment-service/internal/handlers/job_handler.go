@@ -255,3 +255,41 @@ func (h *JobHandler) GetSavedJobs() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"saved_jobs": jobs})
 	}
 }
+
+func (h *JobHandler) OpenJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		jobID := c.Param("id")
+		if jobID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Job ID is required"})
+			return
+		}
+		if err := h.service.SetJobOpenState(jobID, true); err != nil {
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing opened"})
+	}
+}
+
+func (h *JobHandler) CloseJobListing() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		jobID := c.Param("id")
+		if jobID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Job ID is required"})
+			return
+		}
+		if err := h.service.SetJobOpenState(jobID, false); err != nil {
+			if isNotFoundError(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Job listing closed"})
+	}
+}

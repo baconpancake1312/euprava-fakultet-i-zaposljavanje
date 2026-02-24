@@ -128,3 +128,7 @@ func (s *JobService) GetSavedJobs(candidateID string) ([]*models.JobListing, err
 	}
 	return s.repo.GetSavedJobsWithDetails(candObjId)
 }
+
+func (s *JobService) SetJobOpenState(jobID string, isOpen bool) error {
+	return s.repo.SetJobListingOpenState(jobID, isOpen)
+}
