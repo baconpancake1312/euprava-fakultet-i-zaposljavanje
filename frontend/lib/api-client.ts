@@ -1079,6 +1079,16 @@ class ApiClient {
     return this.handleResponse(response)
   }
 
+  async searchCandidatesByText(query: string, token: string, page: number = 1, limit: number = 50) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/candidates/text?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
   // Employment Service APIs - Applications
   async getApplications(token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications`, {
@@ -1124,6 +1134,13 @@ class ApiClient {
 
   async getApplicationById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getApplicationsForJob(jobId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${jobId}/applications`, {
       headers: this.getAuthHeaders(token),
     })
     return this.handleResponse(response)

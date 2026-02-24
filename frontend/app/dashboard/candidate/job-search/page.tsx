@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -14,6 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function CandidateJobSearchPage() {
+  const router = useRouter()
   const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -508,103 +510,132 @@ export default function CandidateJobSearchPage() {
           <div className="grid md:grid-cols-2 gap-6">
             {listings.map((listing) => {
               // Normalize listing ID for comparison
-              const listingId = String(listing.id || listing._id || '')
+              const listingId = String(listing.id || listing._id || "")
               const isApplied = appliedJobIds.has(listingId)
-              
+
               return (
-              <Card key={listing.id} className="border-2 hover:border-primary/50 transition-all hover:shadow-xl group relative overflow-hidden">
-                {/* Gradient accent */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary to-primary/60" />
-                
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
-                          <Briefcase className="h-5 w-5 text-primary" />
+                <Card
+                  key={listingId}
+                  className="border-2 hover:border-primary/50 transition-all hover:shadow-xl group relative overflow-hidden"
+                >
+                  {/* Gradient accent */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary to-primary/60" />
+
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
+                            <Briefcase className="h-5 w-5 text-primary" />
+                          </div>
+                          <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                            {listing.position}
+                          </CardTitle>
                         </div>
-                        <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                          {listing.position}
-                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2">
+                          <Building className="h-4 w-4" />
+                          <span className="font-medium">{listing.poster_name || "Company"}</span>
+                        </CardDescription>
                       </div>
-                      <CardDescription className="flex items-center gap-2">
-                        <Building className="h-4 w-4" />
-                        <span className="font-medium">{listing.poster_name || "Company"}</span>
-                      </CardDescription>
+
+                      <div className="flex items-center gap-2">
+                        {isApplied && (
+                          <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Applied
+                          </Badge>
+                        )}
+                        {listing.match_score !== undefined && (
+                          <Badge
+                            variant="outline"
+                            className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 border-yellow-500/20"
+                          >
+                            <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                            <span className="font-semibold">{listing.match_score}%</span>
+                          </Badge>
+                        )}
+                        {listing.is_internship && (
+                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                            Internship
+                          </Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSaveJob(listingId)}
+                          disabled={saving === listingId}
+                          className="h-9 w-9 hover:bg-primary/10"
+                        >
+                          {saving === listingId ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : savedJobIds.has(listingId) ? (
+                            <BookmarkCheck className="h-5 w-5 text-primary fill-primary" />
+                          ) : (
+                            <Bookmark className="h-5 w-5" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {isApplied && (
-                        <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Applied
-                        </Badge>
-                      )}
-                      {listing.match_score !== undefined && (
-                        <Badge variant="outline" className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 border-yellow-500/20">
-                          <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                          <span className="font-semibold">{listing.match_score}%</span>
-                        </Badge>
-                      )}
-                      {listing.is_internship && (
-                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                          Internship
-                        </Badge>
-                      )}
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">{listing.description}</p>
+
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        {(() => {
+                          if (listing.created_at && listing.created_at !== "0001-01-01T00:00:00Z") {
+                            const date = new Date(listing.created_at)
+                            if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                              return `Posted ${date.toLocaleDateString("en-GB")}`
+                            }
+                          }
+                          // Always show a date
+                          const fallbackDate = new Date(listing.created_at)
+                          if (!isNaN(fallbackDate.getTime()) && fallbackDate.getFullYear() >= 2000) {
+                            return `Posted ${fallbackDate.toLocaleDateString("en-GB")}`
+                          }
+                          return `Posted ${new Date().toLocaleDateString("en-GB")}`
+                        })()}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSaveJob(listingId)}
-                        disabled={saving === listingId}
-                        className="h-9 w-9 hover:bg-primary/10"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => router.push(`/dashboard/candidate/job-listings/${listingId}`)}
                       >
-                        {saving === listingId ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : savedJobIds.has(listingId) ? (
-                          <BookmarkCheck className="h-5 w-5 text-primary fill-primary" />
+                        View Details
+                      </Button>
+                      <Button
+                        onClick={() => handleApply(listingId)}
+                        disabled={applying === listingId || isApplied}
+                        className={`flex-1 h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 group-hover:scale-[1.02] transition-all ${
+                          isApplied ? "bg-green-500 hover:bg-green-600" : ""
+                        }`}
+                      >
+                        {applying === listingId ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Applying...
+                          </>
+                        ) : isApplied ? (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Applied
+                          </>
                         ) : (
-                          <Bookmark className="h-5 w-5" />
+                          <>
+                            Apply Now
+                            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          </>
                         )}
                       </Button>
                     </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                    {listing.description}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>Posted {new Date(listing.created_at).toLocaleDateString()}</span>
-                  </div>
-                  
-                  <Button
-                    onClick={() => handleApply(listingId)}
-                    disabled={applying === listingId || isApplied}
-                    className={`w-full h-11 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 group-hover:scale-[1.02] transition-all ${
-                      isApplied ? 'bg-green-500 hover:bg-green-600' : ''
-                    }`}
-                  >
-                    {applying === listingId ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Applying...
-                      </>
-                    ) : isApplied ? (
-                      <>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Applied
-                      </>
-                    ) : (
-                      <>
-                        Apply Now
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
               )
             })}
           </div>

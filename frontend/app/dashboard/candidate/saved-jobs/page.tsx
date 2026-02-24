@@ -228,18 +228,35 @@ export default function CandidateSavedJobsPage() {
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span>Posted {new Date(job.created_at || job.createdAt || job.created_at || Date.now()).toLocaleDateString()}</span>
+                      <span>
+                        {(() => {
+                          const createdDate = job.created_at || job.createdAt
+                          if (createdDate && createdDate !== "0001-01-01T00:00:00Z") {
+                            const date = new Date(createdDate)
+                            if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                              return `Posted ${date.toLocaleDateString('en-GB')}`
+                            }
+                          }
+                          return `Posted ${new Date().toLocaleDateString('en-GB')}`
+                        })()}
+                      </span>
                     </div>
-                    {job.expire_at && (
+                    {job.expire_at && job.expire_at !== "0001-01-01T00:00:00Z" && (
                       <div className="text-sm text-muted-foreground">
-                        Expires: {new Date(job.expire_at).toLocaleDateString()}
+                        {(() => {
+                          const date = new Date(job.expire_at)
+                          if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                            return `Expires: ${date.toLocaleDateString('en-GB')}`
+                          }
+                          return null
+                        })()}
                       </div>
                     )}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         className="flex-1"
-                        onClick={() => router.push(`/dashboard/candidate/job-search`)}
+                        onClick={() => router.push(`/dashboard/candidate/job-listings/${job.id || job._id}`)}
                       >
                         View Details
                       </Button>

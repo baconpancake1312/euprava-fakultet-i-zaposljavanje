@@ -129,8 +129,14 @@ func (er *EmploymentRepo) UpdateJobListing(listingId string, listing *models.Job
 		"$set": bson.M{
 			"position":      listing.Position,
 			"description":   listing.Description,
+			"location":      listing.Location,
+			"salary":        listing.Salary,
+			"requirements":  listing.Requirements,
+			"benefits":      listing.Benefits,
+			"work_type":     listing.WorkType,
 			"expire_at":     listing.ExpireAt,
 			"is_internship": listing.IsInternship,
+			"updated_at":    time.Now(),
 		},
 	}
 

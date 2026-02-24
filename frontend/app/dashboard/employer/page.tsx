@@ -129,7 +129,6 @@ export default function EmployerDashboard() {
                 "Company Name",
                 "PIB (Tax ID)",
                 "Registration Number",
-                "Business Activity",
                 "Company Address",
               ]}
               onComplete={() => router.push("/dashboard/employer/complete-profile")}
@@ -139,7 +138,7 @@ export default function EmployerDashboard() {
 
         {/* Quick Stats */}
         {employerData && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-scaleIn">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scaleIn">
             <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -172,37 +171,6 @@ export default function EmployerDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">PIB Status</p>
-                    <p className="text-2xl font-bold mt-1">
-                      {employerData.pib ? "✓" : "Missing"}
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <FileText className="h-6 w-6 text-green-500" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Business Activity</p>
-                    <p className="text-lg font-bold mt-1 truncate">
-                      {employerData.delatnost || "Not set"}
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-purple-500" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 
@@ -367,7 +335,7 @@ export default function EmployerDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Company Name</p>
                   <p className="text-lg font-semibold">{employerData.firm_name || "Not set"}</p>
@@ -383,10 +351,6 @@ export default function EmployerDashboard() {
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Registration Number</p>
                   <p className="text-lg font-semibold">{employerData.maticni_broj || "Not set"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Business Activity</p>
-                  <p className="text-lg font-semibold">{employerData.delatnost || "Not set"}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Address</p>

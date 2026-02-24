@@ -102,7 +102,13 @@ type JobListing struct {
 	PosterName     string             `bson:"poster_name,omitempty" json:"poster_name,omitempty"`
 	Position       string             `bson:"position" json:"position"`
 	Description    string             `bson:"description" json:"description"`
+	Location       string             `bson:"location,omitempty" json:"location,omitempty"`
+	Salary         string             `bson:"salary,omitempty" json:"salary,omitempty"`
+	Requirements   string             `bson:"requirements,omitempty" json:"requirements,omitempty"`
+	Benefits       string             `bson:"benefits,omitempty" json:"benefits,omitempty"`
+	WorkType       string             `bson:"work_type,omitempty" json:"work_type,omitempty"` // e.g., "Remote", "Hybrid", "On-site"
 	CreatedAt      time.Time          `bson:"created_at,omitempty" json:"created_at"`
+	UpdatedAt      time.Time          `bson:"updated_at,omitempty" json:"updated_at"`
 	ExpireAt       time.Time          `bson:"expire_at,omitempty" json:"expire_at"`
 	IsInternship   bool               `bson:"is_internship" json:"is_internship"`
 	ApprovalStatus ApprovalStatus     `bson:"approval_status" json:"approval_status"`

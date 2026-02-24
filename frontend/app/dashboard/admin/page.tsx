@@ -129,6 +129,26 @@ export default function AdminDashboard() {
 
           <Card
             className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/employer/analytics")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Building className="h-6 w-6 text-accent" />
+                </div>
+                <div>
+                  <CardTitle>Company Analytics</CardTitle>
+                  <CardDescription>View insights</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">View analytics for all companies</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
             onClick={() => router.push("/dashboard/admin/notifications")}
           >
             <CardHeader>

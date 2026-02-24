@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -27,6 +28,7 @@ interface JobListing {
 }
 
 export default function AdminJobListingsPage() {
+  const router = useRouter()
   const { user, token, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<JobListing[]>([])
   const [loading, setLoading] = useState(true)
@@ -237,27 +239,35 @@ export default function AdminJobListingsPage() {
                     <span>Created: {new Date(listing.created_at).toLocaleDateString()}</span>
                     <span>Expires: {new Date(listing.expire_at).toLocaleDateString()}</span>
                   </div>
-                  {listing.approval_status.toLowerCase() === "pending" && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleApprove(listing.id)}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                        disabled={processingId === listing.id}
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        {processingId === listing.id ? "Approving..." : "Approve"}
-                      </Button>
-                      <Button
-                        onClick={() => handleReject(listing.id)}
-                        variant="destructive"
-                        className="flex-1"
-                        disabled={processingId === listing.id}
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        {processingId === listing.id ? "Rejecting..." : "Reject"}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    {listing.approval_status.toLowerCase() === "pending" && (
+                      <>
+                        <Button
+                          onClick={() => handleApprove(listing.id)}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                          disabled={processingId === listing.id}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {processingId === listing.id ? "Approving..." : "Approve"}
+                        </Button>
+                        <Button
+                          onClick={() => handleReject(listing.id)}
+                          variant="destructive"
+                          className="flex-1"
+                          disabled={processingId === listing.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          {processingId === listing.id ? "Rejecting..." : "Reject"}
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/dashboard/employer/job-listings/${listing.id}/analytics`)}
+                    >
+                      View Analytics
+                    </Button>
+                  </div>
                   {listing.approved_at && (
                     <p className="text-xs text-muted-foreground">
                       {listing.approval_status} on {new Date(listing.approved_at).toLocaleString()}

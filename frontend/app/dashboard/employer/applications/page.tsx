@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -32,6 +33,7 @@ import {
   ChevronRight,
   Users,
   Clock,
+  Search,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -76,11 +78,13 @@ export default function EmployerApplicationsPage() {
 
   const [jobListings, setJobListings] = useState<JobListing[]>([])
   const [applicationsByListing, setApplicationsByListing] = useState<Record<string, Application[]>>({})
+  const [filteredApplicationsByListing, setFilteredApplicationsByListing] = useState<Record<string, Application[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [expandedListing, setExpandedListing] = useState<string | null>(null)
   const [loadingApps, setLoadingApps] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Profile dialog
   const [profileDialog, setProfileDialog] = useState(false)
@@ -171,6 +175,8 @@ export default function EmployerApplicationsPage() {
       })
 
       setApplicationsByListing((prev) => ({ ...prev, [listingId]: enriched }))
+      // Also update filtered applications
+      setFilteredApplicationsByListing((prev) => ({ ...prev, [listingId]: enriched }))
     } catch (err) {
       toast({
         title: "Error",
@@ -182,6 +188,38 @@ export default function EmployerApplicationsPage() {
       setLoadingApps(null)
     }
   }
+
+  // Filter applications by search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredApplicationsByListing(applicationsByListing)
+      return
+    }
+
+    const q = searchQuery.toLowerCase()
+    const filtered: Record<string, Application[]> = {}
+
+    Object.keys(applicationsByListing).forEach((listingId) => {
+      const apps = applicationsByListing[listingId]
+      const filteredApps = apps.filter((app) => {
+        const candidate = app.candidate
+        if (!candidate) return false
+        
+        const name = `${candidate.first_name || ""} ${candidate.last_name || ""}`.toLowerCase()
+        const email = (candidate.email || "").toLowerCase()
+        const major = (candidate.major || "").toLowerCase()
+        const skills = (candidate.skills || []).join(" ").toLowerCase()
+        
+        return name.includes(q) || email.includes(q) || major.includes(q) || skills.includes(q)
+      })
+      
+      if (filteredApps.length > 0) {
+        filtered[listingId] = filteredApps
+      }
+    })
+
+    setFilteredApplicationsByListing(filtered)
+  }, [searchQuery, applicationsByListing])
 
   const handleToggleListing = (listingId: string) => {
     if (expandedListing === listingId) {
@@ -304,6 +342,19 @@ export default function EmployerApplicationsPage() {
           <p className="text-muted-foreground">Click on a position to view candidates who applied</p>
         </div>
 
+        {/* Search */}
+        {jobListings.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search candidates by name, email, major or skills..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
+
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -327,8 +378,8 @@ export default function EmployerApplicationsPage() {
             {jobListings.map((listing) => {
               const isExpanded = expandedListing === listing.id
               const isLoadingThis = loadingApps === listing.id
-              const apps = applicationsByListing[listing.id] || []
-              const appCount = applicationsByListing[listing.id]?.length
+              const apps = filteredApplicationsByListing[listing.id] || []
+              const appCount = filteredApplicationsByListing[listing.id]?.length || 0
 
               return (
                 <Card key={listing.id} className={`transition-all ${isExpanded ? "border-primary" : "hover:border-primary/50"}`}>

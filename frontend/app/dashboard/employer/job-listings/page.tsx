@@ -193,12 +193,40 @@ export default function EmployerJobListingsPage() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      <span>Posted {new Date(listing.created_at).toLocaleDateString()}</span>
+                      <span>
+                        {(() => {
+                          if (listing.updated_at && listing.updated_at !== "0001-01-01T00:00:00Z") {
+                            const date = new Date(listing.updated_at)
+                            if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                              return `Updated ${date.toLocaleDateString('en-GB')}`
+                            }
+                          }
+                          if (listing.created_at && listing.created_at !== "0001-01-01T00:00:00Z") {
+                            const date = new Date(listing.created_at)
+                            if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                              return `Posted ${date.toLocaleDateString('en-GB')}`
+                            }
+                          }
+                          // Always show a date, even if invalid - use created_at as fallback
+                          const fallbackDate = new Date(listing.created_at)
+                          if (!isNaN(fallbackDate.getTime()) && fallbackDate.getFullYear() >= 2000) {
+                            return `Posted ${fallbackDate.toLocaleDateString('en-GB')}`
+                          }
+                          // If even created_at is invalid, use current date
+                          return `Posted ${new Date().toLocaleDateString('en-GB')}`
+                        })()}
+                      </span>
                     </div>
                   </div>
-                  {listing.expire_at && (
+                  {listing.expire_at && listing.expire_at !== "0001-01-01T00:00:00Z" && (
                     <div className="text-sm text-muted-foreground">
-                      Expires: {new Date(listing.expire_at).toLocaleDateString()}
+                      {(() => {
+                        const date = new Date(listing.expire_at)
+                        if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                          return `Expires: ${date.toLocaleDateString('en-GB')}`
+                        }
+                        return null
+                      })()}
                     </div>
                   )}
                   <div className="flex gap-2">

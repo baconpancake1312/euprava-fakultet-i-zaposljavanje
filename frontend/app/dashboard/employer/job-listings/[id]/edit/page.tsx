@@ -23,6 +23,11 @@ export default function EditJobListingPage() {
   const [formData, setFormData] = useState({
     position: "",
     description: "",
+    location: "",
+    salary: "",
+    requirements: "",
+    benefits: "",
+    work_type: "",
     expire_at: "",
     is_internship: false,
   })
@@ -59,6 +64,11 @@ export default function EditJobListingPage() {
         setFormData({
           position: jobData.position || "",
           description: jobData.description || "",
+          location: jobData.location || "",
+          salary: jobData.salary || "",
+          requirements: jobData.requirements || "",
+          benefits: jobData.benefits || "",
+          work_type: jobData.work_type || "",
           expire_at: jobData.expire_at
             ? new Date(jobData.expire_at).toISOString().split("T")[0]
             : "",
@@ -87,6 +97,11 @@ export default function EditJobListingPage() {
       const data = {
         position: formData.position,
         description: formData.description,
+        location: formData.location || undefined,
+        salary: formData.salary || undefined,
+        requirements: formData.requirements || undefined,
+        benefits: formData.benefits || undefined,
+        work_type: formData.work_type || undefined,
         expire_at: formData.expire_at ? new Date(formData.expire_at).toISOString() : undefined,
         is_internship: formData.is_internship,
       }
@@ -162,6 +177,64 @@ export default function EditJobListingPage() {
                   required
                   disabled={saving}
                   rows={6}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    placeholder="e.g. Belgrade, Remote, Hybrid"
+                    value={formData.location}
+                    onChange={(e) => updateField("location", e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="work_type">Work Type</Label>
+                  <Input
+                    id="work_type"
+                    placeholder="e.g. Remote, Hybrid, On-site"
+                    value={formData.work_type}
+                    onChange={(e) => updateField("work_type", e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salary">Salary</Label>
+                <Input
+                  id="salary"
+                  placeholder="e.g. 50,000 - 70,000 RSD/month"
+                  value={formData.salary}
+                  onChange={(e) => updateField("salary", e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="requirements">Requirements</Label>
+                <Textarea
+                  id="requirements"
+                  placeholder="List the required skills, experience, education..."
+                  value={formData.requirements}
+                  onChange={(e) => updateField("requirements", e.target.value)}
+                  disabled={saving}
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="benefits">Benefits</Label>
+                <Textarea
+                  id="benefits"
+                  placeholder="List the benefits offered (health insurance, flexible hours, etc.)..."
+                  value={formData.benefits}
+                  onChange={(e) => updateField("benefits", e.target.value)}
+                  disabled={saving}
+                  rows={4}
                 />
               </div>
 
