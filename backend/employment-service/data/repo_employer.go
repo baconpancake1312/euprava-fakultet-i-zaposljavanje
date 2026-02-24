@@ -1050,13 +1050,15 @@ func (er *EmploymentRepo) RejectEmployer(employerId, adminId string) error {
 
 	er.logger.Printf("[RejectEmployer] Using filter: %+v", filter)
 
+	now := time.Now()
 	updateData := bson.M{
 		"$set": bson.M{
 			"approval_status": "rejected",
-			"approved_at":     time.Now(),
+			"approved_at":     now,
 			"approved_by":     adminId,
 		},
 	}
+	er.logger.Printf("[RejectEmployer] Setting approved_at to: %v", now)
 
 	result, err := collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {

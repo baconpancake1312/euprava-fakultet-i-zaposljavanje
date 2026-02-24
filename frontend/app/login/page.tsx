@@ -28,10 +28,36 @@ export default function LoginPage() {
     try {
       const response = await apiClient.login({ email, password })
       login(response.user, response.token)
-      // Wait a tick for state to update, then navigate
-      // This ensures the dashboard page sees the updated auth state
-      await new Promise(resolve => setTimeout(resolve, 0))
-      router.replace("/dashboard")
+      
+      // Navigate directly to the appropriate dashboard based on user type
+      // This avoids the /dashboard page needing to check auth state
+      const userType = response.user.user_type
+      let dashboardPath = "/dashboard"
+      
+      switch (userType) {
+        case "STUDENT":
+          dashboardPath = "/dashboard/student"
+          break
+        case "PROFESSOR":
+          dashboardPath = "/dashboard/professor"
+          break
+        case "EMPLOYER":
+          dashboardPath = "/dashboard/employer"
+          break
+        case "CANDIDATE":
+          dashboardPath = "/dashboard/candidate"
+          break
+        case "ADMIN":
+        case "ADMINISTRATOR":
+        case "STUDENTSKA_SLUZBA":
+          dashboardPath = "/dashboard/admin"
+          break
+        default:
+          dashboardPath = "/dashboard/student"
+      }
+      
+      // Use replace to avoid back button issues
+      router.replace(dashboardPath)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.")
     } finally {

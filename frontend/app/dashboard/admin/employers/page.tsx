@@ -496,73 +496,72 @@ export default function AdminEmployersPage() {
                       <p className="text-muted-foreground">{employer.firm_address && employer.firm_address.trim() ? employer.firm_address : <span className="text-gray-400 italic">Not provided</span>}</p>
                     </div>
                   </div>
-                  {(!employer.approval_status || employer.approval_status.toLowerCase() === "pending") && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => {
-                          // #region agent log
-                          fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:340',message:'approve button clicked',data:{employer_id:employer.id,employer_id_type:typeof employer.id,employer_id_length:employer.id?.length,firm_name:employer.firm_name},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
-                          // #endregion
-                          console.log("[Admin] Approve button clicked for employer:", employer)
-                          console.log("[Admin] Employer ID:", employer.id)
-                          console.log("[Admin] Full employer object:", JSON.stringify(employer, null, 2))
-                          if (!employer.id) {
-                            console.error("[Admin] Employer missing ID field!")
-                            toast({
-                              title: "Error",
-                              description: "Employer ID is missing. Please refresh the page.",
-                              variant: "destructive",
-                            })
-                            return
-                          }
-                          // Ensure we use the exact ID from the employer object
-                          const exactId = String(employer.id).trim()
-                          if (exactId.length !== 24) {
-                            console.error("[Admin] Invalid employer ID length:", exactId.length, exactId)
-                            toast({
-                              title: "Error",
-                              description: `Invalid employer ID format. Expected 24 characters, got ${exactId.length}.`,
-                              variant: "destructive",
-                            })
-                            return
-                          }
-                          handleApprove(exactId)
-                        }}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                        disabled={processingId === employer.id}
-                      >
-                        {processingId === employer.id ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Approving...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        onClick={() => handleReject(employer.id)}
-                        variant="destructive"
-                        className="flex-1"
-                        disabled={processingId === employer.id}
-                      >
-                        {processingId === employer.id ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Rejecting...
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Reject
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        // #region agent log
+                        fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/employers/page.tsx:340',message:'approve button clicked',data:{employer_id:employer.id,employer_id_type:typeof employer.id,employer_id_length:employer.id?.length,firm_name:employer.firm_name},runId:'frontend-handler',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+                        // #endregion
+                        console.log("[Admin] Approve button clicked for employer:", employer)
+                        console.log("[Admin] Employer ID:", employer.id)
+                        console.log("[Admin] Full employer object:", JSON.stringify(employer, null, 2))
+                        if (!employer.id) {
+                          console.error("[Admin] Employer missing ID field!")
+                          toast({
+                            title: "Error",
+                            description: "Employer ID is missing. Please refresh the page.",
+                            variant: "destructive",
+                          })
+                          return
+                        }
+                        // Ensure we use the exact ID from the employer object
+                        const exactId = String(employer.id).trim()
+                        if (exactId.length !== 24) {
+                          console.error("[Admin] Invalid employer ID length:", exactId.length, exactId)
+                          toast({
+                            title: "Error",
+                            description: `Invalid employer ID format. Expected 24 characters, got ${exactId.length}.`,
+                            variant: "destructive",
+                          })
+                          return
+                        }
+                        handleApprove(exactId)
+                      }}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      disabled={processingId === employer.id}
+                      variant={employer.approval_status?.toLowerCase() === "approved" ? "default" : "default"}
+                    >
+                      {processingId === employer.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {employer.approval_status?.toLowerCase() === "approved" ? "Approve Again" : "Approve"}
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleReject(employer.id)}
+                      variant="destructive"
+                      className="flex-1"
+                      disabled={processingId === employer.id}
+                    >
+                      {processingId === employer.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Rejecting...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          {employer.approval_status?.toLowerCase() === "rejected" ? "Reject Again" : "Reject"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   {employer.approval_status?.toLowerCase() === "approved" && (
                     <>
                       <div className="flex gap-2">
@@ -646,12 +645,30 @@ export default function AdminEmployersPage() {
                       )}
                     </>
                   )}
-                  {employer.approved_at && (
-                    <p className="text-xs text-muted-foreground">
-                      {employer.approval_status} on {new Date(employer.approved_at).toLocaleString()}
-                      {employer.approved_by && ` by ${employer.approved_by}`}
-                    </p>
-                  )}
+                  {(() => {
+                    if (!employer.approved_at || 
+                        employer.approved_at === "0001-01-01T00:00:00Z" || 
+                        employer.approved_at === "" ||
+                        employer.approved_at.includes("0001-01-01")) {
+                      return null
+                    }
+                    const date = new Date(employer.approved_at)
+                    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+                      return null
+                    }
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        {employer.approval_status} on {date.toLocaleString('en-GB', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                        {employer.approved_by && ` by ${employer.approved_by}`}
+                      </p>
+                    )
+                  })()}
                 </CardContent>
               </Card>
             ))}
