@@ -337,10 +337,10 @@ export default function CandidateProfilePage() {
                   <img
                     src={formData.profile_pic_base64}
                     alt="Profile"
-                    className="h-24 w-24 rounded-full object-cover border-2 border-primary/20"
+                    className="h-24 w-24 rounded object-cover"
                   />
                 ) : (
-                  <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                  <div className="h-24 w-24 rounded bg-muted flex items-center justify-center">
                     <User className="h-12 w-12 text-muted-foreground" />
                   </div>
                 )}

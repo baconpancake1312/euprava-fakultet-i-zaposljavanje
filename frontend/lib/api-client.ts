@@ -1059,6 +1059,26 @@ class ApiClient {
     return response.ok
   }
 
+  async searchJobsByText(query: string, page: number = 1, limit: number = 20) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/text?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
+      headers: this.getAuthHeaders(),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
+  async searchJobsByInternship(isInternship: boolean, page: number = 1, limit: number = 20) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/internship?internship=${isInternship}&page=${page}&limit=${limit}`, {
+      headers: this.getAuthHeaders(),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
   // Employment Service APIs - Applications
   async getApplications(token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications`, {

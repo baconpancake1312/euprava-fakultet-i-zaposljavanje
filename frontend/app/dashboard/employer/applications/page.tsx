@@ -398,10 +398,10 @@ export default function EmployerApplicationsPage() {
                                       <img
                                         src={candidate.profile_pic_base64}
                                         alt={candidateName}
-                                        className="h-8 w-8 rounded-full object-cover border border-primary/20 shrink-0"
+                                        className="h-8 w-8 rounded object-cover shrink-0"
                                       />
                                     ) : (
-                                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                      <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
                                         <User className="h-4 w-4 text-primary" />
                                       </div>
                                     )}
@@ -519,7 +519,7 @@ export default function EmployerApplicationsPage() {
                 <img
                   src={selectedCandidate.profile_pic_base64}
                   alt={`${selectedCandidate.first_name} ${selectedCandidate.last_name}`}
-                  className="h-5 w-5 rounded-full object-cover"
+                  className="h-5 w-5 rounded object-cover"
                 />
               ) : (
                 <User className="h-5 w-5" />

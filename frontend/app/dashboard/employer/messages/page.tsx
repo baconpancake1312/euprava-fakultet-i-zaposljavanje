@@ -385,10 +385,10 @@ export default function EmployerMessagesPage() {
                         <img
                           src={conv.otherUserProfilePic}
                           alt={conv.otherUserName}
-                          className="h-9 w-9 rounded-full object-cover border border-primary/20 shrink-0"
+                          className="h-9 w-9 rounded object-cover shrink-0"
                         />
                       ) : (
-                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <div className="h-9 w-9 rounded bg-primary/10 flex items-center justify-center shrink-0">
                           <User className="h-4 w-4 text-primary" />
                         </div>
                       )}
@@ -437,10 +437,10 @@ export default function EmployerMessagesPage() {
                         <img
                           src={selectedConv.otherUserProfilePic}
                           alt={selectedConv.otherUserName}
-                          className="h-10 w-10 rounded-full object-cover border border-primary/20 shrink-0"
+                          className="h-10 w-10 rounded object-cover shrink-0"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center shrink-0">
                           <User className="h-5 w-5 text-primary" />
                         </div>
                       )}
@@ -518,10 +518,10 @@ export default function EmployerMessagesPage() {
                             <img
                               src={selectedConv.otherUserProfilePic}
                               alt={selectedConv.otherUserName}
-                              className="h-14 w-14 rounded-full object-cover border-2 border-primary/20"
+                              className="h-14 w-14 rounded object-cover"
                             />
                           ) : (
-                            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                            <div className="h-14 w-14 rounded bg-primary/10 flex items-center justify-center">
                               <User className="h-7 w-7 text-primary" />
                             </div>
                           )}

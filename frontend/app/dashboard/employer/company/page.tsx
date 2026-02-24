@@ -268,10 +268,10 @@ export default function CompanyProfilePage() {
               <img
                 src={formData.profile_pic_base64 || employer?.profile_pic_base64}
                 alt="Profile"
-                className="h-16 w-16 rounded-2xl object-cover border-2 border-primary/20 shrink-0"
+                className="h-16 w-16 rounded object-cover shrink-0"
               />
             ) : (
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-16 w-16 rounded bg-primary/10 flex items-center justify-center shrink-0">
                 <Building2 className="h-8 w-8 text-primary" />
               </div>
             )}
@@ -332,10 +332,10 @@ export default function CompanyProfilePage() {
                       <img
                         src={formData.profile_pic_base64}
                         alt="Profile"
-                        className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                        className="h-20 w-20 rounded object-cover"
                       />
                     ) : (
-                      <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                      <div className="h-20 w-20 rounded bg-muted flex items-center justify-center">
                         <Building2 className="h-10 w-10 text-muted-foreground" />
                       </div>
                     )}

@@ -221,7 +221,7 @@ export default function CandidateJobSearchPage() {
       performSearch()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobType])
+  }, [jobType, token, authLoading, isAuthenticated])
 
   const handleApply = async (listingId: string) => {
     // Normalize ID for comparison
@@ -256,6 +256,9 @@ export default function CandidateJobSearchPage() {
       
       // Add to applied jobs set (use normalized ID)
       setAppliedJobIds((prev) => new Set(prev).add(normalizedId))
+      
+      // Reload applied jobs to ensure consistency
+      await loadAppliedJobs()
       
       toast({
         title: "Application Submitted",
