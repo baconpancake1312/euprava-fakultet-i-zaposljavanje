@@ -10,28 +10,68 @@ import { Button } from "@/components/ui/button"
 import { Loader2, Briefcase, Plus, Calendar, CheckCircle, Clock, XCircle, Pencil, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 export default function EmployerJobListingsPage() {
   const router = useRouter()
-  const { token, user } = useAuth()
+  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [employerId, setEmployerId] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    loadListings()
-  }, [])
+    const loadData = async () => {
+      if (authLoading) return
+
+      if (!isAuthenticated || !token || !user) {
+        setLoading(false)
+        setError("Please log in to view your job listings")
+        return
+      }
+
+      await loadListings()
+    }
+
+    loadData()
+  }, [token, user, authLoading, isAuthenticated])
 
   const loadListings = async () => {
+    setLoading(true)
     try {
-      if (!token) throw new Error("Not authenticated")
-      if (!user?.id) throw new Error("User ID not available")
+      if (!token || !user?.id) throw new Error("Not authenticated")
       
+      // Get employer profile to find employer ID
+      let employer: any
+      try {
+        employer = await apiClient.getEmployerByUserId(user.id, token)
+        if (!employer || !employer.id) {
+          throw new Error("Employer profile not found")
+        }
+        setEmployerId(employer.id || employer._id)
+      } catch (err: any) {
+        console.error("Error loading employer profile:", err)
+        if (err?.status === 404 || err?.message?.includes("not found")) {
+          setError("Employer profile not found. Please complete your employer profile first.")
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load employer profile")
+        }
+        return
+      }
+      
+      // Get all job listings and filter by employer ID
       const data = await apiClient.getJobListings(token)
-      const myListings = data.filter((listing: any) => listing.poster_id === user.id)
+      const employerId = employer.id || employer._id || user.id
+      const myListings = data.filter((listing: any) => {
+        const posterId = listing.poster_id?.toString() || listing.poster_id
+        return posterId === employerId || posterId === user.id
+      })
       setListings(myListings)
     } catch (err) {
+      console.error("Error loading job listings:", err)
       setError(err instanceof Error ? err.message : "Failed to load job listings")
     } finally {
       setLoading(false)
@@ -65,6 +105,61 @@ export default function EmployerJobListingsPage() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const handleToggleOpen = async (listingId: string, currentOpen: boolean) => {
+    if (!token) return
+    setTogglingId(listingId)
+    try {
+      if (currentOpen) {
+        await apiClient.closeJobListing(listingId, token)
+      } else {
+        await apiClient.openJobListing(listingId, token)
+      }
+      setListings(prev =>
+        prev.map(l =>
+          l.id === listingId ? { ...l, is_open: !currentOpen } : l
+        )
+      )
+      toast({
+        title: currentOpen ? "Position closed" : "Position reopened",
+        description: currentOpen
+          ? "Candidates will no longer see this job as open."
+          : "This job is open again for applications.",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update job status",
+        variant: "destructive",
+      })
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
+  // Show loading while auth loads
+  if (authLoading) {
+    return (
+      <DashboardLayout title="Job Listings">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated || !token || !user) {
+    return (
+      <DashboardLayout title="Job Listings">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertDescription>Please log in to view your job listings</AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -124,6 +219,11 @@ export default function EmployerJobListingsPage() {
                       <Badge variant={listing.approval_status === "Approved" ? "default" : "secondary"}>
                         {listing.approval_status}
                       </Badge>
+                      {listing.approval_status === "Approved" && (
+                        <Badge variant={listing.is_open === false ? "secondary" : "outline"}>
+                          {listing.is_open === false ? "Closed" : "Open"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -132,15 +232,43 @@ export default function EmployerJobListingsPage() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      <span>Posted {new Date(listing.created_at).toLocaleDateString()}</span>
+                      <span>
+                        {(() => {
+                          if (listing.updated_at && listing.updated_at !== "0001-01-01T00:00:00Z") {
+                            const date = new Date(listing.updated_at)
+                            if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                              return `Updated ${date.toLocaleDateString('en-GB')}`
+                            }
+                          }
+                          if (listing.created_at && listing.created_at !== "0001-01-01T00:00:00Z") {
+                            const date = new Date(listing.created_at)
+                            if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                              return `Posted ${date.toLocaleDateString('en-GB')}`
+                            }
+                          }
+                          // Always show a date, even if invalid - use created_at as fallback
+                          const fallbackDate = new Date(listing.created_at)
+                          if (!isNaN(fallbackDate.getTime()) && fallbackDate.getFullYear() >= 2000) {
+                            return `Posted ${fallbackDate.toLocaleDateString('en-GB')}`
+                          }
+                          // If even created_at is invalid, use current date
+                          return `Posted ${new Date().toLocaleDateString('en-GB')}`
+                        })()}
+                      </span>
                     </div>
                   </div>
-                  {listing.expire_at && (
+                  {listing.expire_at && listing.expire_at !== "0001-01-01T00:00:00Z" && (
                     <div className="text-sm text-muted-foreground">
-                      Expires: {new Date(listing.expire_at).toLocaleDateString()}
+                      {(() => {
+                        const date = new Date(listing.expire_at)
+                        if (!isNaN(date.getTime()) && date.getFullYear() >= 2000) {
+                          return `Expires: ${date.toLocaleDateString('en-GB')}`
+                        }
+                        return null
+                      })()}
                     </div>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       className="flex-1 bg-transparent"
@@ -156,6 +284,22 @@ export default function EmployerJobListingsPage() {
                     >
                       View Details
                     </Button>
+                    {listing.approval_status === "Approved" && (
+                      <Button
+                        variant={listing.is_open === false ? "outline" : "destructive"}
+                        size="sm"
+                        onClick={() => handleToggleOpen(listing.id, listing.is_open !== false)}
+                        disabled={togglingId === listing.id}
+                      >
+                        {togglingId === listing.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : listing.is_open === false ? (
+                          "Reopen"
+                        ) : (
+                          "Close"
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       size="sm"

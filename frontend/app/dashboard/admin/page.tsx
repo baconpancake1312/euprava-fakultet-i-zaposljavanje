@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Building, Briefcase, GraduationCap, FileCheck, Bell } from "lucide-react"
+import { Users, Building, Briefcase, GraduationCap, FileCheck, Bell, HandCoins, MessageCircle } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    if (!isAuthenticated || (user?.user_type !== "ADMIN" && user?.user_type !== "STUDENTSKA_SLUZBA")) {
+    if (!isAuthenticated || (user?.user_type !== "ADMIN" && user?.user_type !== "ADMINISTRATOR" && user?.user_type !== "EMPLOYMENT_SERVICE" as any)) {
       router.push("/login")
       return
     }
@@ -129,6 +129,26 @@ export default function AdminDashboard() {
 
           <Card
             className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/employer/analytics")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Building className="h-6 w-6 text-accent" />
+                </div>
+                <div>
+                  <CardTitle>Company Analytics</CardTitle>
+                  <CardDescription>View insights</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">View analytics for all companies</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
             onClick={() => router.push("/dashboard/admin/notifications")}
           >
             <CardHeader>
@@ -144,6 +164,48 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Create and manage system notifications</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/admin/benefit-claims")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <HandCoins className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Monetary Benefits</CardTitle>
+                  <CardDescription>Approve candidate benefit requests</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Review and approve or reject benefit claims submitted by candidates.</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard/admin/state-communications")}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <MessageCircle className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Administrative Communications</CardTitle>
+                  <CardDescription>Respond to candidate inquiries</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Read and respond to administrative messages from candidates.
+              </p>
             </CardContent>
           </Card>
         </div>

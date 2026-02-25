@@ -35,7 +35,7 @@ type Props = {
 const ROLES = [
   { value: "STUDENT", label: "Student" },
   { value: "PROFESSOR", label: "Professor" },
-  { value: "ADMIN", label: "Admin" },
+  { value: "ADMINISTRATOR", label: "Administrator" },
   { value: "EMPLOYER", label: "Employer" },
   { value: "CANDIDATE", label: "Candidate" },
 ]

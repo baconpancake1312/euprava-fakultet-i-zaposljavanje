@@ -8,6 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Loader2, BookOpen, User, Calendar, Filter } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+const MAJOR_YEARS = [1, 2, 3, 4, 5] as const
 
 export default function StudentCoursesPage() {
   const { user, token } = useAuth()
@@ -16,7 +25,9 @@ export default function StudentCoursesPage() {
   const [error, setError] = useState("")
   const [studentData, setStudentData] = useState<any>(null)
   const [passedCourses, setPassedCourses] = useState<any[]>([])
-  const [filter, setFilter] = useState<"all" | "passed" | "not-passed">("all")
+  const [examGrades, setExamGrades] = useState<any[]>([])
+  const [filter, setFilter] = useState<"all" | "passed" | "not-passed">("not-passed")
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
 
   useEffect(() => {
     loadStudentData()
@@ -49,13 +60,16 @@ export default function StudentCoursesPage() {
       }
 
       setStudentData(data)
+      const studentYear = data.year != null ? Number(data.year) : null
+      setSelectedYear(studentYear)
 
-      // Load courses and passed courses after student data is available
+      // Load courses, passed courses, and exam grades after student data is available
       if (data.major_id) {
         console.log("Loading courses for major_id:", data.major_id)
         await Promise.all([
           loadCourses(data.major_id),
-          loadPassedCourses(user.id)
+          loadPassedCourses(user.id),
+          loadExamGrades(user.id)
         ])
       } else {
         console.log("Cannot load courses - no major_id")
@@ -74,12 +88,23 @@ export default function StudentCoursesPage() {
       console.log("Loading passed courses for student:", studentId)
       const data = await apiClient.getPassedCorusesForStudent(studentId, token)
       console.log("Passed courses data:", data)
-      setPassedCourses(data || [])
+      setPassedCourses(data as any[])
     } catch (err) {
       console.error("Error in loadPassedCourses:", err)
       // Don't set error here as it's not critical for the main functionality
       console.log("Failed to load passed courses, continuing without this data")
       setPassedCourses([]) // Ensure we always have an empty array
+    }
+  }
+
+  const loadExamGrades = async (studentId: string) => {
+    try {
+      if (!token) throw new Error("Not authenticated")
+      const data = await apiClient.getAllExamGradesForStudent(studentId, token)
+      setExamGrades(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Error in loadExamGrades:", err)
+      setExamGrades([])
     }
   }
 
@@ -154,17 +179,27 @@ export default function StudentCoursesPage() {
       passedCourse.subject_id === courseId
     )
   }
-  console.error("Passed courses list: ", passedCourses)
-  // Filter courses based on selected filter
+
+  // Get grade for a passed course (exam grades are 5–10, only passed have grade shown)
+  const getGradeForCourse = (courseId: string): number | undefined => {
+    if (!examGrades?.length) return undefined
+    const idStr = (id: any) => (typeof id === "string" ? id : id?.toString?.() ?? "")
+    const passedGrade = examGrades.find(
+      (g: any) => g.passed && (idStr(g.subject_id) === courseId || idStr(g.subject_id) === idStr(courseId))
+    )
+    return passedGrade != null && typeof passedGrade.grade === "number" ? passedGrade.grade : undefined
+  }
+
+  // Filter courses by selected year (student's current year by default), then by passed/not-passed
   const getFilteredCourses = () => {
-    if (filter === "all") {
-      return courses
-    } else if (filter === "passed") {
-      return courses.filter(course => isCoursePassed(course.id))
-    } else if (filter === "not-passed") {
-      return courses.filter(course => !isCoursePassed(course.id))
-    }
-    return courses
+    const byYear =
+      selectedYear != null
+        ? courses.filter((course) => Number(course.year) === selectedYear)
+        : courses
+    if (filter === "all") return byYear
+    if (filter === "passed") return byYear.filter((course) => isCoursePassed(course.id))
+    if (filter === "not-passed") return byYear.filter((course) => !isCoursePassed(course.id))
+    return byYear
   }
 
   return (
@@ -176,36 +211,60 @@ export default function StudentCoursesPage() {
         </div>
 
         {/* Filter Controls */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filter:</span>
-            <div className="flex gap-2">
-              <Button
-                variant={filter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("all")}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Year:</span>
+              <Select
+                value={selectedYear != null ? String(selectedYear) : ""}
+                onValueChange={(v) => setSelectedYear(v ? Number(v) : null)}
               >
-                All Courses
-              </Button>
-              <Button
-                variant={filter === "passed" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("passed")}
-              >
-                ✅ Passed
-              </Button>
-              <Button
-                variant={filter === "not-passed" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("not-passed")}
-              >
-                ❌ Not Passed
-              </Button>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MAJOR_YEARS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      Year {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Status:</span>
+              <div className="flex gap-2">
+                <Button
+                  variant={filter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={filter === "passed" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("passed")}
+                >
+                  ✅ Passed
+                </Button>
+                <Button
+                  variant={filter === "not-passed" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("not-passed")}
+                >
+                  ❌ Not Passed
+                </Button>
+              </div>
             </div>
           </div>
           <div className="text-sm text-muted-foreground">
-            Showing {getFilteredCourses().length} of {courses.length} courses
+            Showing {getFilteredCourses().length}
+            {selectedYear != null
+              ? ` of ${courses.filter((c) => Number(c.year) === selectedYear).length}`
+              : ` of ${courses.length}`}{" "}
+            courses
           </div>
         </div>
 
@@ -234,15 +293,21 @@ export default function StudentCoursesPage() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {getFilteredCourses().map((course) => (
+            {getFilteredCourses().map((course) => {
+              const passed = isCoursePassed(course.id)
+              const grade = passed ? getGradeForCourse(course.id) : undefined
+              return (
               <Card key={course.id} className="hover:border-primary/50 transition-colors">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-primary" />
                     {course.Name || course.name}
                   </CardTitle>
-                  <CardDescription>{"Year: " + course.year || "Year"}</CardDescription>
-                  <CardDescription>{"Passed: " + (isCoursePassed(course.id) ? "✅" : "❌")}</CardDescription>
+                  <CardDescription>{"Year: " + (course.year ?? "—")}</CardDescription>
+                  <CardDescription>{"Passed: " + (passed ? "✅" : "❌")}</CardDescription>
+                  {passed && grade != null && (
+                    <CardDescription className="font-medium">Grade: {grade}</CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {course.professors && Array.isArray(course.professors) && course.professors.length > 0 && (
@@ -287,7 +352,7 @@ export default function StudentCoursesPage() {
                   )}
                 </CardContent>
               </Card>
-            ))}
+            );})}
           </div>
         )}
       </div>

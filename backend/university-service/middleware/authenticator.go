@@ -60,7 +60,7 @@ func AuthorizeRoles(roles []string) gin.HandlerFunc {
 		user_type, _ := c.Get("user_type")
 		userRole := user_type.(string)
 		authorized := false
-		if isServiceAccountType(userRole) || userRole == "ADMIN" {
+		if isServiceAccountType(userRole) || userRole == "ADMIN" || userRole == "ADMINISTRATOR" {
 			authorized = true
 		} else {
 			for _, role := range roles {

@@ -175,6 +175,9 @@ export default function EditProfessorPage() {
         token
       )
 
+      // Include selected subjects so the backend doesn't overwrite with empty list.
+      // Backend does full $set of professor; omitting subjects would clear them.
+      const selectedSubjectObjects = subjects.filter((s) => subjectIds.includes(s.id))
       await apiClient.updateProfessor(
         professor.id,
         {
@@ -185,6 +188,7 @@ export default function EditProfessorPage() {
           address: profile.address.trim(),
           date_of_birth: formattedDateOfBirth,
           jmbg: profile.jmbg.trim(),
+          subjects: selectedSubjectObjects,
         },
         token
       )
@@ -224,40 +228,7 @@ export default function EditProfessorPage() {
         await apiClient.updateDepartment(dept.id, payload, token)
       }
 
-      // Update subjects professor assignments
-      const selectedSubjectIds = new Set(subjectIds)
-      for (const subject of subjects) {
-        // Get current professor IDs array (handle both formats)
-        const currentProfessorIds = (subject as any).professor_ids || 
-          (subject as any).professorids || 
-          ((subject as any).professor_id ? [(subject as any).professor_id] : [])
-        const professorIdsArray = Array.isArray(currentProfessorIds) 
-          ? [...currentProfessorIds] 
-          : []
-        
-        const wasAssigned = professorIdsArray.includes(professor.id)
-        const shouldBeAssigned = selectedSubjectIds.has(subject.id)
-        
-        if (wasAssigned === shouldBeAssigned) continue
-
-        // Update the professor_ids array
-        let updatedProfessorIds: string[]
-        if (shouldBeAssigned && !wasAssigned) {
-          // Add professor to the array
-          updatedProfessorIds = [...professorIdsArray, professor.id]
-        } else if (!shouldBeAssigned && wasAssigned) {
-          // Remove professor from the array
-          updatedProfessorIds = professorIdsArray.filter((id: string) => id !== professor.id)
-        } else {
-          continue
-        }
-
-        const updated = {
-          ...subject,
-          professor_ids: updatedProfessorIds,
-        }
-        await apiClient.updateCourse(subject.id, updated, token)
-      }
+      // Subject assignments are synced by the backend when we call updateProfessor with subjects above.
 
       router.push("/dashboard/admin/professors")
     } catch (err) {

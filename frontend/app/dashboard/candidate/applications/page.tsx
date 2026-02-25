@@ -11,25 +11,80 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 
 export default function CandidateApplicationsPage() {
-  const { token, user } = useAuth()
+  const { token, user, isLoading: authLoading, isAuthenticated } = useAuth()
+  const [candidateId, setCandidateId] = useState<string | null>(null)
   const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
-    const loadApplications = async () => {
-      if (!token || !user?.id) {
+    const loadCandidateAndApplications = async () => {
+      // Wait for auth to finish loading
+      if (authLoading) {
+        return
+      }
+
+      // If not authenticated, don't load data
+      if (!isAuthenticated || !token || !user) {
         setLoading(false)
+        setError("Please log in to view your applications")
         return
       }
 
       try {
-        // Try to get applications by candidate ID first
-        const data = await apiClient.getApplicationsByCandidate(user.id, token)
+        // Find the candidate by matching email
+        console.log("Finding candidate for user:", user.email)
+        const candidates = await apiClient.getAllCandidates(token) as any[]
+        const candidate = candidates.find((c: any) => 
+          c.email === user.email || 
+          c.id === user.id ||
+          c.user_id === user.id
+        )
+        
+        if (!candidate || !candidate.id) {
+          setError("Candidate profile not found. Please complete your profile first.")
+        setLoading(false)
+        return
+      }
+
+        const candidateId = candidate.id
+        console.log("Loading applications for candidate ID:", candidateId)
+        console.log("Candidate ID type:", typeof candidateId)
+        setCandidateId(candidateId)
+        
+        // Fetch applications using the candidate ID
+        const data = await apiClient.getApplicationsByCandidate(candidateId, token)
+        console.log("Raw applications data received:", data)
+        console.log("Data type:", typeof data, "Is array:", Array.isArray(data))
+          
+          // Ensure data is an array before processing
+          const applicationsData = Array.isArray(data) ? data : []
+          console.log("Applications array length:", applicationsData.length)
+          
+          // Fetch job listing details for each application
+          const applicationsWithDetails = await Promise.all(
+            applicationsData.map(async (app) => {
+              try {
+                if (app.listing_id) {
+                  const jobListing = await apiClient.getJobListingById(app.listing_id, token)
+                  return {
+                    ...app,
+                    job_listing: jobListing
+                  }
+                }
+                return app
+              } catch (err) {
+                console.error("Failed to fetch job listing:", err)
+                return app
+              }
+            })
+          )
+          
         setApplications(prev => {
           // Check for status changes and show toast notifications
-          data.forEach(newApp => {
+            if (applicationsWithDetails.length > 0) {
+              applicationsWithDetails.forEach(newApp => {
             const oldApp = prev.find(app => app.id === newApp.id)
             if (oldApp && oldApp.status !== newApp.status) {
               if (newApp.status === "accepted") {
@@ -46,23 +101,21 @@ export default function CandidateApplicationsPage() {
               }
             }
           })
-          return data
+            }
+            return applicationsWithDetails
         })
       } catch (err) {
-        // Fallback to general applications endpoint
-        try {
-          const data = await apiClient.getApplications(token)
-          setApplications(data)
-        } catch (fallbackErr) {
+        console.error("Error loading applications:", err)
           setError(err instanceof Error ? err.message : "Failed to load applications")
-        }
+        setApplications([])
       } finally {
         setLoading(false)
       }
     }
 
-    loadApplications()
-  }, [token, user, toast])
+    loadCandidateAndApplications()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, user?.id, authLoading, isAuthenticated])
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -90,6 +143,17 @@ export default function CandidateApplicationsPage() {
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
+  }
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <DashboardLayout title="My Applications">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -121,24 +185,41 @@ export default function CandidateApplicationsPage() {
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
             {applications.map((application) => (
-              <Card key={application.id} className="hover:border-primary/50 transition-colors">
+              <Card key={application.id} className="hover:border-primary/50 transition-colors border-2 shadow-lg">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-xl">
                         <Briefcase className="h-5 w-5 text-primary" />
-                        {application.job_listing?.position || application.position || "Position"}
+                        {application.job_listing?.position || "Position"}
                       </CardTitle>
-                      <CardDescription>{application.job_listing?.company_name || application.company_name || "Company Name"}</CardDescription>
+                      <CardDescription className="mt-1">
+                        {application.job_listing?.poster_name || "Company"}
+                      </CardDescription>
                     </div>
+                    <div className="flex flex-col gap-2 items-end">
                     {getStatusBadge(application.status)}
+                      {application.job_listing?.is_internship && (
+                        <Badge variant="secondary" className="text-xs">Internship</Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
+                  {application.job_listing?.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {application.job_listing.description}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Applied {new Date(application.created_at || application.submitted_at).toLocaleDateString()}</span>
+                    <span>Applied {new Date(application.submitted_at || application.created_at).toLocaleDateString()}</span>
                   </div>
+                  {application.status === "pending" && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Your application is being reviewed by the employer
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}

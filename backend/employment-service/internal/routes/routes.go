@@ -1,0 +1,227 @@
+package routes
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"time"
+
+	"employment-service/internal/handlers"
+	"employment-service/middleware"
+
+	"github.com/gin-gonic/gin"
+)
+
+func SetupRoutes(router *gin.Engine, h *handlers.Handlers) {
+
+	router.GET("/health", handlers.HealthCheck())
+
+	// WebSocket endpoint – auth is handled inside the hub via query param
+	router.GET("/ws/messages", h.Messaging.WebSocketHandler())
+
+	setupPublicRoutes(router, h)
+
+	setupProtectedRoutes(router, h)
+}
+
+func setupPublicRoutes(router *gin.Engine, h *handlers.Handlers) {
+	public := router.Group("/")
+	{
+
+		public.GET("/job-listings", h.Job.GetAllJobListings())
+		public.GET("/job-listings/:id", h.Job.GetJobListing())
+
+		public.POST("/users", h.User.CreateUser())
+		public.POST("/employers", h.Employer.CreateEmployer())
+		public.POST("/candidates", h.Candidate.CreateCandidate())
+
+		public.GET("/search/jobs/text", h.Job.SearchJobsByText())
+		public.GET("/search/jobs/internship", h.Job.SearchJobsByInternship())
+		public.GET("/search/jobs/active", h.Job.GetActiveJobs())
+		public.GET("/search/jobs/trending", h.Job.GetTrendingJobs())
+		public.GET("/search/users/text", h.Search.SearchUsersByText())
+		public.GET("/search/employers/text", h.Search.SearchEmployersByText())
+		public.GET("/search/candidates/text", h.Search.SearchCandidatesByText())
+	}
+}
+
+func setupProtectedRoutes(router *gin.Engine, h *handlers.Handlers) {
+	protected := router.Group("/")
+	protected.Use(middleware.Authentication())
+	{
+
+		protected.GET("/users", h.User.GetAllUsers())
+		protected.GET("/users/:id", h.User.GetUser())
+		protected.PUT("/users/:id", h.User.UpdateUser())
+		protected.DELETE("/users/:id", h.User.DeleteUser())
+
+		protected.GET("/employers", h.Employer.GetAllEmployers())
+		protected.GET("/employers/:id", h.Employer.GetEmployer())
+		protected.GET("/employers/user/:user_id", h.Employer.GetEmployerByUserID())
+		protected.PUT("/employers/:id", h.Employer.UpdateEmployer())
+		protected.DELETE("/employers/:id", h.Employer.DeleteEmployer())
+
+		protected.GET("/candidates", h.Candidate.GetAllCandidates())
+		protected.GET("/candidates/:id", h.Candidate.GetCandidate())
+		protected.GET("/candidates/user/:user_id", h.Candidate.GetCandidateByUserID())
+		protected.PUT("/candidates/:id", h.Candidate.UpdateCandidate())
+		protected.DELETE("/candidates/:id", h.Candidate.DeleteCandidate())
+
+		protected.POST("/job-listings", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.CreateJobListing())
+		protected.PUT("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.UpdateJobListing())
+		protected.DELETE("/job-listings/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.DeleteJobListing())
+		protected.PUT("/job-listings/:id/open", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.OpenJobListing())
+		protected.PUT("/job-listings/:id/close", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Job.CloseJobListing())
+		protected.GET("/job-listings/:id/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.GetApplicationsForJob())
+
+		protected.POST("/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Application.CreateApplication())
+		protected.GET("/applications", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.GetAllApplications())
+		protected.GET("/applications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Application.GetApplicationsByCandidate())
+		protected.GET("/applications/candidate/:id/stats", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Application.GetCandidateApplicationStats())
+		protected.GET("/applications/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), h.Application.GetApplicationsByEmployer())
+		protected.GET("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER", "STUDENT", "CANDIDATE"}), h.Application.GetApplication())
+		protected.PUT("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.UpdateApplication())
+		protected.PUT("/applications/:id/accept", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN"}), h.Application.AcceptApplication())
+		protected.PUT("/applications/:id/reject", middleware.AuthorizeRoles([]string{"EMPLOYER", "ADMIN"}), h.Application.RejectApplication())
+		protected.DELETE("/applications/:id", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.DeleteApplication())
+
+		protected.POST("/saved-jobs", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.SaveJob())
+		protected.GET("/saved-jobs/candidate/:candidate_id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.GetSavedJobs())
+		protected.DELETE("/saved-jobs/candidate/:candidate_id/job/:job_id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.UnsaveJob())
+
+		protected.GET("/search/jobs/recommendations", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.GetJobRecommendations())
+
+		protected.GET("/companies", h.Company.GetAllCompanies())
+		protected.GET("/companies/:id", h.Company.GetCompanyById())
+		protected.GET("/companies/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), h.Company.GetCompanyProfile())
+		protected.PUT("/companies/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), h.Company.UpdateCompanyProfile())
+
+		protected.POST("/interviews", middleware.AuthorizeRoles([]string{"EMPLOYER"}), h.Interview.CreateInterview())
+		protected.GET("/interviews/candidate/:id", middleware.AuthorizeRoles([]string{"CANDIDATE", "STUDENT"}), h.Interview.GetInterviewsByCandidate())
+		protected.GET("/interviews/employer/:id", middleware.AuthorizeRoles([]string{"EMPLOYER"}), h.Interview.GetInterviewsByEmployer())
+		protected.PUT("/interviews/:id/status", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE"}), h.Interview.UpdateInterviewStatus())
+
+		protected.POST("/messages", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.SendMessage())
+		protected.GET("/messages/inbox/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetInboxMessages())
+		protected.GET("/messages/sent/:userId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetSentMessages())
+		protected.GET("/messages/:userAId/:userBId", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.GetMessagesBetweenUsers())
+		protected.PUT("/messages/:senderId/:receiverId/read", middleware.AuthorizeRoles([]string{"EMPLOYER", "CANDIDATE", "ADMIN"}), h.Messaging.MarkMessagesAsRead())
+
+		protected.GET("/search/applications/status", middleware.AuthorizeRoles([]string{"ADMIN", "EMPLOYER"}), h.Application.SearchApplicationsByStatus())
+
+		protected.GET("/internships", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.GetTrendingJobs()) 
+		protected.GET("/internships/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Job.GetTrendingJobs())
+
+		// NSZ-like endpoints for candidates (basic flows)
+		protected.POST("/benefit-claims", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.CreateBenefitClaim())
+		protected.GET("/benefit-claims/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.GetBenefitClaims())
+
+		protected.POST("/state-competitions/applications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.CreateCompetitionApplication())
+		protected.GET("/state-competitions/applications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.GetCompetitionApplications())
+
+		protected.POST("/state-communications", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.CreateStateCommunication())
+		protected.GET("/state-communications/candidate/:id", middleware.AuthorizeRoles([]string{"STUDENT", "CANDIDATE"}), h.Social.GetStateCommunications())
+
+		setupAdminRoutes(protected, h)
+	}
+}
+
+func setupAdminRoutes(router *gin.RouterGroup, h *handlers.Handlers) {
+	// #region agent log
+	func() {
+		logData := map[string]interface{}{
+			"runId":        "route-setup",
+			"hypothesisId": "A",
+			"location":     "routes.go:117",
+			"message":      "Setting up admin routes",
+			"data": map[string]interface{}{
+				"admin_handler_nil": h.Admin == nil,
+				"handlers_nil":      h == nil,
+			},
+			"timestamp": time.Now().UnixMilli(),
+		}
+		if logJSON, err := json.Marshal(logData); err == nil {
+			if wd, err := os.Getwd(); err == nil {
+				logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+				if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					f.WriteString(string(logJSON) + "\n")
+					f.Close()
+				}
+			}
+		}
+	}()
+	// #endregion
+	admin := router.Group("/admin")
+	admin.Use(middleware.AuthorizeRoles([]string{"ADMIN", "ADMINISTRATOR"}))
+	{
+		// #region agent log
+		func() {
+			handlerFunc := h.Admin.ApproveEmployer()
+			logData := map[string]interface{}{
+				"runId":        "route-setup",
+				"hypothesisId": "E",
+				"location":     "routes.go:145",
+				"message":      "Registering approve employer route",
+				"data": map[string]interface{}{
+					"admin_handler_nil":     h.Admin == nil,
+					"handler_func_nil":      handlerFunc == nil,
+					"route_path":            "/admin/employers/:id/approve",
+					"route_method":          "PUT",
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			if logJSON, err := json.Marshal(logData); err == nil {
+				if wd, err := os.Getwd(); err == nil {
+					logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+					if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+						f.WriteString(string(logJSON) + "\n")
+						f.Close()
+					}
+				}
+			}
+		}()
+		// #endregion
+		admin.PUT("/employers/:id/approve", h.Admin.ApproveEmployer())
+		admin.PUT("/employers/:id/reject", h.Admin.RejectEmployer())
+		admin.GET("/employers/pending", h.Admin.GetPendingEmployers())
+		admin.GET("/employers/stats", h.Admin.GetEmployerStats())
+		admin.GET("/debug/auth", h.Admin.DebugAuthInfo()) // Debug endpoint
+
+		admin.PUT("/jobs/:id/approve", h.Admin.ApproveJobListing())
+		admin.PUT("/jobs/:id/reject", h.Admin.RejectJobListing())
+		admin.GET("/jobs/pending", h.Admin.GetPendingJobListings())
+
+		// NSZ admin endpoints
+		admin.GET("/benefit-claims", h.Social.AdminGetAllBenefitClaims())
+		admin.PUT("/benefit-claims/:id/status", h.Social.AdminUpdateBenefitClaimStatus())
+
+		admin.GET("/state-competitions/applications", h.Social.AdminGetAllCompetitionApplications())
+		admin.PUT("/state-competitions/applications/:id/status", h.Social.AdminUpdateCompetitionApplicationStatus())
+
+		admin.GET("/state-communications", h.Social.AdminGetAllStateCommunications())
+		admin.PUT("/state-communications/:id", h.Social.AdminUpdateStateCommunication())
+	}
+	// #region agent log
+	func() {
+		logData := map[string]interface{}{
+			"runId":        "route-setup",
+			"hypothesisId": "E",
+			"location":     "routes.go:127",
+			"message":      "Admin routes registered",
+			"data": map[string]interface{}{
+				"routes_count": 8,
+			},
+			"timestamp": time.Now().UnixMilli(),
+		}
+		if logJSON, err := json.Marshal(logData); err == nil {
+			if wd, err := os.Getwd(); err == nil {
+				logPath := filepath.Join(wd, "..", "..", ".cursor", "debug.log")
+				if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					f.WriteString(string(logJSON) + "\n")
+					f.Close()
+				}
+			}
+		}
+	}()
+	// #endregion
+}

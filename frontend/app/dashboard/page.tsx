@@ -33,6 +33,7 @@ export default function DashboardPage() {
           router.push("/dashboard/candidate")
           break
         case "ADMIN":
+        case "ADMINISTRATOR":
         case "STUDENTSKA_SLUZBA":
           router.push("/dashboard/admin")
           break

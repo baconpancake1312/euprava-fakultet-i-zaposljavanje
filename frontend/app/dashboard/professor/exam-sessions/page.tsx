@@ -23,7 +23,7 @@ import {
     Filter
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { ExamSession, Subject } from "@/lib/types"
+import { ExamSession, Subject, ExamPeriod } from "@/lib/types"
 
 export default function ExamSessionsPage() {
     const router = useRouter()
@@ -32,8 +32,10 @@ export default function ExamSessionsPage() {
     const [loading, setLoading] = useState(true)
     const [examSessions, setExamSessions] = useState<ExamSession[]>([])
     const [courses, setCourses] = useState<Subject[]>([])
+    const [examPeriods, setExamPeriods] = useState<ExamPeriod[]>([])
 
     const courseFilter = searchParams.get("course") ?? "all"
+    const periodFilter = searchParams.get("period") ?? "all"
 
     const setCourseFilter = (value: string) => {
         const params = new URLSearchParams(searchParams.toString())
@@ -41,6 +43,17 @@ export default function ExamSessionsPage() {
             params.delete("course")
         } else {
             params.set("course", value)
+        }
+        const query = params.toString()
+        router.replace(query ? `/dashboard/professor/exam-sessions?${query}` : "/dashboard/professor/exam-sessions")
+    }
+
+    const setPeriodFilter = (value: string) => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (value === "all") {
+            params.delete("period")
+        } else {
+            params.set("period", value)
         }
         const query = params.toString()
         router.replace(query ? `/dashboard/professor/exam-sessions?${query}` : "/dashboard/professor/exam-sessions")
@@ -65,19 +78,21 @@ export default function ExamSessionsPage() {
         try {
             if (!token || !user?.id) return
 
-            // Fetch exam sessions for this professor
-            const sessionsData = await apiClient.getExamSessionsByProfessor(user.id, token)
+            const [sessionsData, coursesData, periodsData] = await Promise.all([
+                apiClient.getExamSessionsByProfessor(user.id, token),
+                apiClient.getCoursesByProfessor(user.id, token),
+                apiClient.getAllExamPeriods(token).catch(() => []),
+            ])
             console.log("Fetched exam sessions:", sessionsData)
-            setExamSessions(sessionsData || [])
-
-            // Fetch courses for this professor
-            const coursesData = await apiClient.getCoursesByProfessor(user.id, token)
+            setExamSessions(sessionsData as ExamSession[] || [])
             console.log("Fetched courses:", coursesData)
-            setCourses(coursesData || [])
+            setCourses(coursesData as Subject[] || [])
+            setExamPeriods(Array.isArray(periodsData) ? periodsData : [])
         } catch (error) {
             console.error("Error fetching data:", error)
-            setExamSessions([]) // Ensure we always have an empty array
-            setCourses([]) // Ensure we always have an empty array
+            setExamSessions([])
+            setCourses([])
+            setExamPeriods([])
         } finally {
             setLoading(false)
         }
@@ -117,12 +132,13 @@ export default function ExamSessionsPage() {
         })
     }
 
-    const filteredSessions = courseFilter === "all"
-        ? examSessions
-        : examSessions.filter((session) => {
-            const subjectId = (session as any).subject_id ?? session.subject?.id
-            return subjectId === courseFilter
-          })
+    const filteredSessions = examSessions.filter((session) => {
+        const subjectId = (session as any).subject_id ?? session.subject?.id
+        const courseMatch = courseFilter === "all" || subjectId === courseFilter
+        const periodId = (session as any).exam_period_id ?? session.exam_period_id
+        const periodMatch = periodFilter === "all" || periodId === periodFilter
+        return courseMatch && periodMatch
+    })
 
     if (loading) {
         return (
@@ -142,7 +158,7 @@ export default function ExamSessionsPage() {
                         <h2 className="text-3xl font-bold tracking-tight">Exam Sessions</h2>
                         <p className="text-muted-foreground">Manage your exam sessions and view registrations</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-muted-foreground" />
                             <Select value={courseFilter} onValueChange={setCourseFilter}>
@@ -154,6 +170,19 @@ export default function ExamSessionsPage() {
                                     {courses.map((c) => (
                                         <SelectItem key={c.id} value={c.id}>
                                             {c.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                                <SelectTrigger className="w-[220px]">
+                                    <SelectValue placeholder="Filter by exam period" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All exam periods</SelectItem>
+                                    {examPeriods.map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                            {p.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -185,12 +214,12 @@ export default function ExamSessionsPage() {
                     <Card>
                         <CardContent className="flex flex-col items-center justify-center py-12">
                             <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-                            <h3 className="text-lg font-semibold mb-2">No sessions for this course</h3>
+                            <h3 className="text-lg font-semibold mb-2">No sessions match filters</h3>
                             <p className="text-muted-foreground text-center mb-4">
-                                No exam sessions match the selected course. Try another filter or create a session.
+                                No exam sessions match the selected course or exam period. Try another filter or create a session.
                             </p>
-                            <Button variant="outline" onClick={() => setCourseFilter("all")}>
-                                Show all courses
+                            <Button variant="outline" onClick={() => { setCourseFilter("all"); setPeriodFilter("all") }}>
+                                Clear filters
                             </Button>
                         </CardContent>
                     </Card>

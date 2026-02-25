@@ -1,11 +1,23 @@
-import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer, Student, Professor } from "./types"
+import type { LoginCredentials, RegisterData, AuthResponse, EmployerData, Employer, Student, Professor, ExamPeriod, CreateExamPeriodRequest, GraduationRequest } from "./types"
 import AdminProfessorsPage from '../app/dashboard/admin/professors/page';
+import { ApiErrorHandler, type ApiError } from "./error-handler"
 
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost:8080"
 const UNIVERSITY_API_URL = process.env.NEXT_PUBLIC_UNIVERSITY_API_URL || "http://localhost:8088"
 const EMPLOYMENT_API_URL = process.env.NEXT_PUBLIC_EMPLOYMENT_API_URL || "http://localhost:8089"
 
 class ApiClient {
+
+  /**
+   * Handles API response and throws standardized errors
+   */
+  private async handleResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return response.json()
+  }
+
   private getAuthHeaders(token?: string) {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -76,8 +88,8 @@ class ApiClient {
   async logout(token: string): Promise<void> {
     const response = await fetch(`${AUTH_API_URL}/users/logout`, {
       method: "POST",
-      headers: this.getAuthHeaders(token),
-    })
+        headers: this.getAuthHeaders(token),
+      })
 
     if (!response.ok) {
       throw new Error("Logout failed")
@@ -155,6 +167,73 @@ class ApiClient {
     })
 
     if (!response.ok) throw new Error("Failed to update student")
+    return response.json()
+  }
+
+  async advanceStudent(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${id}/advance`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to advance to next year")
+    return response.json()
+  }
+
+  async getGraduationRequest(studentId: string, token: string): Promise<{ id: string; status: string } | null> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${studentId}/graduation-request`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (response.status === 404) return null
+    if (!response.ok) throw new Error("Failed to fetch graduation request")
+    return response.json()
+  }
+
+  async getGraduationRequestsByStudent(studentId: string, token: string): Promise<GraduationRequest[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${studentId}/graduation-requests`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to fetch graduation requests")
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  }
+
+  async getGraduationRequests(token: string): Promise<GraduationRequest[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/graduation-requests`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to fetch graduation requests")
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  }
+
+  async updateGraduationRequest(
+    requestId: string,
+    body: { status?: string; comments?: string; student_id?: string; requested_at?: string },
+    token: string
+  ) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${requestId}/graduation-request`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) throw new Error("Failed to update graduation request")
+    return response.json()
+  }
+
+  async deleteGraduationRequest(requestId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${requestId}/graduation-request`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to delete graduation request")
+  }
+
+  async requestGraduation(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/students/${id}/graduation-request`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) throw new Error("Failed to submit graduation request")
     return response.json()
   }
 
@@ -276,9 +355,21 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
+    return this.handleResponse(response)
+  }
 
-    if (!response.ok) throw new Error("Failed to create course")
-    return response.json()
+  async getInboxMessages(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/inbox/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getSentMessages(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/sent/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
   }
 
   async updateCourse(id: string, data: any, token: string) {
@@ -287,9 +378,15 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
+    return this.handleResponse(response)
+  }
 
-    if (!response.ok) throw new Error("Failed to update course")
-    return response.json()
+  async markMessagesAsRead(senderId: string, receiverId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages/${senderId}/${receiverId}/read`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
   }
 
   async deleteCourse(id: string, token: string) {
@@ -402,32 +499,6 @@ class ApiClient {
   }
 
   // University Service APIs - Exam Sessions (Updated from deprecated exams API)
-  async getAllExamSessions(token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to fetch exam sessions")
-    return response.json()
-  }
-
-  async getAllExamSessionsForStudent(studentId: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/student/${studentId}`, {
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to fetch exam sessions for student id: " + studentId)
-    return response.json()
-  }
-
-  async getExamSessionById(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to fetch exam session")
-    return response.json()
-  }
 
   async createExamSession(data: any, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/create`, {
@@ -435,9 +506,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create exam session")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateExamSession(id: string, data: any, token: string) {
@@ -449,18 +518,12 @@ class ApiClient {
       max_students: typeof data.max_students === "number" ? data.max_students : parseInt(String(data.max_students || 1), 10)
     }
     
-    const requestBody = JSON.stringify(cleanData)
-    console.log("API Client - Request body being sent:", requestBody)
-    console.log("API Client - Clean data object:", cleanData)
-    
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
-      body: requestBody,
+      body: JSON.stringify(cleanData),
     })
-
-    if (!response.ok) throw new Error("Failed to update exam session")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteExamSession(id: string, token: string) {
@@ -468,8 +531,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete exam session")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   async registerForExamSession(data: any, token: string) {
@@ -478,12 +542,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Failed to register for exam session" }))
-      throw new Error(errorData.error || "Failed to register for exam session")
-    }
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deregisterFromExamSession(studentId: string, courseId: string, token: string) {
@@ -491,36 +550,104 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to deregister from exam session")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   async getStudentExamRegistrations(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-registrations/student/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch student exam registrations")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getPassedCorusesForStudent(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/subjects/passed/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch courses")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getAllExamGradesForStudent(studentId: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/exam-grades/student/${studentId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch courses")
-    return response.json()
+    return this.handleResponse(response)
   }
+  // Exam Session methods
+  async getAllExamSessions(token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getExamSessionById(id: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+  async getAllExamSessionsForStudent(studentId: string, token: string) {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-sessions/student/${studentId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  // Exam Periods
+  async getAllExamPeriods(token: string): Promise<ExamPeriod[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods`, {
+      headers: this.getAuthHeaders(token),
+    })
+    const data = await this.handleResponse<ExamPeriod[]>(response)
+    return Array.isArray(data) ? data : []
+  }
+
+  async getActiveExamPeriods(token: string): Promise<ExamPeriod[]> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/active`, {
+      headers: this.getAuthHeaders(token),
+    })
+    const data = await this.handleResponse<ExamPeriod[]>(response)
+    return Array.isArray(data) ? data : []
+  }
+
+  async getExamPeriodById(id: string, token: string): Promise<ExamPeriod> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/${id}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async createExamPeriod(data: CreateExamPeriodRequest, token: string): Promise<ExamPeriod> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateExamPeriod(id: string, data: Partial<ExamPeriod>, token: string): Promise<ExamPeriod> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async deleteExamPeriod(id: string, token: string): Promise<void> {
+    const response = await fetch(`${UNIVERSITY_API_URL}/exam-periods/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+  }
+
   // Legacy exam methods for backward compatibility (deprecated)
   async getAllExams(token: string) {
     return this.getAllExamSessions(token)
@@ -542,9 +669,7 @@ class ApiClient {
     const response = await fetch(`${UNIVERSITY_API_URL}/exams/calendar`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch exam calendar")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async manageExams(data: any, token: string) {
@@ -553,9 +678,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to manage exams")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async cancelExam(id: string, token: string) {
@@ -563,9 +686,7 @@ class ApiClient {
       method: "POST",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to cancel exam")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   // University Service APIs - Administrators
@@ -637,39 +758,76 @@ class ApiClient {
     return response.json()
   }
 
-  async createAssistant(data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/assistants/create`, {
+  // Candidate Saved Jobs - Updated to match Postman collection
+  async saveJob(candidateId: string, jobId: string, token: string) {
+    // Try new endpoint first, fallback to legacy
+    const response = await fetch(`${EMPLOYMENT_API_URL}/saved-jobs`, {
       method: "POST",
       headers: this.getAuthHeaders(token),
-      body: JSON.stringify(data),
-    })
-
-    if (!response.ok) throw new Error("Failed to create assistant")
-    return response.json()
+      body: JSON.stringify({
+        candidate_id: candidateId,
+        job_id: jobId,
+      }),
+    });
+    if (!response.ok) {
+      // Fallback to legacy endpoint
+      const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`, {
+        method: "POST",
+        headers: this.getAuthHeaders(token),
+      });
+      if (!legacyResponse.ok) {
+        await ApiErrorHandler.handleResponse(legacyResponse);
+      }
+      return legacyResponse.json();
+    }
+    return response.json();
   }
 
-  async updateAssistant(id: string, data: any, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/assistants/${id}`, {
-      method: "PUT",
-      headers: this.getAuthHeaders(token),
-      body: JSON.stringify(data),
-    })
+  async unsaveJob(candidateId: string, jobId: string, token: string) {
+    // Prefer new saved-jobs endpoint, fallback to legacy path if needed
+    const primaryUrl = `${EMPLOYMENT_API_URL}/saved-jobs/candidate/${candidateId}/job/${jobId}`
+    const legacyUrl = `${EMPLOYMENT_API_URL}/candidates/${candidateId}/save-job/${jobId}`
 
-    if (!response.ok) throw new Error("Failed to update assistant")
-    return response.json()
-  }
-
-  async deleteAssistant(id: string, token: string) {
-    const response = await fetch(`${UNIVERSITY_API_URL}/assistants/${id}`, {
+    let response = await fetch(primaryUrl, {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
 
-    if (!response.ok) throw new Error("Failed to delete assistant")
+    if (!response.ok) {
+      // Try legacy endpoint
+      response = await fetch(legacyUrl, {
+        method: "DELETE",
+        headers: this.getAuthHeaders(token),
+      })
+    }
+
+    if (!response.ok) {
+      throw new Error("Failed to unsave job")
+    }
+
+    return response.json()
   }
 
-  // University Service APIs - Notifications
-  async getAllNotifications(token: string) {
+  async getSavedJobs(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/saved-jobs/candidate/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    if (!response.ok) {
+      // Fallback to legacy endpoint
+      const legacyResponse = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}/saved-jobs`, {
+        headers: this.getAuthHeaders(token),
+      });
+      if (!legacyResponse.ok) {
+        await ApiErrorHandler.handleResponse(legacyResponse);
+      }
+      return legacyResponse.json();
+    }
+    const data = await response.json();
+    return data.saved_jobs || data;
+  }
+
+    async getAllNotifications(token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/notifications`, {
       headers: this.getAuthHeaders(token),
     })
@@ -686,6 +844,7 @@ class ApiClient {
 
     return data
   }
+
 
   async getNotificationById(id: string, token: string) {
     const response = await fetch(`${UNIVERSITY_API_URL}/notifications/${id}`, {
@@ -868,14 +1027,14 @@ class ApiClient {
 
 
     if (!response.ok) {
-      throw new Error("Failed to fetch job listings")
+      await ApiErrorHandler.handleResponse(response)
     }
 
     const data = await response.json()
 
     if (!Array.isArray(data)) {
       return []
-    }
+  }
 
     return data
   }
@@ -884,9 +1043,7 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async createJobListing(data: any, token: string) {
@@ -895,9 +1052,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateJobListing(id: string, data: any, token: string) {
@@ -906,9 +1061,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteJobListing(id: string, token: string) {
@@ -916,9 +1069,62 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return response.ok
+  }
 
-    if (!response.ok) throw new Error("Failed to delete job listing")
-    return response.json()
+  async openJobListing(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}/open`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
+  async closeJobListing(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${id}/close`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
+  async searchJobsByText(query: string, page: number = 1, limit: number = 20) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/text?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
+      headers: this.getAuthHeaders(),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
+  async searchJobsByInternship(isInternship: boolean, page: number = 1, limit: number = 20) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/jobs/internship?internship=${isInternship}&page=${page}&limit=${limit}`, {
+      headers: this.getAuthHeaders(),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
+  }
+
+  async searchCandidatesByText(query: string, token: string, page: number = 1, limit: number = 50) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/search/candidates/text?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    return this.handleResponse(response)
   }
 
   // Employment Service APIs - Applications
@@ -926,27 +1132,26 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch applications")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getApplicationsByCandidate(candidateId: string, token: string) {
+    console.log(`[API] Fetching applications for candidate: ${candidateId}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}`)
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/candidate/${candidateId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidate applications")
-    return response.json()
+    const data = await this.handleResponse(response)
+    console.log(`[API] Applications response:`, data)
+    console.log(`[API] Applications count:`, Array.isArray(data) ? data.length : 'not an array')
+    return data
   }
 
   async getApplicationsByEmployer(employerId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/employer/${employerId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch employer applications")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async acceptApplication(applicationId: string, token: string) {
@@ -954,9 +1159,7 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to accept application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async rejectApplication(applicationId: string, token: string) {
@@ -964,18 +1167,141 @@ class ApiClient {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to reject application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getApplicationById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/applications/${id}`, {
       headers: this.getAuthHeaders(token),
     })
+    return this.handleResponse(response)
+  }
 
-    if (!response.ok) throw new Error("Failed to fetch application")
-    return response.json()
+  async getApplicationsForJob(jobId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings/${jobId}/applications`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  // NSZ-like candidate services
+  async createBenefitClaim(data: { candidate_id: string; reason: string }, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/benefit-claims`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getBenefitClaimsForCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/benefit-claims/candidate/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async createStateCompetitionApplication(
+    data: { candidate_id: string; title: string; issuer?: string },
+    token: string,
+  ) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/state-competitions/applications`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getStateCompetitionApplicationsForCandidate(candidateId: string, token: string) {
+    const response = await fetch(
+      `${EMPLOYMENT_API_URL}/state-competitions/applications/candidate/${candidateId}`,
+      {
+        headers: this.getAuthHeaders(token),
+      },
+    )
+    return this.handleResponse(response)
+  }
+
+  async createStateCommunication(
+    data: { candidate_id: string; subject: string; message: string },
+    token: string,
+  ) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/state-communications`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getStateCommunicationsForCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/state-communications/candidate/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  // NSZ admin services
+  async getAllBenefitClaims(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/benefit-claims`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateBenefitClaimStatus(id: string, status: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/benefit-claims/${id}/status`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify({ status }),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+  }
+
+  async getAllStateCompetitionApplications(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/state-competitions/applications`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateStateCompetitionApplicationStatus(id: string, status: string, token: string) {
+    const response = await fetch(
+      `${EMPLOYMENT_API_URL}/admin/state-competitions/applications/${id}/status`,
+      {
+        method: "PUT",
+        headers: this.getAuthHeaders(token),
+        body: JSON.stringify({ status }),
+      },
+    )
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+  }
+
+  async getAllStateCommunications(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/state-communications`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateStateCommunication(
+    id: string,
+    data: { status: string; response?: string },
+    token: string,
+  ) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/admin/state-communications/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   async applyToJob(listingId: string, data: any, token: string) {
@@ -984,9 +1310,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify({ ...data, listing_id: listingId }),
     })
-
-    if (!response.ok) throw new Error("Failed to apply to job")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateApplication(id: string, data: any, token: string) {
@@ -995,9 +1319,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update application")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteApplication(id: string, token: string) {
@@ -1005,18 +1327,25 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete application")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   // Employment Service APIs - Employers
   async getEmployers(token: string): Promise<Employer[]> {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1077',message:'getEmployers called',data:{url:`${EMPLOYMENT_API_URL}/employers`,token_present:!!token},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers`, {
       headers: this.getAuthHeaders(token),
     })
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1082',message:'getEmployers response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!response.ok) {
-      throw new Error("Failed to fetch employers")
+      await ApiErrorHandler.handleResponse(response)
     }
 
     const data = await response.json()
@@ -1025,6 +1354,9 @@ class ApiClient {
       return []
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1092',message:'getEmployers success',data:{employers_count:data.length},runId:'frontend-api',hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return data
   }
 
@@ -1032,9 +1364,14 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}`, {
       headers: this.getAuthHeaders(token),
     })
+    return this.handleResponse(response)
+  }
 
-    if (!response.ok) throw new Error("Failed to fetch employer")
-    return response.json()
+  async getEmployerByUserId(userId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/employers/user/${userId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
   }
 
   async createEmployer(data: any, token: string) {
@@ -1043,9 +1380,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create employer")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateEmployer(id: string, data: any, token: string) {
@@ -1054,9 +1389,17 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
+    return this.handleResponse(response)
+  }
 
-    if (!response.ok) throw new Error("Failed to update employer")
-    return response.json()
+  async deleteEmployer(id: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   // Employment Service APIs - Companies
@@ -1064,18 +1407,18 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/companies`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch companies")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getCompanyByEmployer(employerId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/companies/employer/${employerId}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch company profile")
-    return response.json()
+    // 404 is expected if company doesn't exist yet - don't throw error
+    if (response.status === 404) {
+      return null
+    }
+    return this.handleResponse(response)
   }
 
   async updateCompany(companyId: string, data: any, token: string) {
@@ -1084,18 +1427,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update company profile")
-    return response.json()
-  }
-
-  async deleteEmployer(id: string, token: string) {
-    const response = await fetch(`${EMPLOYMENT_API_URL}/employers/${id}`, {
-      method: "DELETE",
-      headers: this.getAuthHeaders(token),
-    })
-
-    if (!response.ok) throw new Error("Failed to delete employer")
+    return this.handleResponse(response)
   }
 
 
@@ -1104,27 +1436,35 @@ class ApiClient {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidates")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getCandidateById(id: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${id}`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch candidate")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getCandidateByUserId(userId: string, token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/user/${userId}`, {
       headers: this.getAuthHeaders(token),
     })
+    return this.handleResponse(response)
+  }
 
-    if (!response.ok) throw new Error("Failed to fetch candidate by user ID")
-    return response.json()
+  async getCandidate(candidateId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates/${candidateId}`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
+  }
+
+  async getAllCandidates(token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/candidates`, {
+      headers: this.getAuthHeaders(token),
+    })
+    return this.handleResponse(response)
   }
 
   async createCandidate(data: any, token: string) {
@@ -1133,9 +1473,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to create candidate")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async updateCandidate(id: string, data: any, token: string) {
@@ -1144,9 +1482,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(data),
     })
-
-    if (!response.ok) throw new Error("Failed to update candidate")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async deleteCandidate(id: string, token: string) {
@@ -1154,8 +1490,9 @@ class ApiClient {
       method: "DELETE",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to delete candidate")
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
   }
 
   // Employment Service APIs - Unemployed Records
@@ -1269,61 +1606,107 @@ class ApiClient {
 
   // Employment Service APIs - Admin Approve/Reject
   async approveJobListing(id: string, token: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1336',message:'approveJobListing called',data:{job_id:id,token_present:!!token,url:`${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    console.log(`[API] Approving job listing: ${id}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`)
+    console.log(`[API] Token present:`, !!token)
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/${id}/approve`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to approve job listing")
-    return response.json()
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1344',message:'approveJobListing response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    const data = await this.handleResponse(response)
+    console.log(`[API] Approve job response:`, data)
+    return data
   }
 
   async rejectJobListing(id: string, token: string) {
+    console.log(`[API] Rejecting job listing: ${id}`)
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/${id}/reject`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to reject job listing")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async approveEmployer(id: string, token: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1358',message:'approveEmployer called',data:{employer_id:id,token_present:!!token,url:`${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    console.log(`[API] Approving employer: ${id}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`)
+    console.log(`[API] Token present:`, !!token)
+    console.log(`[API] Headers:`, this.getAuthHeaders(token))
+    
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/${id}/approve`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to approve employer")
-    return response.json()
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1372',message:'approveEmployer response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    console.log(`[API] Response status:`, response.status)
+    console.log(`[API] Response ok:`, response.ok)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1376',message:'approveEmployer error',data:{status:response.status,error:errorText},runId:'frontend-api',hypothesisId:'C',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      console.error(`[API] Error response:`, errorText)
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log(`[API] Approve employer response:`, data)
+    return data
   }
 
   async rejectEmployer(id: string, token: string) {
+    console.log(`[API] Rejecting employer: ${id}`)
+    console.log(`[API] URL: ${EMPLOYMENT_API_URL}/admin/employers/${id}/reject`)
+    
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/${id}/reject`, {
       method: "PUT",
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to reject employer")
-    return response.json()
+    
+    console.log(`[API] Response status:`, response.status)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Error response:`, errorText)
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log(`[API] Reject employer response:`, data)
+    return data
   }
 
   async getPendingJobListings(token: string) {
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/jobs/pending`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch pending job listings")
-    return response.json()
+    return this.handleResponse(response)
   }
 
   async getPendingEmployers(token: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1421',message:'getPendingEmployers called',data:{url:`${EMPLOYMENT_API_URL}/admin/employers/pending`,token_present:!!token},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const response = await fetch(`${EMPLOYMENT_API_URL}/admin/employers/pending`, {
       headers: this.getAuthHeaders(token),
     })
-
-    if (!response.ok) throw new Error("Failed to fetch pending employers")
-    return response.json()
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/737903fe-e619-4f91-add6-2aae59140131',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:1425',message:'getPendingEmployers response',data:{status:response.status,ok:response.ok},runId:'frontend-api',hypothesisId:'D',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return this.handleResponse(response)
   }
 
   async clearTestData(token: string) {
@@ -1332,7 +1715,7 @@ class ApiClient {
       headers: this.getAuthHeaders(token),
     })
 
-    if (!response.ok) throw new Error("Failed to clear test data")
+    if (!response.ok) throw new Error("Failed to fetch employer stats")
     return response.json()
   }
 
@@ -1343,6 +1726,32 @@ class ApiClient {
 
     if (!response.ok) throw new Error("Failed to fetch major by id")
     return response.json()
+  }
+
+  // Get all job listings by a specific employer (poster_id)
+  async getJobListingsByEmployer(employerId: string, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/job-listings`, {
+      headers: this.getAuthHeaders(token),
+    })
+    if (!response.ok) {
+      await ApiErrorHandler.handleResponse(response)
+    }
+    const data = await response.json()
+    const listings = Array.isArray(data) ? data : []
+    return listings.filter((l: any) => {
+      const posterId = l.poster_id?.toString?.() || l.poster_id || ""
+      return posterId === employerId
+    })
+  }
+
+  // Send a message/letter to a candidate
+  async sendMessageToCandidate(data: { sender_id: string; receiver_id: string; job_listing_id?: string; content: string }, token: string) {
+    const response = await fetch(`${EMPLOYMENT_API_URL}/messages`, {
+      method: "POST",
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+    return this.handleResponse(response)
   }
 
   // University Service APIs - Majors

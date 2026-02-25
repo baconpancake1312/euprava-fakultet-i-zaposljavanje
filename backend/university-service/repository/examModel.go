@@ -6,16 +6,42 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// ExamPeriod defines a date range during which exams can be scheduled.
+// Optionally scoped to a major (MajorID nil = applies to all majors).
+type ExamPeriod struct {
+	ID           primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	Name         string             `bson:"name" json:"name"`                           // e.g. "Winter exam period 2025"
+	StartDate    time.Time          `bson:"start_date" json:"start_date"`                // inclusive
+	EndDate      time.Time          `bson:"end_date" json:"end_date"`                     // inclusive
+	AcademicYear int                `bson:"academic_year" json:"academic_year"`          // e.g. 2025
+	Semester     int                `bson:"semester" json:"semester"`                    // 1 = first, 2 = second semester
+	MajorID      *primitive.ObjectID `bson:"major_id,omitempty" json:"major_id,omitempty"` // nil = all majors
+	IsActive     bool               `bson:"is_active" json:"is_active"`                 // only active periods accept new exams
+	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
+}
+
+// CreateExamPeriodRequest is the payload for creating an exam period.
+type CreateExamPeriodRequest struct {
+	Name         string              `json:"name" validate:"required"`
+	StartDate    time.Time           `json:"start_date" validate:"required"`
+	EndDate      time.Time           `json:"end_date" validate:"required"`
+	AcademicYear int                 `json:"academic_year"`
+	Semester     int                 `json:"semester"` // 1 or 2
+	MajorID      *primitive.ObjectID `json:"major_id,omitempty"`
+	IsActive     bool                `json:"is_active"`
+}
+
 // ExamSession represents an exam created by a professor
 type ExamSession struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Subject     Subject            `bson:"subject" json:"subject"`
-	Professor   Professor          `bson:"professor" json:"professor"`
-	ExamDate    time.Time          `bson:"exam_date" json:"exam_date"`
-	Location    string             `bson:"location" json:"location"`
-	MaxStudents int                `bson:"max_students" json:"max_students"`
-	Status      ExamStatus         `bson:"status" json:"status"` // "scheduled", "completed", "cancelled"
-	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
+	ID           primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	Subject      Subject             `bson:"subject" json:"subject"`
+	Professor    Professor           `bson:"professor" json:"professor"`
+	ExamDate     time.Time           `bson:"exam_date" json:"exam_date"`
+	ExamPeriodID *primitive.ObjectID `bson:"exam_period_id,omitempty" json:"exam_period_id,omitempty"` // period this exam was scheduled in
+	Location     string              `bson:"location" json:"location"`
+	MaxStudents  int                 `bson:"max_students" json:"max_students"`
+	Status       ExamStatus          `bson:"status" json:"status"` // "scheduled", "completed", "cancelled"
+	CreatedAt    time.Time           `bson:"created_at" json:"created_at"`
 }
 type ExamRegistration struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`

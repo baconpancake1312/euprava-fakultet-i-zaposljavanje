@@ -159,6 +159,25 @@ func (r *Repository) UpdateStudent(student *Student) error {
 	return nil
 }
 
+// In repository/repository.go
+func (r *Repository) UpdateStudentGPA(studentID primitive.ObjectID, gpa float64) error {
+	collection := r.getCollection("student")
+	result, err := collection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": studentID},
+		bson.M{"$set": bson.M{"gpa": gpa}},
+	)
+	r.logger.Println("Updating student GPA:", gpa)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("student not found")
+	}
+	r.logger.Println("Student GPA updated successfully")
+	return nil
+}
+
 func (r *Repository) DeleteStudent(userID string) error {
 	r.logger.Println("Deleting student with ID:", userID)
 	collection := r.getCollection("student")
@@ -176,7 +195,7 @@ func (r *Repository) DeleteStudent(userID string) error {
 
 func (r *Repository) DeleteDynamic(entityID string, entityType string) error {
 	r.logger.Println("Deleting entity with ID:", entityID)
-	collections := []string{"student", "professor", "assistant", "department", "university", "subjects", "majors", "exam_sessions", "exam_registrations", "exam_grades", "notifications", "internship_applications", "student_services", "administrators"}
+	collections := []string{"student", "professor", "assistant", "department", "university", "subjects", "majors", "exam_sessions", "exam_registrations", "exam_grades", "exam_periods", "notifications", "internship_applications", "student_services", "administrators"}
 	if !slices.Contains(collections, entityType) {
 		return fmt.Errorf("invalid entity type: %s", entityType)
 	}
@@ -1154,15 +1173,23 @@ func (r *Repository) GetNotificationsByUserID(userID primitive.ObjectID) ([]Noti
 	filter := bson.M{"recipient_id": userID}
 	cursor, err := collection.Find(context.TODO(), filter, opts)
 	if err != nil {
-		return nil, err
+		// Return empty slice instead of error if query fails
+		return []Notification{}, nil
 	}
 	defer cursor.Close(context.TODO())
 
 	var notifications []Notification
 	err = cursor.All(context.TODO(), &notifications)
 	if err != nil {
-		return nil, err
+		// Return empty slice instead of error
+		return []Notification{}, nil
 	}
+
+	// Return empty slice if nil
+	if notifications == nil {
+		return []Notification{}, nil
+	}
+
 	return notifications, nil
 }
 
@@ -1329,6 +1356,117 @@ func (r *Repository) GetAllInternshipApplicationsForStudent(studentId primitive.
 
 // ===== NEW EXAM SYSTEM METHODS =====
 
+// ExamPeriod methods
+func (r *Repository) CreateExamPeriod(period *ExamPeriod) error {
+	collection := r.getCollection("exam_periods")
+	period.ID = primitive.NewObjectID()
+	period.CreatedAt = time.Now()
+	_, err := collection.InsertOne(context.TODO(), period)
+	return err
+}
+
+func (r *Repository) GetExamPeriodByID(id primitive.ObjectID) (*ExamPeriod, error) {
+	collection := r.getCollection("exam_periods")
+	var period ExamPeriod
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&period)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &period, nil
+}
+
+func (r *Repository) GetAllExamPeriods() ([]ExamPeriod, error) {
+	collection := r.getCollection("exam_periods")
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+	var periods []ExamPeriod
+	err = cursor.All(context.TODO(), &periods)
+	return periods, err
+}
+
+// GetActiveExamPeriods returns all periods where is_active is true.
+func (r *Repository) GetActiveExamPeriods() ([]ExamPeriod, error) {
+	collection := r.getCollection("exam_periods")
+	cursor, err := collection.Find(context.TODO(), bson.M{"is_active": true})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+	var periods []ExamPeriod
+	err = cursor.All(context.TODO(), &periods)
+	return periods, err
+}
+
+// GetExamPeriodContainingDate returns an active period whose start_date <= t <= end_date.
+// If majorID is non-nil, prefers a period for that major; otherwise returns a global period (major_id null).
+func (r *Repository) GetExamPeriodContainingDate(t time.Time, majorID *primitive.ObjectID) (*ExamPeriod, error) {
+	periods, err := r.GetActiveExamPeriods()
+	if err != nil {
+		return nil, err
+	}
+	truncated := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	var globalFallback *ExamPeriod
+	for i := range periods {
+		p := &periods[i]
+		start := time.Date(p.StartDate.Year(), p.StartDate.Month(), p.StartDate.Day(), 0, 0, 0, 0, p.StartDate.Location())
+		end := time.Date(p.EndDate.Year(), p.EndDate.Month(), p.EndDate.Day(), 23, 59, 59, 999999999, p.EndDate.Location())
+		if truncated.Before(start) || truncated.After(end) {
+			continue
+		}
+		if p.MajorID == nil {
+			globalFallback = p
+			if majorID == nil {
+				return p, nil
+			}
+		}
+		if majorID != nil && p.MajorID != nil && *p.MajorID == *majorID {
+			return p, nil
+		}
+	}
+	return globalFallback, nil
+}
+
+// UpdateExamPeriod updates an exam period by ID.
+func (r *Repository) UpdateExamPeriod(period *ExamPeriod) error {
+	collection := r.getCollection("exam_periods")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": period.ID}, bson.M{"$set": period})
+	return err
+}
+
+// GetVisibleExamPeriodIDs returns IDs of active exam periods that are currently visible to students:
+// from one week before period start through the end of the period (start_date - 7 days <= today <= end_date).
+func (r *Repository) GetVisibleExamPeriodIDs(now time.Time) ([]primitive.ObjectID, error) {
+	periods, err := r.GetActiveExamPeriods()
+	if err != nil {
+		return nil, err
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var ids []primitive.ObjectID
+	week := 7 * 24 * time.Hour
+	for i := range periods {
+		p := &periods[i]
+		start := time.Date(p.StartDate.Year(), p.StartDate.Month(), p.StartDate.Day(), 0, 0, 0, 0, p.StartDate.Location())
+		visibleFrom := start.Add(-week)
+		// Include if today is on or after visibleFrom: current visible periods and past periods
+		if today.Equal(visibleFrom) || today.After(visibleFrom) {
+			ids = append(ids, p.ID)
+		}
+	}
+	return ids, nil
+}
+
+func (r *Repository) DeleteExamPeriod(id primitive.ObjectID) error {
+	collection := r.getCollection("exam_periods")
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
+	return err
+}
+
 // ExamSession methods
 func (r *Repository) CreateExamSession(examSession *ExamSession) error {
 	collection := r.getCollection("exam_sessions")
@@ -1382,8 +1520,26 @@ func (r *Repository) GetExamSessionsByStudent(studentID primitive.ObjectID) ([]E
 	defer cursor.Close(context.TODO())
 
 	var examSessions []ExamSession
-	err = cursor.All(context.TODO(), &examSessions)
-	return examSessions, err
+	if err = cursor.All(context.TODO(), &examSessions); err != nil {
+		return nil, err
+	}
+
+	// Students only see exams from periods that are visible: from 1 week before period start through period end
+	visibleIDs, err := r.GetVisibleExamPeriodIDs(time.Now())
+	if err != nil {
+		return nil, err
+	}
+	visibleSet := make(map[primitive.ObjectID]bool)
+	for _, id := range visibleIDs {
+		visibleSet[id] = true
+	}
+	filtered := make([]ExamSession, 0, len(examSessions))
+	for _, s := range examSessions {
+		if s.ExamPeriodID != nil && visibleSet[*s.ExamPeriodID] {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered, nil
 }
 
 func (r *Repository) UpdateExamSession(examSession *ExamSession) error {
@@ -1401,6 +1557,9 @@ func (r *Repository) UpdateExamSession(examSession *ExamSession) error {
 	}
 	if !examSession.ExamDate.IsZero() {
 		updateDoc["exam_date"] = examSession.ExamDate
+	}
+	if examSession.ExamPeriodID != nil {
+		updateDoc["exam_period_id"] = examSession.ExamPeriodID
 	}
 	if examSession.Location != "" {
 		updateDoc["location"] = examSession.Location
@@ -1585,6 +1744,16 @@ func (r *Repository) DeleteExamGrade(id primitive.ObjectID) error {
 		return err
 	}
 	return nil
+}
+
+func (r *Repository) GetExamGradeByID(id primitive.ObjectID) (*ExamGrade, error) {
+	collection := r.getCollection("exam_grades")
+	var grade ExamGrade
+	err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&grade)
+	if err != nil {
+		return nil, err
+	}
+	return &grade, nil
 }
 
 func (r *Repository) GetExamGradesByStudent(studentID primitive.ObjectID) ([]ExamGrade, error) {
@@ -1774,4 +1943,64 @@ func (r *Repository) GetSubjectsByProfessorId(professorID primitive.ObjectID) ([
 	var subjects []Subject
 	err = cursor.All(context.TODO(), &subjects)
 	return subjects, err
+}
+func (r *Repository) CreateGraduationRequest(request *GraduationRequest) error {
+	collection := r.getCollection("graduation_requests")
+	request.ID = primitive.NewObjectID()
+	request.RequestedAt = time.Now()
+	request.Status = "Pending"
+	_, err := collection.InsertOne(context.TODO(), request)
+	return err
+}
+func (r *Repository) GetGraduationRequestByStudentID(studentID primitive.ObjectID) (*GraduationRequest, error) {
+	collection := r.getCollection("graduation_requests")
+	var request GraduationRequest
+	err := collection.FindOne(context.TODO(), bson.M{"student_id": studentID}).Decode(&request)
+	if err != nil {
+		return nil, err
+	}
+	return &request, nil
+}
+
+func (r *Repository) GetGraduationRequestsByStudentID(studentID primitive.ObjectID) ([]GraduationRequest, error) {
+	collection := r.getCollection("graduation_requests")
+	var requests []GraduationRequest
+	cursor, err := collection.Find(context.TODO(), bson.M{"student_id": studentID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+	if err = cursor.All(context.TODO(), &requests); err != nil {
+		return nil, err
+	}
+	return requests, nil
+}
+
+func (r *Repository) GetGraduationRequests() ([]GraduationRequest, error) {
+	collection := r.getCollection("graduation_requests")
+	var requests []GraduationRequest
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+	if err = cursor.All(context.TODO(), &requests); err != nil {
+		return nil, err
+	}
+	return requests, nil
+}
+func (r *Repository) UpdateGraduationRequest(request *GraduationRequest) error {
+	collection := r.getCollection("graduation_requests")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": request.ID}, bson.M{"$set": request})
+	return err
+}
+func (r *Repository) DeleteGraduationRequest(id primitive.ObjectID) error {
+	collection := r.getCollection("graduation_requests")
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
+	return err
+}
+func (r *Repository) GraduateStudent(studentID primitive.ObjectID) error {
+	collection := r.getCollection("students")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": studentID}, bson.M{"$set": bson.M{"graduated": true}})
+	return err
 }

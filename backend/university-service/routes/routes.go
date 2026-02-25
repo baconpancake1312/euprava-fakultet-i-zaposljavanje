@@ -32,6 +32,13 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.PUT("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "STUDENT"}), ctrl.UpdateStudent)
 		protected.PUT("/students/:id/major?:major_id", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.RegisterStudentForMajor)
 		protected.DELETE("/students/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteStudent)
+		protected.PUT("/students/:id/advance", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "STUDENT"}), ctrl.AdvanceToNextYear)
+		protected.POST("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.RequestGraduation)
+		protected.GET("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.GetGraduationRequestByStudentID)
+		protected.GET("/students/:id/graduation-requests", middleware.AuthorizeRoles([]string{"STUDENT", "STUDENTSKA_SLUZBA"}), ctrl.GetGraduationRequestsByStudentID)
+		protected.PUT("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateGraduationRequest)
+		protected.DELETE("/students/:id/graduation-request", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteGraduationRequest)
+		protected.GET("/graduation-requests", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "ADMIN", "ADMINISTRATOR"}), ctrl.GetGraduationRequests)
 
 		// Professors
 		protected.POST("/professors/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateProfessor)
@@ -84,10 +91,19 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		// ExamGrade routes
 		protected.POST("/exam-grades/create", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.CreateExamGrade)
 		protected.PUT("/exam-grades/:id", middleware.AuthorizeRoles([]string{"PROFESSOR"}), ctrl.UpdateExamGrade)
+		protected.GET("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradeByID)
 		protected.GET("/exam-grades/student/:studentId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByStudent)
 		protected.GET("/exam-grades/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradesByExamSession)
 		protected.GET("/exam-grades/student/:studentId/exam-session/:examSessionId", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamGradeByStudentAndExam)
 		protected.DELETE("/exam-grades/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA", "PROFESSOR"}), ctrl.DeleteExamGrade)
+
+		// Exam periods (when exams can be scheduled)
+		protected.POST("/exam-periods", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateExamPeriod)
+		protected.GET("/exam-periods", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetAllExamPeriods)
+		protected.GET("/exam-periods/active", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetActiveExamPeriods)
+		protected.GET("/exam-periods/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetExamPeriodByID)
+		protected.PUT("/exam-periods/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.UpdateExamPeriod)
+		protected.DELETE("/exam-periods/:id", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.DeleteExamPeriod)
 
 		// Admins
 		protected.POST("/administrators/create", middleware.AuthorizeRoles([]string{"STUDENTSKA_SLUZBA"}), ctrl.CreateAdministrator)
@@ -106,7 +122,7 @@ func RegisterRoutes(router *gin.Engine, ctrl *controllers.Controllers) {
 		protected.GET("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByIDHandler)
 		protected.PUT("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.UpdateNotificationHandler)
 		protected.PUT("/notifications/:id/seen", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.UpdateNotificationSeen)
-		protected.GET("/notifications/user/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetNotificationByUserIDHandler)
+		protected.GET("/notifications/user/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA", "CANDIDATE", "EMPLOYER", "ADMIN"}), ctrl.GetNotificationByUserIDHandler)
 		protected.GET("/notifications", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.GetAllNotificationsHandler)
 		protected.DELETE("/notifications/:id", middleware.AuthorizeRoles([]string{"STUDENT", "PROFESSOR", "STUDENTSKA_SLUZBA"}), ctrl.DeleteNotificationHandler)
 

@@ -99,23 +99,51 @@ func Register() gin.HandlerFunc {
 		filter := bson.M{
 			"$or": []bson.M{
 				{"email": user.Email},
-				{"phone": user.Phone},
 			},
 		}
 
 		count, err := userCollection.CountDocuments(ctx, filter)
 		if err != nil {
-			l.Println("Error occurred while checking for email or phone number:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while checking for the email or phone number"})
+			l.Println("Error occurred while checking for email:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while checking for the email"})
 			return
 		}
 
 		if count > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "this email or phone number already exists"})
+			c.JSON(http.StatusConflict, gin.H{"error": "this email already exists"})
 			return
 		}
 
-		// Hash password
+		// Create user in Keycloak first
+		keycloakUser := helper.KeycloakUser{
+			Username:      *user.Email,
+			Email:         *user.Email,
+			FirstName:     *user.First_name,
+			LastName:      *user.Last_name,
+			Enabled:       true,
+			EmailVerified: false,
+			Credentials: []helper.KeycloakCredential{
+				{
+					Type:      "password",
+					Value:     *user.Password,
+					Temporary: false,
+				},
+			},
+			Attributes: map[string]interface{}{
+				"user_type": []string{string(user.User_type)},
+				"phone":     []string{*user.Phone},
+				"jmbg":      []string{*user.JMBG},
+			},
+		}
+
+		keycloakUserID, err := helper.CreateUserInKeycloak(keycloakUser)
+		if err != nil {
+			l.Printf("Error creating user in Keycloak: %v", err)
+			// Continue with MongoDB registration even if Keycloak fails
+			// This allows the system to work if Keycloak is unavailable
+		}
+
+		// Hash password for MongoDB storage
 		password := HashPassword(*user.Password)
 		user.Password = &password
 
@@ -125,7 +153,13 @@ func Register() gin.HandlerFunc {
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		// Generate tokens
+		// Store Keycloak user ID if available
+		if keycloakUserID != "" {
+			// Store in a field or as metadata - you may want to add a KeycloakID field to User model
+			l.Printf("User created in Keycloak with ID: %s", keycloakUserID)
+		}
+
+		// Generate tokens (for backward compatibility, but prefer Keycloak tokens)
 		token, refreshToken, err := helper.GenerateAllTokens(
 			*user.Email,
 			*user.First_name,
@@ -142,7 +176,7 @@ func Register() gin.HandlerFunc {
 		user.Token = &token
 		user.Refresh_token = &refreshToken
 
-		// Insert user into auth service
+		// Insert user into MongoDB (our database)
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
 			l.Println("Error inserting user:", insertErr.Error())
@@ -229,7 +263,7 @@ func RegisterIntoUni(user *models.User) error {
 	case models.ProfessorType:
 		url = "http://university-service:8088/professors/create"
 	case models.AdministratorType:
-		url = "http://university-service:8088/admins/create"
+		url = "http://university-service:8088/administrators/create"
 	case models.StudentServiceType:
 		url = "http://university-service:8088/student-service/create"
 	default:
@@ -351,6 +385,7 @@ func Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fmt.Println("Request headers:", c.Errors)
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var user models.User
 		var foundUser models.User
 
@@ -359,15 +394,39 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
+		// Try Keycloak authentication first
+		keycloakTokenResp, keycloakErr := helper.LoginWithKeycloak(*user.Email, *user.Password)
+		if keycloakErr == nil && keycloakTokenResp != nil {
+			// Keycloak authentication successful, get user from MongoDB
+			err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found in database"})
+				return
+			}
+
+			fmt.Printf("[Login - Keycloak] User: %s, User_type: %s, User_id: %s\n", *foundUser.Email, string(foundUser.User_type), foundUser.User_id)
+
+			token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
+			helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
+
+			fmt.Printf("[Login - Keycloak] Generated token with User_type: %s\n", string(foundUser.User_type))
+
+			c.JSON(http.StatusOK, gin.H{
+				"user":          foundUser,
+				"token":         token,
+				"refresh_token": refreshToken,
+			})
+			return
+		}
+
+		// Fallback to MongoDB authentication if Keycloak fails
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-		defer cancel()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
 			return
 		}
 
 		passwordIsValid, _ := VerifyPassword(*foundUser.Password, *user.Password)
-		defer cancel()
 		if !passwordIsValid {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect password"})
 			return
@@ -378,6 +437,10 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
+		// Log user info for debugging
+		fmt.Printf("[Login] User: %s, User_type: %s, User_id: %s\n", *foundUser.Email, string(foundUser.User_type), foundUser.User_id)
+
+		// Generate legacy tokens for backward compatibility
 		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, string(foundUser.User_type), foundUser.User_id)
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
@@ -534,6 +597,9 @@ func UpdateUser() gin.HandlerFunc {
 		if userUpdate.User_type != "" {
 			update["user_type"] = userUpdate.User_type
 		}
+		if userUpdate.Address != nil {
+			update["address"] = userUpdate.Address
+		}
 		update["updated_at"] = time.Now()
 
 		if len(update) == 1 { // only updated_at
@@ -671,6 +737,8 @@ func GenerateServiceToken() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
+		l := log.New(gin.DefaultWriter, "User controller: ", log.LstdFlags)
+
 		// Find service account
 		var serviceAccount models.User
 		err := userCollection.FindOne(ctx, bson.M{
@@ -679,14 +747,19 @@ func GenerateServiceToken() gin.HandlerFunc {
 		}).Decode(&serviceAccount)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials"})
+			l.Printf("[GenerateServiceToken] Service account not found for service_name: %s, error: %v", request.ServiceName, err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials: service account not found"})
 			return
 		}
 
 		// Verify password
-		passwordIsValid, _ := VerifyPassword(*serviceAccount.Password, request.Password)
+		passwordIsValid, verifyMsg := VerifyPassword(*serviceAccount.Password, request.Password)
+		if verifyMsg != "" {
+			l.Printf("[GenerateServiceToken] Password verification error for service_name: %s, error: %s", request.ServiceName, verifyMsg)
+		}
 		if !passwordIsValid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials"})
+			l.Printf("[GenerateServiceToken] Invalid password for service_name: %s", request.ServiceName)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid service credentials: password mismatch"})
 			return
 		}
 
@@ -817,16 +890,32 @@ func getServiceToken(serviceName string) (string, error) {
 		return "", err
 	}
 
+	// Get auth service URL from environment or use default
+	authServiceURL := os.Getenv("AUTH_SERVICE_URL")
+	if authServiceURL == "" {
+		// Default to service name in Docker, fallback to localhost for local development
+		authServiceURL = "http://auth-service:8080"
+	}
+
 	// For self-service token generation, we can call the endpoint directly
 	// In a real scenario, this might be cached or retrieved from a secure store
-	resp, err := http.Post("http://localhost:8080/service-token", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(authServiceURL+"/service-token", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", err
+		// If service name fails, try localhost as fallback (for local development)
+		if authServiceURL != "http://localhost:8080" {
+			authServiceURL = "http://localhost:8080"
+			resp, err = http.Post(authServiceURL+"/service-token", "application/json", bytes.NewBuffer(jsonData))
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to connect to auth service: %v", err)
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get service token, status: %d", resp.StatusCode)
+		bodyBytes := make([]byte, 1024)
+		resp.Body.Read(bodyBytes)
+		return "", fmt.Errorf("failed to get service token, status: %d, response: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var tokenResponse struct {

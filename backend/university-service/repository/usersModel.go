@@ -93,11 +93,11 @@ type Internship struct {
 }
 
 type GraduationRequest struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	StudentID   primitive.ObjectID `bson:"student_id" json:"student_id"`
-	RequestedAt time.Time          `bson:"requested_at" json:"requested_at"`
-	Status      Status             `bson:"status" json:"status"`
-	Comments    string             `bson:"comments" json:"comments,omitempty"`
+	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	StudentID   primitive.ObjectID `bson:"student_id,omitempty" json:"student_id,omitempty"`
+	RequestedAt time.Time          `bson:"requested_at,omitempty" json:"requested_at,omitempty"`
+	Status      Status             `bson:"status,omitempty" json:"status,omitempty"`
+	Comments    string             `bson:"comments,omitempty" json:"comments,omitempty"`
 }
 type Notifications []*Notification
 type InternshipApplications []*InternshipApplication

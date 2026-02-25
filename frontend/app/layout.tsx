@@ -3,11 +3,16 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { AuthProvider } from "@/lib/auth-context"
+import { Toaster } from "@/components/ui/toaster"
+import { TokenExpirationWarning } from "@/components/token-expiration-warning"
 import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
   title: "euprava",
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
@@ -19,7 +24,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <Suspense fallback={null}>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <TokenExpirationWarning />
+            <Toaster />
+          </AuthProvider>
         </Suspense>
       </body>
     </html>

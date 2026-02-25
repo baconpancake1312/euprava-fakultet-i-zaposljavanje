@@ -1,6 +1,7 @@
 export type UserType =
   | "STUDENT"
   | "ADMIN"
+  | "ADMINISTRATOR"
   | "EMPLOYER"
   | "CANDIDATE"
   | "PROFESSOR"
@@ -10,6 +11,14 @@ export type UserType =
   | "EMPLOYMENT_SERVICE"
 
 export type ApprovalStatus = "Approved" | "Rejected" | "Pending"
+
+export interface GraduationRequest {
+  id: string
+  student_id?: string
+  requested_at?: string
+  status: string
+  comments?: string
+}
 
 export interface User {
   id: string
@@ -203,6 +212,7 @@ export interface ExamSession {
   subject: Subject
   professor_id: string
   exam_date: string // ISO string format (e.g., "2025-10-15T20:50:00+02:00")
+  exam_period_id?: string
   location: string
   max_students: number
   created_at?: string
@@ -218,6 +228,28 @@ export interface CreateExamSession {
   max_students: number
   created_at?: string
   updated_at?: string
+}
+
+export interface ExamPeriod {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  academic_year: number
+  semester: number
+  major_id?: string
+  is_active: boolean
+  created_at?: string
+}
+
+export interface CreateExamPeriodRequest {
+  name: string
+  start_date: string
+  end_date: string
+  academic_year: number
+  semester: number
+  major_id?: string
+  is_active: boolean
 }
 
 export interface ExamRegistration {

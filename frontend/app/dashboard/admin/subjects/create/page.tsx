@@ -28,6 +28,7 @@ export default function CreateSubjectPage() {
   const [name, setName] = useState("")
   const [majorId, setMajorId] = useState(presetMajorId)
   const [year, setYear] = useState(presetYear)
+  const [semester, setSemester] = useState("")
   const [professorIds, setProfessorIds] = useState<string[]>([])
   const [majors, setMajors] = useState<MajorOption[]>([])
   const [professors, setProfessors] = useState<ProfessorOption[]>([])
@@ -85,13 +86,16 @@ export default function CreateSubjectPage() {
         name: string
         major_id: string
         year?: number
+        semester?: number
         professor_ids?: string[]
       } = {
         name: name.trim(),
         major_id: majorId.trim(),
       }
       const yearNum = parseInt(year, 10)
+      const semesterNum = parseInt(semester, 10)
       if (!Number.isNaN(yearNum)) payload.year = yearNum
+      if (!Number.isNaN(semesterNum) && (semesterNum === 1 || semesterNum === 2)) payload.semester = semesterNum
       if (professorIds.length > 0) payload.professor_ids = professorIds
 
       await apiClient.createCourse(payload, token)
@@ -133,6 +137,7 @@ export default function CreateSubjectPage() {
         { title: "Subject name", text: "Enter the full name of the course (e.g. Introduction to Programming)." },
         { title: "Major", text: "Choose the major this subject belongs to." },
         { title: "Year", text: "Optional. The year of study (1–6) when this subject is typically taken." },
+        { title: "Semester", text: "First or second semester of the year." },
         { title: "Professors", text: "Optional. Select one or more professors who teach this subject." },
       ]}
     >
@@ -145,6 +150,8 @@ export default function CreateSubjectPage() {
           majors={majors}
           year={year}
           onYearChange={setYear}
+          semester={semester}
+          onSemesterChange={setSemester}
           professorIds={professorIds}
           onProfessorIdsChange={setProfessorIds}
           professors={professors}
